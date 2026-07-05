@@ -3,8 +3,6 @@ import { merchants, resources, categories, trends } from "@/lib/db/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 import type { Merchant, Resource, Category } from "@/lib/types";
 import type { ScoreBreakdown, BasicReport, GapAnalysis, PricingBenchmark, CompetitorEntry } from "@/lib/types";
-import { hasInputSchema, hasOutputSchema, hasSchemaExample } from "@/lib/data-sources/bazaar";
-import type { BazaarResource } from "@/lib/types";
 
 export interface MerchantData {
   merchant: Merchant;
@@ -309,14 +307,18 @@ export async function computeCompetitiveReport(data: MerchantData): Promise<{
   let totalCompetitors = 0;
 
   if (data.category) {
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(merchants)
+      .where(eq(merchants.categoryId, data.category.id));
+    totalCompetitors = Number(countResult?.count ?? 0);
+
     const competitorMerchants = await db
       .select()
       .from(merchants)
       .where(eq(merchants.categoryId, data.category.id))
       .orderBy(desc(merchants.rankerScore))
       .limit(11);
-
-    totalCompetitors = competitorMerchants.length;
 
     for (const cm of competitorMerchants) {
       if (cm.id === data.merchant.id) continue;

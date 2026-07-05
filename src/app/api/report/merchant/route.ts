@@ -63,8 +63,9 @@ export async function POST(request: NextRequest) {
       recommendations: report.recommendations,
     });
   } catch (error) {
+    console.error("Report merchant error:", error);
     return NextResponse.json(
-      { error: "Internal server error", message: String(error) },
+      { error: "Internal server error" },
       { status: 500 },
     );
   }

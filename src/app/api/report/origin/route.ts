@@ -38,8 +38,9 @@ export async function POST(request: NextRequest) {
       last_updated: data.merchant.lastUpdated.toISOString(),
     });
   } catch (error) {
+    console.error("Report origin error:", error);
     return NextResponse.json(
-      { error: "Internal server error", message: String(error) },
+      { error: "Internal server error" },
       { status: 500 },
     );
   }

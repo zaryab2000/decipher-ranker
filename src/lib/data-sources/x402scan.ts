@@ -53,7 +53,7 @@ export async function fetchMerchantTransactions(
   chain: string = "base",
   limit: number = 5,
 ): Promise<X402Transaction[]> {
-  const cacheKey = `x402scan:txns:${address}:${chain}`;
+  const cacheKey = `x402scan:txns:${address}:${chain}:${limit}`;
   const cached = await checkCache<X402Transaction[]>(cacheKey);
   if (cached) return cached;
 
