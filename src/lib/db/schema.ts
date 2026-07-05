@@ -47,10 +47,10 @@ export const merchants = pgTable(
 
     metadata: jsonb("metadata").default({}),
   },
-  (table) => [
-    index("idx_merchants_category").on(table.categoryId),
-    index("idx_merchants_score").on(table.rankerScore),
-  ],
+  (table) => ({
+    idxMerchantsCategory: index("idx_merchants_category").on(table.categoryId),
+    idxMerchantsScore: index("idx_merchants_score").on(table.rankerScore),
+  }),
 );
 
 export const resources = pgTable(
@@ -83,10 +83,10 @@ export const resources = pgTable(
     firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
     lastUpdated: timestamp("last_updated", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index("idx_resources_merchant").on(table.merchantId),
-    index("idx_resources_tags").using("gin", table.tags),
-  ],
+  (table) => ({
+    idxResourcesMerchant: index("idx_resources_merchant").on(table.merchantId),
+    idxResourcesTags: index("idx_resources_tags").using("gin", table.tags),
+  }),
 );
 
 export const trends = pgTable(
@@ -103,10 +103,10 @@ export const trends = pgTable(
     uniqueBuyers: integer("unique_buyers"),
     totalAmount: decimal("total_amount", { precision: 20, scale: 6 }),
   },
-  (table) => [
-    unique("trends_merchant_date").on(table.merchantId, table.snapshotDate),
-    index("idx_trends_merchant_date").on(table.merchantId, table.snapshotDate),
-  ],
+  (table) => ({
+    trendsMerchantDate: unique("trends_merchant_date").on(table.merchantId, table.snapshotDate),
+    idxTrendsMerchantDate: index("idx_trends_merchant_date").on(table.merchantId, table.snapshotDate),
+  }),
 );
 
 export const reports = pgTable(
@@ -119,7 +119,9 @@ export const reports = pgTable(
     costUsdc: decimal("cost_usdc", { precision: 10, scale: 6 }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("idx_reports_wallet").on(table.requesterWallet)],
+  (table) => ({
+    idxReportsWallet: index("idx_reports_wallet").on(table.requesterWallet),
+  }),
 );
 
 export const categoryCache = pgTable("category_cache", {
