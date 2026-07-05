@@ -57,7 +57,7 @@ export const resources = pgTable(
   "resources",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    resourceUrl: text("resource_url").notNull(),
+    resourceUrl: text("resource_url").notNull().unique(),
     merchantId: uuid("merchant_id")
       .notNull()
       .references(() => merchants.id),

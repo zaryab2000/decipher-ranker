@@ -118,7 +118,21 @@ export async function upsertCatalog(
           : null,
         lastUpdated: new Date(),
       })
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: resources.resourceUrl,
+        set: {
+          serviceName: resource.serviceName,
+          description: resource.description,
+          tags: resource.tags,
+          priceUsd: priceUsd?.toString(),
+          l30dCalls: resource.quality?.l30DaysTotalCalls,
+          l30dUniquePayers: resource.quality?.l30DaysUniquePayers,
+          lastCalledAt: resource.quality?.lastCalledAt
+            ? new Date(resource.quality.lastCalledAt)
+            : null,
+          lastUpdated: new Date(),
+        },
+      });
 
     resourcesUpserted++;
   }
