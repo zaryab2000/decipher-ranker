@@ -1,21 +1,10 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
-import type { FormEvent } from "react";
+import { useSearchSubmit } from "@/dashboard/lib/useSearchSubmit";
 
 export function Header() {
-  const router = useRouter();
-
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const input = form.elements.namedItem("q") as HTMLInputElement;
-    const query = input.value.trim();
-    if (query) {
-      router.push(`/dashboard/search?q=${encodeURIComponent(query)}`);
-    }
-  }
+  const { handleSubmit } = useSearchSubmit();
 
   return (
     <header className="h-14 border-b border-gray-800 bg-gray-950 flex items-center justify-between px-6">
