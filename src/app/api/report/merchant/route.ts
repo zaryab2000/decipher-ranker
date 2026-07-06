@@ -5,6 +5,7 @@ import {
   getMerchantByAddress,
   computeMerchantDeepDive,
 } from "@/lib/analytics/ranker";
+import { REPORT_COST_USDC } from "@/lib/config";
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
       requesterWallet: body.wallet ?? "anonymous",
       reportType: "merchant",
       inputParams: { address, chain },
-      costUsdc: "0.03",
+      costUsdc: REPORT_COST_USDC,
     });
 
     return NextResponse.json({

@@ -58,6 +58,14 @@ function computeBuyerDiversity(uniqueBuyers: number): number {
   return logNorm(uniqueBuyers, 10_000);
 }
 
+function computeBuyerConcentration(uniqueBuyers: number, txCount: number): number {
+  if (uniqueBuyers <= 0 || txCount <= 0) return 0;
+  if (uniqueBuyers >= txCount) return 0;
+  const avgTxPerBuyer = txCount / uniqueBuyers;
+  const hhi = 1 / uniqueBuyers + (1 - 1 / uniqueBuyers) * ((avgTxPerBuyer - 1) / avgTxPerBuyer);
+  return Math.round(hhi * 10000) / 10000;
+}
+
 function computeReliability(merchantResources: Resource[]): number {
   if (merchantResources.length === 0) return 0.5;
 
@@ -320,15 +328,29 @@ export async function computeCompetitiveReport(data: MerchantData): Promise<{
       .orderBy(desc(merchants.rankerScore))
       .limit(11);
 
+    const competitorIds = competitorMerchants
+      .filter((cm) => cm.id !== data.merchant.id)
+      .map((cm) => cm.id);
+
+    const competitorResources = competitorIds.length > 0
+      ? await db
+          .select()
+          .from(resources)
+          .where(sql`${resources.merchantId} IN (${sql.join(competitorIds.map(id => sql`${id}`), sql`, `)})`)
+      : [];
+
+    const resourcesByCompetitor = new Map<string, Resource[]>();
+    for (const r of competitorResources) {
+      const list = resourcesByCompetitor.get(r.merchantId) ?? [];
+      list.push(r);
+      resourcesByCompetitor.set(r.merchantId, list);
+    }
+
     for (const cm of competitorMerchants) {
       if (cm.id === data.merchant.id) continue;
-      const cmResources = await db
-        .select()
-        .from(resources)
-        .where(eq(resources.merchantId, cm.id));
       competitors.push({
         merchant: cm,
-        resources: cmResources,
+        resources: resourcesByCompetitor.get(cm.id) ?? [],
         category: data.category,
       });
     }
@@ -518,7 +540,10 @@ export async function computeMerchantDeepDive(data: MerchantData): Promise<{
     txCount30d: data.merchant.txCount30d ?? 0,
     totalUniqueBuyers: data.merchant.uniqueBuyers ?? 0,
     uniqueBuyers30d: data.merchant.buyers30d ?? 0,
-    buyerConcentration: 0,
+    buyerConcentration: computeBuyerConcentration(
+      data.merchant.buyers30d ?? 0,
+      data.merchant.txCount30d ?? 0,
+    ),
     diversityScore: Math.round(computeBuyerDiversity(data.merchant.buyers30d ?? 0) * 100),
     price: avgPrice,
     priceVsCategory: pricePos,
@@ -533,11 +558,28 @@ export async function computeMerchantDeepDive(data: MerchantData): Promise<{
 
 export async function scoreAllMerchants(): Promise<number> {
   const allMerchants = await db.select().from(merchants);
-  let scored = 0;
+  const allResources = await db.select().from(resources);
+  const allCategories = await db.select().from(categories);
 
+  const resourcesByMerchant = new Map<string, Resource[]>();
+  for (const r of allResources) {
+    const list = resourcesByMerchant.get(r.merchantId) ?? [];
+    list.push(r);
+    resourcesByMerchant.set(r.merchantId, list);
+  }
+
+  const categoryById = new Map<string, Category>();
+  for (const c of allCategories) {
+    categoryById.set(c.id, c);
+  }
+
+  let scored = 0;
   for (const merchant of allMerchants) {
-    const data = await getMerchantData(merchant.id);
-    if (!data) continue;
+    const data: MerchantData = {
+      merchant,
+      resources: resourcesByMerchant.get(merchant.id) ?? [],
+      category: merchant.categoryId ? categoryById.get(merchant.categoryId) ?? null : null,
+    };
 
     const score = computeRankerScore(data);
 
@@ -549,36 +591,27 @@ export async function scoreAllMerchants(): Promise<number> {
     scored++;
   }
 
-  // Assign rank positions per category
-  const allCategories = await db.select().from(categories);
+  // Assign rank positions per category using a single UPDATE per category
   for (const cat of allCategories) {
-    const categoryMerchants = await db
-      .select({ id: merchants.id })
-      .from(merchants)
-      .where(eq(merchants.categoryId, cat.id))
-      .orderBy(desc(merchants.rankerScore));
-
-    for (let i = 0; i < categoryMerchants.length; i++) {
-      await db
-        .update(merchants)
-        .set({ rankPosition: i + 1 })
-        .where(eq(merchants.id, categoryMerchants[i].id));
-    }
+    await db.execute(sql`
+      UPDATE merchants SET rank_position = sub.rn
+      FROM (
+        SELECT id, ROW_NUMBER() OVER (ORDER BY ranker_score DESC) AS rn
+        FROM merchants WHERE category_id = ${cat.id}
+      ) sub
+      WHERE merchants.id = sub.id
+    `);
   }
 
-  // Also rank unassigned merchants globally
-  const unranked = await db
-    .select({ id: merchants.id })
-    .from(merchants)
-    .where(sql`${merchants.categoryId} IS NULL`)
-    .orderBy(desc(merchants.rankerScore));
-
-  for (let i = 0; i < unranked.length; i++) {
-    await db
-      .update(merchants)
-      .set({ rankPosition: i + 1 })
-      .where(eq(merchants.id, unranked[i].id));
-  }
+  // Rank unassigned merchants globally
+  await db.execute(sql`
+    UPDATE merchants SET rank_position = sub.rn
+    FROM (
+      SELECT id, ROW_NUMBER() OVER (ORDER BY ranker_score DESC) AS rn
+      FROM merchants WHERE category_id IS NULL
+    ) sub
+    WHERE merchants.id = sub.id
+  `);
 
   return scored;
 }
