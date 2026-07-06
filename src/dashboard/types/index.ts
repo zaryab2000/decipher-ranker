@@ -9,6 +9,7 @@ export interface MerchantListItem {
   priceUsd: number | null;
   txCount30d: number;
   uniqueBuyers: number;
+  lastUpdated: string;
 }
 
 export interface MerchantProfile extends MerchantListItem {

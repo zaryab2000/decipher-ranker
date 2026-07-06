@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getCategoryBySlug, getLeaderboard } from "@/dashboard/lib/api";
+import { getCategoryBySlug } from "@/dashboard/lib/api";
 import { Card } from "@/dashboard/components/shared/Card";
 import { ScoreBar } from "@/dashboard/components/shared/ScoreBar";
 import { LeaderboardTable } from "@/dashboard/components/leaderboard/LeaderboardTable";

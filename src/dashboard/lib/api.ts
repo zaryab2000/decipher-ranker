@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { merchants, resources, categories, categoryCache } from "@/lib/db/schema";
-import { desc, asc, eq, sql, ilike, or, and, count, sum, inArray } from "drizzle-orm";
+import { desc, asc, eq, sql, ilike, or, and, count, sum } from "drizzle-orm";
 import type {
   MerchantListItem,
   MerchantProfile,
@@ -16,11 +16,17 @@ function toSlug(name: string): string {
   return name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 }
 
-function nameFromSlug(slug: string): string {
-  return slug
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
+function buildResourceSubquery() {
+  return db
+    .selectDistinctOn([resources.merchantId], {
+      merchantId: resources.merchantId,
+      resourceUrl: resources.resourceUrl,
+      serviceName: resources.serviceName,
+      priceUsd: resources.priceUsd,
+    })
+    .from(resources)
+    .orderBy(resources.merchantId)
+    .as("first_resource");
 }
 
 function toMerchantListItem(
@@ -50,6 +56,10 @@ function toMerchantListItem(
     priceUsd: row.resources_priceUsd != null ? Number(row.resources_priceUsd) : null,
     txCount30d: row.merchants_txCount30d ?? 0,
     uniqueBuyers: row.merchants_uniqueBuyers ?? 0,
+    lastUpdated:
+      typeof row.merchants_lastUpdated === "string"
+        ? row.merchants_lastUpdated
+        : row.merchants_lastUpdated.toISOString(),
   };
 }
 
@@ -93,16 +103,7 @@ export async function getEcosystemStats(): Promise<EcosystemStats> {
 }
 
 export async function getTopMerchants(limit = 10): Promise<MerchantListItem[]> {
-  const resourceSubquery = db
-    .selectDistinctOn([resources.merchantId], {
-      merchantId: resources.merchantId,
-      resourceUrl: resources.resourceUrl,
-      serviceName: resources.serviceName,
-      priceUsd: resources.priceUsd,
-    })
-    .from(resources)
-    .orderBy(resources.merchantId)
-    .as("first_resource");
+  const resourceSubquery = buildResourceSubquery();
 
   const rows = await db
     .select(merchantSelect())
@@ -116,16 +117,7 @@ export async function getTopMerchants(limit = 10): Promise<MerchantListItem[]> {
 }
 
 export async function getRecentlyUpdated(limit = 5): Promise<MerchantListItem[]> {
-  const resourceSubquery = db
-    .selectDistinctOn([resources.merchantId], {
-      merchantId: resources.merchantId,
-      resourceUrl: resources.resourceUrl,
-      serviceName: resources.serviceName,
-      priceUsd: resources.priceUsd,
-    })
-    .from(resources)
-    .orderBy(resources.merchantId)
-    .as("first_resource");
+  const resourceSubquery = buildResourceSubquery();
 
   const rows = await db
     .select(merchantSelect())
@@ -147,62 +139,51 @@ export async function getLeaderboard(params: {
 }): Promise<LeaderboardData> {
   const page = params.page ?? 1;
   const perPage = params.perPage ?? 50;
-  const sortBy = params.sortBy ?? "rank";
-  const sortOrder = params.sortOrder ?? "asc";
+  const sortBy = params.sortBy ?? "score";
+  const sortOrder = params.sortOrder ?? "desc";
   const categoryFilter = params.category;
 
-  const resourceSubquery = db
-    .selectDistinctOn([resources.merchantId], {
-      merchantId: resources.merchantId,
-      resourceUrl: resources.resourceUrl,
-      serviceName: resources.serviceName,
-      priceUsd: resources.priceUsd,
-    })
-    .from(resources)
-    .orderBy(resources.merchantId)
-    .as("first_resource");
+  const resourceSubquery = buildResourceSubquery();
 
   const baseQuery = db
     .select(merchantSelect())
     .from(merchants)
     .leftJoin(resourceSubquery, eq(merchants.id, resourceSubquery.merchantId))
-    .leftJoin(categories, eq(merchants.categoryId, categories.id));
+    .leftJoin(categories, eq(merchants.categoryId, categories.id))
+    .$dynamic();
+
+  const countQuery = db
+    .select({ cnt: count() })
+    .from(merchants)
+    .leftJoin(categories, eq(merchants.categoryId, categories.id))
+    .$dynamic();
 
   if (categoryFilter) {
     baseQuery.where(eq(categories.name, categoryFilter));
+    countQuery.where(eq(categories.name, categoryFilter));
   }
 
-  const sortColumn = sortBy === "txCount"
-    ? merchants.txCount30d
-    : sortBy === "price"
-      ? resourceSubquery.priceUsd
-      : merchants.rankerScore;
+  const sortColumn =
+    sortBy === "rank"
+      ? merchants.rankPosition
+      : sortBy === "txCount"
+        ? merchants.txCount30d
+        : sortBy === "price"
+          ? resourceSubquery.priceUsd
+          : merchants.rankerScore;
 
-  const countResult = await baseQuery;
-  const total = countResult.length;
-
-  const ordered = [...countResult].sort((a, b) => {
-    const aVal = sortBy === "txCount"
-      ? (a.merchants_txCount30d ?? 0)
-      : sortBy === "price"
-        ? Number(a.resources_priceUsd ?? 0)
-        : Number(a.merchants_rankerScore ?? 0);
-    const bVal = sortBy === "txCount"
-      ? (b.merchants_txCount30d ?? 0)
-      : sortBy === "price"
-        ? Number(b.resources_priceUsd ?? 0)
-        : Number(b.merchants_rankerScore ?? 0);
-
-    if (sortOrder === "asc") {
-      return aVal - bVal;
-    }
-    return bVal - aVal;
-  });
-
+  const orderFn = sortOrder === "asc" ? asc : desc;
   const offset = (page - 1) * perPage;
-  const paginated = ordered.slice(offset, offset + perPage);
 
-  const merchants_list = paginated.map((row, i) =>
+  const [{ cnt }] = await countQuery;
+  const total = cnt ?? 0;
+
+  const rows = await baseQuery
+    .orderBy(orderFn(sortColumn))
+    .limit(perPage)
+    .offset(offset);
+
+  const merchants_list = rows.map((row, i) =>
     toMerchantListItem(row, offset + i + 1),
   );
 
@@ -217,71 +198,65 @@ export async function getLeaderboard(params: {
   };
 }
 
+export async function getCategoryNames(): Promise<string[]> {
+  const rows = await db
+    .select({ name: categories.name })
+    .from(categories)
+    .orderBy(categories.name);
+
+  return rows.map((r) => r.name);
+}
+
 export async function getAllCategories(): Promise<CategoryItem[]> {
   const rows = await db
     .select()
     .from(categories)
     .orderBy(desc(categories.merchantCount));
 
-  const result: CategoryItem[] = [];
+  const result = await Promise.all(
+    rows.map(async (cat) => {
+      const [topMerchantRows, avgScoreRows] = await Promise.all([
+        db
+          .select({
+            address: merchants.payeeAddress,
+            score: merchants.rankerScore,
+          })
+          .from(merchants)
+          .where(eq(merchants.categoryId, cat.id))
+          .orderBy(desc(merchants.rankerScore))
+          .limit(1),
+        db
+          .select({ avg: sql<number>`AVG(${merchants.rankerScore})`.mapWith(Number) })
+          .from(merchants)
+          .where(eq(merchants.categoryId, cat.id)),
+      ]);
 
-  for (const cat of rows) {
-    const topMerchantRows = await db
-      .select({
-        address: merchants.payeeAddress,
-        score: merchants.rankerScore,
-      })
-      .from(merchants)
-      .where(eq(merchants.categoryId, cat.id))
-      .orderBy(desc(merchants.rankerScore))
-      .limit(1);
-
-    const avgScoreRows = await db
-      .select({ avg: sql<number>`AVG(${merchants.rankerScore})`.mapWith(Number) })
-      .from(merchants)
-      .where(eq(merchants.categoryId, cat.id));
-
-    result.push({
-      name: cat.name,
-      slug: toSlug(cat.name),
-      merchantCount: cat.merchantCount ?? 0,
-      medianPriceUsd: cat.medianPrice != null ? Number(cat.medianPrice) : null,
-      avgScore: avgScoreRows[0]?.avg ?? null,
-      topMerchant: topMerchantRows[0]
-        ? {
-            address: topMerchantRows[0].address,
-            score: Number(topMerchantRows[0].score ?? 0),
-          }
-        : null,
-      growthIndicator: 0,
-    });
-  }
+      return {
+        name: cat.name,
+        slug: toSlug(cat.name),
+        merchantCount: cat.merchantCount ?? 0,
+        medianPriceUsd: cat.medianPrice != null ? Number(cat.medianPrice) : null,
+        avgScore: avgScoreRows[0]?.avg ?? null,
+        topMerchant: topMerchantRows[0]
+          ? {
+              address: topMerchantRows[0].address,
+              score: Number(topMerchantRows[0].score ?? 0),
+            }
+          : null,
+        growthIndicator: 0,
+      };
+    }),
+  );
 
   return result;
 }
 
 export async function getCategoryBySlug(slug: string): Promise<CategoryDetail | null> {
-  const name = nameFromSlug(slug);
-
-  const categoryRows = await db
-    .select()
-    .from(categories)
-    .where(eq(categories.name, name))
-    .limit(1);
-
-  const cat = categoryRows[0];
+  const allCategories = await db.select().from(categories);
+  const cat = allCategories.find((c) => toSlug(c.name) === slug);
   if (!cat) return null;
 
-  const resourceSubquery = db
-    .selectDistinctOn([resources.merchantId], {
-      merchantId: resources.merchantId,
-      resourceUrl: resources.resourceUrl,
-      serviceName: resources.serviceName,
-      priceUsd: resources.priceUsd,
-    })
-    .from(resources)
-    .orderBy(resources.merchantId)
-    .as("first_resource");
+  const resourceSubquery = buildResourceSubquery();
 
   const merchantRows = await db
     .select(merchantSelect())
@@ -298,7 +273,7 @@ export async function getCategoryBySlug(slug: string): Promise<CategoryDetail | 
   const cacheRows = await db
     .select()
     .from(categoryCache)
-    .where(eq(categoryCache.categoryName, name))
+    .where(eq(categoryCache.categoryName, cat.name))
     .limit(1);
 
   const totalVolume30d = cacheRows[0]?.totalVolume30d != null
@@ -318,7 +293,12 @@ export async function getCategoryBySlug(slug: string): Promise<CategoryDetail | 
     merchantCount: cat.merchantCount ?? 0,
     medianPriceUsd: cat.medianPrice != null ? Number(cat.medianPrice) : null,
     avgScore: avgScoreRows[0]?.avg ?? null,
-    topMerchant: null,
+    topMerchant: merchants_list[0]
+      ? {
+          address: merchants_list[0].payeeAddress,
+          score: merchants_list[0].rankerScore,
+        }
+      : null,
     growthIndicator: 0,
     merchants: merchants_list,
     totalVolume30d,
@@ -344,10 +324,12 @@ function buildScoreDistribution(scores: number[]): { range: string; count: numbe
 }
 
 export async function getMerchantByOrigin(origin: string): Promise<MerchantProfile | null> {
+  const safeOrigin = origin.replace(/[%_]/g, "\\$&");
+
   const resourceRows = await db
     .select()
     .from(resources)
-    .where(ilike(resources.resourceUrl, `%${origin}%`))
+    .where(ilike(resources.resourceUrl, `%${safeOrigin}%`))
     .limit(1);
 
   const resource = resourceRows[0];
@@ -368,10 +350,10 @@ export async function getMerchantByOrigin(origin: string): Promise<MerchantProfi
     .where(eq(resources.merchantId, merchant.id));
 
   const firstResource = allResources[0];
-  const totalPriceUsd = firstResource?.priceUsd != null ? Number(firstResource.priceUsd) : null;
-  const totalServiceName = firstResource?.serviceName ?? null;
-  const totalResourceUrl = firstResource?.resourceUrl ?? "";
-  const totalDescription = firstResource?.description ?? null;
+  const resourcePriceUsd = firstResource?.priceUsd != null ? Number(firstResource.priceUsd) : null;
+  const resourceServiceName = firstResource?.serviceName ?? null;
+  const resourceUrl = firstResource?.resourceUrl ?? "";
+  const resourceDescription = firstResource?.description ?? null;
   const allTags = allResources.flatMap((r) => r.tags ?? []);
 
   const categoryRows = await db
@@ -382,24 +364,13 @@ export async function getMerchantByOrigin(origin: string): Promise<MerchantProfi
 
   const categoryName = categoryRows[0]?.name ?? null;
 
-  const scoreBreakdown: ScoreBreakdown = (() => {
-    if (firstResource) {
-      return {
-        volumeSignal: Number(firstResource.volumeScore ?? 0) * 100,
-        buyerDiversity: 0,
-        reliability: Number(firstResource.reliabilityScore ?? 0) * 100,
-        listingQuality: Number(firstResource.performanceScore ?? 0) * 100,
-        recency: Number(firstResource.recencyScore ?? 0) * 100,
-      };
-    }
-    return {
-      volumeSignal: 0,
-      buyerDiversity: 0,
-      reliability: 0,
-      listingQuality: 0,
-      recency: 0,
-    };
-  })();
+  const scoreBreakdown: ScoreBreakdown = {
+    volumeSignal: Number(firstResource?.volumeScore ?? 0) * 100,
+    buyerDiversity: 0,
+    reliability: Number(firstResource?.reliabilityScore ?? 0) * 100,
+    listingQuality: Number(firstResource?.performanceScore ?? 0) * 100,
+    recency: Number(firstResource?.recencyScore ?? 0) * 100,
+  };
 
   const competitors = await db
     .select({
@@ -437,25 +408,26 @@ export async function getMerchantByOrigin(origin: string): Promise<MerchantProfi
 
   const currentScore = Number(merchant.rankerScore ?? 0);
   const improvements = buildImprovements({
-    hasDescription: totalDescription != null && totalDescription.length > 0,
+    hasDescription: resourceDescription != null && resourceDescription.length > 0,
     hasTags: allTags.length > 0,
     txCount: merchant.txCount30d ?? 0,
-    priceUsd: totalPriceUsd,
+    priceUsd: resourcePriceUsd,
     medianPrice: Number(categoryRows[0]?.medianPrice ?? 0),
   });
 
   return {
     payeeAddress: merchant.payeeAddress,
-    origin: totalResourceUrl,
-    serviceName: totalServiceName,
+    origin: resourceUrl,
+    serviceName: resourceServiceName,
     category: categoryName,
     chain: merchant.chain,
     rankerScore: currentScore,
     rankPosition: merchant.rankPosition ?? null,
-    priceUsd: totalPriceUsd,
+    priceUsd: resourcePriceUsd,
     txCount30d: merchant.txCount30d ?? 0,
     uniqueBuyers: merchant.uniqueBuyers ?? 0,
-    description: totalDescription,
+    lastUpdated: merchant.lastUpdated?.toISOString?.() ?? String(merchant.lastUpdated ?? ""),
+    description: resourceDescription,
     tags: allTags,
     facilitator: merchant.facilitator ?? null,
     firstSeenAt: merchant.firstSeenAt.toISOString(),
@@ -509,17 +481,6 @@ function buildImprovements(metrics: {
 }
 
 export async function searchMerchants(query: string): Promise<SearchResult> {
-  const resourceSubquery = db
-    .selectDistinctOn([resources.merchantId], {
-      merchantId: resources.merchantId,
-      resourceUrl: resources.resourceUrl,
-      serviceName: resources.serviceName,
-      priceUsd: resources.priceUsd,
-    })
-    .from(resources)
-    .orderBy(resources.merchantId)
-    .as("first_resource");
-
   const rows = await db
     .select(merchantSelect())
     .from(merchants)

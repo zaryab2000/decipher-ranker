@@ -1,4 +1,4 @@
-import { getLeaderboard, getAllCategories } from "@/dashboard/lib/api";
+import { getLeaderboard, getCategoryNames } from "@/dashboard/lib/api";
 import { FilterBar } from "@/dashboard/components/leaderboard/FilterBar";
 import { LeaderboardTable } from "@/dashboard/components/leaderboard/LeaderboardTable";
 import { Pagination } from "@/dashboard/components/shared/Pagination";
@@ -16,9 +16,9 @@ export default async function LeaderboardPage({
   const page = parseInt(params.page ?? "1", 10) || 1;
   const perPage = 50;
 
-  const [data, categories] = await Promise.all([
+  const [data, categoryNames] = await Promise.all([
     getLeaderboard({ category, page, perPage, sortBy, sortOrder }),
-    getAllCategories(),
+    getCategoryNames(),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(data.total / perPage));
@@ -32,7 +32,7 @@ export default async function LeaderboardPage({
       </div>
 
       <FilterBar
-        categories={categories.map((c) => c.name)}
+        categories={categoryNames}
         currentCategory={category}
         currentSort={sortBy}
         currentOrder={sortOrder}

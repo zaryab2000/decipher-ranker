@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Card } from "@/dashboard/components/shared/Card";
 import { Badge } from "@/dashboard/components/shared/Badge";
 
+import { formatRelativeDate } from "@/dashboard/lib/formatters";
+
 import type { MerchantListItem } from "@/dashboard/types";
 
 export function RecentUpdates({ merchants }: { merchants: MerchantListItem[] }) {
@@ -26,7 +28,9 @@ export function RecentUpdates({ merchants }: { merchants: MerchantListItem[] }) 
                   {merchant.category && (
                     <Badge variant="accent">{merchant.category}</Badge>
                   )}
-                  <span className="text-xs text-gray-600">Recently updated</span>
+                  <span className="text-xs text-gray-600">
+                    {formatRelativeDate(merchant.lastUpdated)}
+                  </span>
                 </div>
               </Link>
             ))}

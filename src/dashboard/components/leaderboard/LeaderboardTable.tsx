@@ -35,7 +35,7 @@ export function LeaderboardTable({
       {merchants.map((merchant, i) => (
         <TableRow key={merchant.payeeAddress}>
           <TableCell>
-            <RankBadge rank={startRank + i} />
+            <RankBadge rank={startRank + i + 1} />
           </TableCell>
           <TableCell>
             <Link

@@ -21,7 +21,6 @@ export function ScoreDistributionChart({
 }: {
   data: { range: string; count: number }[];
 }) {
-  const lowBound = parseInt(data[0]?.range?.split("-")[0] ?? "0", 10);
   const maxCount = Math.max(...data.map((d) => d.count), 1);
 
   const chartData = data.map((d) => {
