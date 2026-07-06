@@ -22,19 +22,22 @@ export function assignCategory(
 export async function assignAllMerchantCategories(): Promise<number> {
   const allCategories = await db.select().from(categories);
   const allMerchants = await db.select({ id: merchants.id }).from(merchants);
-  let assigned = 0;
+  const allResources = await db
+    .select({ merchantId: resources.merchantId, tags: resources.tags })
+    .from(resources);
 
-  for (const merchant of allMerchants) {
-    const merchantResources = await db
-      .select({ tags: resources.tags })
-      .from(resources)
-      .where(eq(resources.merchantId, merchant.id));
-
-    const allTags: string[] = [];
-    for (const r of merchantResources) {
-      if (r.tags) allTags.push(...r.tags);
+  const tagsByMerchant = new Map<string, string[]>();
+  for (const r of allResources) {
+    if (r.tags) {
+      const existing = tagsByMerchant.get(r.merchantId) ?? [];
+      existing.push(...r.tags);
+      tagsByMerchant.set(r.merchantId, existing);
     }
+  }
 
+  let assigned = 0;
+  for (const merchant of allMerchants) {
+    const allTags = tagsByMerchant.get(merchant.id) ?? [];
     const categoryId = assignCategory(allTags, allCategories);
     if (categoryId) {
       await db
