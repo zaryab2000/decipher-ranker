@@ -33,8 +33,9 @@ export async function GET(request: Request) {
       snapshots_written: snapshotsWritten,
     });
   } catch (error) {
+    console.error("Cron refresh-catalog error:", error);
     return NextResponse.json(
-      { status: "error", message: String(error) },
+      { status: "error", message: "Internal server error" },
       { status: 500 },
     );
   }
