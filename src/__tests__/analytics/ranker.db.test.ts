@@ -1,40 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { makeMerchant, makeResource, makeCategory, makeTrend, resetIdCounter } from "../fixtures/factories";
+import { makeSelectChain, makeInsertChain, makeUpdateChain } from "../fixtures/mock-chains";
 
 const mockSelect = vi.fn();
 const mockUpdate = vi.fn();
 const mockInsert = vi.fn();
 const mockExecute = vi.fn();
-
-function makeSelectChain(result: unknown) {
-  const chain: Record<string, unknown> = {};
-  chain.from = vi.fn(() => chain);
-  chain.where = vi.fn(() => chain);
-  chain.orderBy = vi.fn(() => chain);
-  chain.limit = vi.fn(() => chain);
-  chain.offset = vi.fn(() => chain);
-  chain.then = (onFulfill: (v: unknown) => unknown) =>
-    Promise.resolve(result).then(onFulfill);
-  return chain;
-}
-
-function makeUpdateChain() {
-  const chain: Record<string, unknown> = {};
-  chain.set = vi.fn(() => chain);
-  chain.where = vi.fn(() => chain);
-  chain.then = (onFulfill: (v: unknown) => unknown) =>
-    Promise.resolve(undefined).then(onFulfill);
-  return chain;
-}
-
-function makeInsertChain() {
-  const chain: Record<string, unknown> = {};
-  chain.values = vi.fn(() => chain);
-  chain.onConflictDoUpdate = vi.fn(() => chain);
-  chain.then = (onFulfill: (v: unknown) => unknown) =>
-    Promise.resolve(undefined).then(onFulfill);
-  return chain;
-}
 
 vi.mock("@/lib/db", () => ({
   db: {

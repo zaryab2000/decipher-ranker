@@ -1,21 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { resetIdCounter, makeCategory } from "../fixtures/factories";
+import { makeSelectChain, makeUpdateChain } from "../fixtures/mock-chains";
 
 const mockSelect = vi.fn();
 const mockUpdate = vi.fn();
 const mockExecute = vi.fn();
-
-function makeChain(result: unknown) {
-  const chain: Record<string, unknown> = {};
-  chain.from = vi.fn(() => chain);
-  chain.where = vi.fn(() => chain);
-  chain.orderBy = vi.fn(() => chain);
-  chain.limit = vi.fn(() => chain);
-  chain.set = vi.fn(() => chain);
-  chain.then = (onFulfill: (v: unknown) => unknown) =>
-    Promise.resolve(result).then(onFulfill);
-  return chain;
-}
 
 vi.mock("@/lib/db", () => ({
   db: {
@@ -41,10 +30,10 @@ beforeEach(() => {
       ? selectResults[selectCallIndex]
       : [];
     selectCallIndex++;
-    return makeChain(result);
+    return makeSelectChain(result);
   });
 
-  mockUpdate.mockImplementation(() => makeChain(undefined));
+  mockUpdate.mockImplementation(() => makeUpdateChain());
   mockExecute.mockResolvedValue(undefined);
 });
 

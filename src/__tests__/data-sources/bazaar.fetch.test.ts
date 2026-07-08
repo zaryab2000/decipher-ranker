@@ -32,6 +32,7 @@ describe("fetchAllBazaarResources", () => {
   });
 
   it("fetches multiple pages", async () => {
+    vi.useFakeTimers();
     const page1Items = Array.from({ length: 100 }, () => makeBazaarResource());
     const page2Items = [makeBazaarResource()];
 
@@ -43,9 +44,12 @@ describe("fetchAllBazaarResources", () => {
         mockFetchResponse({ items: page2Items, pagination: { total: 101, offset: 100, limit: 100 } }),
       );
 
-    const result = await fetchAllBazaarResources();
+    const promise = fetchAllBazaarResources();
+    await vi.advanceTimersByTimeAsync(5000);
+    const result = await promise;
     expect(result).toHaveLength(101);
     expect(fetch).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
   });
 
   it("throws on API error", async () => {
@@ -66,6 +70,7 @@ describe("fetchAllBazaarResources", () => {
   });
 
   it("constructs correct URL with offset", async () => {
+    vi.useFakeTimers();
     const items = Array.from({ length: 100 }, () => makeBazaarResource());
     (fetch as ReturnType<typeof vi.fn>)
       .mockReturnValueOnce(
@@ -75,8 +80,11 @@ describe("fetchAllBazaarResources", () => {
         mockFetchResponse({ items: [], pagination: { total: 150, offset: 100, limit: 100 } }),
       );
 
-    await fetchAllBazaarResources();
+    const promise = fetchAllBazaarResources();
+    await vi.advanceTimersByTimeAsync(5000);
+    await promise;
     const secondCall = (fetch as ReturnType<typeof vi.fn>).mock.calls[1][0];
     expect(secondCall).toContain("offset=100");
+    vi.useRealTimers();
   });
 });

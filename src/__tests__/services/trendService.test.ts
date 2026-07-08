@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { makeMerchant, resetIdCounter } from "../fixtures/factories";
+import { makeSelectChain, makeInsertChain } from "../fixtures/mock-chains";
 
 const mockSelect = vi.fn();
 const mockInsert = vi.fn();
@@ -15,24 +16,6 @@ import { writeDailySnapshot } from "@/lib/services/trendService";
 
 let selectResults: unknown[][] = [];
 let selectIndex = 0;
-
-function makeSelectChain(result: unknown[]) {
-  const chain: Record<string, unknown> = {};
-  chain.from = vi.fn(() => chain);
-  chain.where = vi.fn(() => chain);
-  chain.then = (onFulfill: (v: unknown) => unknown) =>
-    Promise.resolve(result).then(onFulfill);
-  return chain;
-}
-
-function makeInsertChain() {
-  const chain: Record<string, unknown> = {};
-  chain.values = vi.fn(() => chain);
-  chain.onConflictDoUpdate = vi.fn(() => chain);
-  chain.then = (onFulfill: (v: unknown) => unknown) =>
-    Promise.resolve(undefined).then(onFulfill);
-  return chain;
-}
 
 beforeEach(() => {
   resetIdCounter();
@@ -80,5 +63,25 @@ describe("writeDailySnapshot", () => {
     await writeDailySnapshot();
     const insertReturn = mockInsert.mock.results[0].value;
     expect(insertReturn.values).toHaveBeenCalled();
+  });
+});
+
+describe("error paths", () => {
+  it("writeDailySnapshot propagates DB errors on select", async () => {
+    mockSelect.mockImplementation(() => {
+      throw new Error("connection refused");
+    });
+    await expect(writeDailySnapshot()).rejects.toThrow("connection refused");
+  });
+
+  it("writeDailySnapshot propagates DB errors on insert", async () => {
+    const m = makeMerchant();
+    selectResults = [[
+      { id: m.id, rankPosition: 1, rankerScore: "0.5", txCount30d: 10, uniqueBuyers: 5, totalAmountUsd: "100" },
+    ]];
+    mockInsert.mockImplementation(() => {
+      throw new Error("insert failed");
+    });
+    await expect(writeDailySnapshot()).rejects.toThrow("insert failed");
   });
 });

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { resetIdCounter } from "../fixtures/factories";
+import { makeSelectChain } from "../fixtures/mock-chains";
 
 const mockSelect = vi.fn();
 
@@ -13,17 +14,6 @@ import { getEcosystemStats, getRecentlyUpdatedMerchants } from "@/lib/services/s
 
 let selectResults: unknown[][] = [];
 let selectIndex = 0;
-
-function makeSelectChain(result: unknown[]) {
-  const chain: Record<string, unknown> = {};
-  chain.from = vi.fn(() => chain);
-  chain.where = vi.fn(() => chain);
-  chain.orderBy = vi.fn(() => chain);
-  chain.limit = vi.fn(() => chain);
-  chain.then = (onFulfill: (v: unknown) => unknown) =>
-    Promise.resolve(result).then(onFulfill);
-  return chain;
-}
 
 beforeEach(() => {
   resetIdCounter();
@@ -96,5 +86,21 @@ describe("getRecentlyUpdatedMerchants", () => {
     selectResults = [[]];
     const result = await getRecentlyUpdatedMerchants(5);
     expect(result).toEqual([]);
+  });
+});
+
+describe("error paths", () => {
+  it("getEcosystemStats propagates DB errors", async () => {
+    mockSelect.mockImplementation(() => {
+      throw new Error("connection refused");
+    });
+    await expect(getEcosystemStats()).rejects.toThrow("connection refused");
+  });
+
+  it("getRecentlyUpdatedMerchants propagates DB errors", async () => {
+    mockSelect.mockImplementation(() => {
+      throw new Error("connection refused");
+    });
+    await expect(getRecentlyUpdatedMerchants(5)).rejects.toThrow("connection refused");
   });
 });
