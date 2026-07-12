@@ -36,11 +36,26 @@ describe("extractPayeeAddress", () => {
 });
 
 describe("extractPriceUsd", () => {
-  it("returns parsed amount", () => {
+  it("decodes atomic USDC units (6 decimals) to USD", () => {
+    // $0.05 USDC = 50000 atomic units
     const r = makeBazaarResource({
-      accepts: [{ amount: "0.05", asset: "USDC", network: "base", payTo: "0x1", scheme: "exact" }],
+      accepts: [{ amount: "50000", asset: "USDC", network: "base", payTo: "0x1", scheme: "exact" }],
     });
     expect(extractPriceUsd(r)).toBe(0.05);
+  });
+
+  it("decodes a $1000 price expressed in base units", () => {
+    const r = makeBazaarResource({
+      accepts: [{ amount: "1000000000", asset: "USDC", network: "base", payTo: "0x1", scheme: "exact" }],
+    });
+    expect(extractPriceUsd(r)).toBe(1000);
+  });
+
+  it("honors an explicit decimals override in extra", () => {
+    const r = makeBazaarResource({
+      accepts: [{ amount: "1000000000000000000", asset: "0xabc", network: "base", payTo: "0x1", scheme: "exact", extra: { decimals: 18 } }],
+    });
+    expect(extractPriceUsd(r)).toBe(1);
   });
 
   it("returns null for empty accepts", () => {
@@ -55,6 +70,14 @@ describe("extractPriceUsd", () => {
     expect(extractPriceUsd(r)).toBeNull();
   });
 
+  it("drops prices that decode above the reasonable USD ceiling", () => {
+    // A non-USD/18-decimal token amount decoded as 6 decimals is absurd → null
+    const r = makeBazaarResource({
+      accepts: [{ amount: "1000000000000000000000", asset: "0xabc", network: "base", payTo: "0x1", scheme: "exact" }],
+    });
+    expect(extractPriceUsd(r)).toBeNull();
+  });
+
   it("handles zero amount", () => {
     const r = makeBazaarResource({
       accepts: [{ amount: "0", asset: "USDC", network: "base", payTo: "0x1", scheme: "exact" }],
@@ -62,9 +85,9 @@ describe("extractPriceUsd", () => {
     expect(extractPriceUsd(r)).toBe(0);
   });
 
-  it("handles very small amounts", () => {
+  it("handles very small amounts (1 atomic unit)", () => {
     const r = makeBazaarResource({
-      accepts: [{ amount: "0.000001", asset: "USDC", network: "base", payTo: "0x1", scheme: "exact" }],
+      accepts: [{ amount: "1", asset: "USDC", network: "base", payTo: "0x1", scheme: "exact" }],
     });
     expect(extractPriceUsd(r)).toBe(0.000001);
   });

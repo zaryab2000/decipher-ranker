@@ -137,65 +137,84 @@ function buildScoreDistribution(
 
 export async function refreshCategoryCache(): Promise<number> {
   const allCats = await db.select().from(categories);
-  let refreshed = 0;
 
-  for (const cat of allCats) {
-    const [stats] = await db
-      .select({
-        merchantCount: sql<number>`count(*)`,
-        totalVolume: sql<number>`sum(${merchants.volume30d}::numeric)`,
-        avgBuyers: sql<number>`avg(${merchants.buyers30d})`,
-      })
-      .from(merchants)
-      .where(eq(merchants.categoryId, cat.id));
+  // Aggregate per-category stats in one pass instead of a query per category.
+  const statRows = await db
+    .select({
+      categoryId: merchants.categoryId,
+      merchantCount: sql<number>`count(*)`,
+      totalVolume: sql<number>`sum(${merchants.volume30d}::numeric)`,
+      avgBuyers: sql<number>`avg(${merchants.buyers30d})`,
+    })
+    .from(merchants)
+    .where(sql`${merchants.categoryId} IS NOT NULL`)
+    .groupBy(merchants.categoryId);
 
-    const topMerchants = await db
-      .select({
-        payeeAddress: merchants.payeeAddress,
-        rankPosition: merchants.rankPosition,
-        rankerScore: merchants.rankerScore,
-        txCount30d: merchants.txCount30d,
-      })
-      .from(merchants)
-      .where(eq(merchants.categoryId, cat.id))
-      .orderBy(desc(merchants.rankerScore))
-      .limit(5);
+  const statsByCategory = new Map<string, (typeof statRows)[number]>();
+  for (const s of statRows) {
+    if (s.categoryId) statsByCategory.set(s.categoryId, s);
+  }
 
+  // Top-5 merchants per non-empty category in a single windowed query.
+  const rankedRows = await db
+    .select({
+      categoryId: merchants.categoryId,
+      payeeAddress: merchants.payeeAddress,
+      rankPosition: merchants.rankPosition,
+      rankerScore: merchants.rankerScore,
+      txCount30d: merchants.txCount30d,
+      rn: sql<number>`row_number() over (partition by ${merchants.categoryId} order by ${merchants.rankerScore} desc)`,
+    })
+    .from(merchants)
+    .where(sql`${merchants.categoryId} IS NOT NULL`);
+
+  const topByCategory = new Map<
+    string,
+    Array<{ address: string; rank: number | null; score: number; volume: number }>
+  >();
+  for (const r of rankedRows) {
+    if (!r.categoryId || Number(r.rn) > 5) continue;
+    const list = topByCategory.get(r.categoryId) ?? [];
+    list.push({
+      address: r.payeeAddress,
+      rank: r.rankPosition,
+      score: Number(r.rankerScore ?? 0),
+      volume: r.txCount30d ?? 0,
+    });
+    topByCategory.set(r.categoryId, list);
+  }
+
+  const cacheRows = allCats.map((cat) => {
+    const stats = statsByCategory.get(cat.id);
+    return {
+      categoryName: cat.name,
+      merchantCount: Number(stats?.merchantCount ?? 0),
+      totalVolume30d: (stats?.totalVolume ?? 0).toString(),
+      medianPrice: cat.medianPrice,
+      avgBuyers: (stats?.avgBuyers ?? 0).toString(),
+      topMerchants: topByCategory.get(cat.id) ?? [],
+      refreshedAt: new Date(),
+    };
+  });
+
+  const CHUNK = 500;
+  for (let i = 0; i < cacheRows.length; i += CHUNK) {
+    const batch = cacheRows.slice(i, i + CHUNK);
     await db
       .insert(categoryCache)
-      .values({
-        categoryName: cat.name,
-        merchantCount: Number(stats?.merchantCount ?? 0),
-        totalVolume30d: (stats?.totalVolume ?? 0).toString(),
-        medianPrice: cat.medianPrice,
-        avgBuyers: (stats?.avgBuyers ?? 0).toString(),
-        topMerchants: topMerchants.map((m) => ({
-          address: m.payeeAddress,
-          rank: m.rankPosition,
-          score: Number(m.rankerScore ?? 0),
-          volume: m.txCount30d ?? 0,
-        })),
-        refreshedAt: new Date(),
-      })
+      .values(batch)
       .onConflictDoUpdate({
         target: categoryCache.categoryName,
         set: {
-          merchantCount: Number(stats?.merchantCount ?? 0),
-          totalVolume30d: (stats?.totalVolume ?? 0).toString(),
-          medianPrice: cat.medianPrice,
-          avgBuyers: (stats?.avgBuyers ?? 0).toString(),
-          topMerchants: topMerchants.map((m) => ({
-            address: m.payeeAddress,
-            rank: m.rankPosition,
-            score: Number(m.rankerScore ?? 0),
-            volume: m.txCount30d ?? 0,
-          })),
-          refreshedAt: new Date(),
+          merchantCount: sql`excluded.merchant_count`,
+          totalVolume30d: sql`excluded.total_volume_30d`,
+          medianPrice: sql`excluded.median_price`,
+          avgBuyers: sql`excluded.avg_buyers`,
+          topMerchants: sql`excluded.top_merchants`,
+          refreshedAt: sql`excluded.refreshed_at`,
         },
       });
-
-    refreshed++;
   }
 
-  return refreshed;
+  return cacheRows.length;
 }

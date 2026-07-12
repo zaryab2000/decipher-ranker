@@ -16,30 +16,36 @@ export async function writeDailySnapshot(): Promise<number> {
     })
     .from(merchants);
 
+  if (allMerchants.length === 0) return 0;
+
+  const rows = allMerchants.map((m) => ({
+    merchantId: m.id,
+    snapshotDate: today,
+    rankPosition: m.rankPosition,
+    rankerScore: m.rankerScore,
+    txCount30d: m.txCount30d,
+    uniqueBuyers: m.uniqueBuyers,
+    totalAmount: m.totalAmountUsd,
+  }));
+
+  const CHUNK = 500;
   let written = 0;
-  for (const m of allMerchants) {
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const batch = rows.slice(i, i + CHUNK);
     await db
       .insert(trends)
-      .values({
-        merchantId: m.id,
-        snapshotDate: today,
-        rankPosition: m.rankPosition,
-        rankerScore: m.rankerScore,
-        txCount30d: m.txCount30d,
-        uniqueBuyers: m.uniqueBuyers,
-        totalAmount: m.totalAmountUsd,
-      })
+      .values(batch)
       .onConflictDoUpdate({
         target: [trends.merchantId, trends.snapshotDate],
         set: {
-          rankPosition: m.rankPosition,
-          rankerScore: m.rankerScore,
-          txCount30d: m.txCount30d,
-          uniqueBuyers: m.uniqueBuyers,
-          totalAmount: m.totalAmountUsd,
+          rankPosition: sql`excluded.rank_position`,
+          rankerScore: sql`excluded.ranker_score`,
+          txCount30d: sql`excluded.tx_count_30d`,
+          uniqueBuyers: sql`excluded.unique_buyers`,
+          totalAmount: sql`excluded.total_amount`,
         },
       });
-    written++;
+    written += batch.length;
   }
 
   return written;

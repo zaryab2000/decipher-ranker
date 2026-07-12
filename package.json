@@ -15,15 +15,15 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "seed": "tsx scripts/seed-from-bazaar.ts",
-    "refresh": "tsx scripts/refresh-catalog.ts"
+    "seed": "tsx --env-file=.env.local scripts/seed-from-bazaar.ts",
+    "refresh": "tsx --env-file=.env.local scripts/refresh-catalog.ts"
   },
   "dependencies": {
     "@agentcash/router": "latest",
     "@neondatabase/serverless": "^0.10.0",
     "@vercel/kv": "^3.0.0",
     "@vercel/postgres": "^0.10.0",
-    "drizzle-orm": "^0.35.0",
+    "drizzle-orm": "^0.45.2",
     "lucide-react": "^0.460.0",
     "next": "^15.0.0",
     "react": "^18.3.0",
@@ -37,7 +37,7 @@
     "@types/node": "^22.0.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
-    "drizzle-kit": "^0.28.0",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.0.0",
     "@tailwindcss/postcss": "^4.0.0",

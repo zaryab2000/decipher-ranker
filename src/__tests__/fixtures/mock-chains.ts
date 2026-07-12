@@ -4,6 +4,7 @@ export function makeSelectChain(result: unknown) {
   const chain: Record<string, unknown> = {};
   chain.from = vi.fn(() => chain);
   chain.where = vi.fn(() => chain);
+  chain.groupBy = vi.fn(() => chain);
   chain.orderBy = vi.fn(() => chain);
   chain.limit = vi.fn(() => chain);
   chain.offset = vi.fn(() => chain);

@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { merchants, resources, categories, categoryCache } from "@/lib/db/schema";
 import { desc, asc, eq, sql, ilike, or, and, count, sum } from "drizzle-orm";
+import type { PgColumn } from "drizzle-orm/pg-core";
 import type {
   MerchantListItem,
   MerchantProfile,
@@ -63,7 +64,17 @@ function toMerchantListItem(
   };
 }
 
-function merchantSelect() {
+interface ResourceColumns {
+  serviceName: PgColumn;
+  resourceUrl: PgColumn;
+  priceUsd: PgColumn;
+}
+
+// The resource columns come from either the base `resources` table (when it's
+// joined directly) or the first-resource subquery. Reference whichever source
+// is actually part of the query — otherwise Drizzle emits a column for a table
+// that was never joined.
+function merchantSelect(resourceCols: ResourceColumns) {
   return {
     merchants_payeeAddress: merchants.payeeAddress,
     merchants_rankerScore: merchants.rankerScore,
@@ -72,9 +83,9 @@ function merchantSelect() {
     merchants_txCount30d: merchants.txCount30d,
     merchants_uniqueBuyers: merchants.uniqueBuyers,
     merchants_lastUpdated: merchants.lastUpdated,
-    resources_serviceName: resources.serviceName,
-    resources_resourceUrl: resources.resourceUrl,
-    resources_priceUsd: resources.priceUsd,
+    resources_serviceName: resourceCols.serviceName,
+    resources_resourceUrl: resourceCols.resourceUrl,
+    resources_priceUsd: resourceCols.priceUsd,
     categories_name: categories.name,
   };
 }
@@ -106,7 +117,7 @@ export async function getTopMerchants(limit = 10): Promise<MerchantListItem[]> {
   const resourceSubquery = buildResourceSubquery();
 
   const rows = await db
-    .select(merchantSelect())
+    .select(merchantSelect(resourceSubquery))
     .from(merchants)
     .leftJoin(resourceSubquery, eq(merchants.id, resourceSubquery.merchantId))
     .leftJoin(categories, eq(merchants.categoryId, categories.id))
@@ -120,7 +131,7 @@ export async function getRecentlyUpdated(limit = 5): Promise<MerchantListItem[]>
   const resourceSubquery = buildResourceSubquery();
 
   const rows = await db
-    .select(merchantSelect())
+    .select(merchantSelect(resourceSubquery))
     .from(merchants)
     .leftJoin(resourceSubquery, eq(merchants.id, resourceSubquery.merchantId))
     .leftJoin(categories, eq(merchants.categoryId, categories.id))
@@ -146,7 +157,7 @@ export async function getLeaderboard(params: {
   const resourceSubquery = buildResourceSubquery();
 
   const baseQuery = db
-    .select(merchantSelect())
+    .select(merchantSelect(resourceSubquery))
     .from(merchants)
     .leftJoin(resourceSubquery, eq(merchants.id, resourceSubquery.merchantId))
     .leftJoin(categories, eq(merchants.categoryId, categories.id))
@@ -213,42 +224,48 @@ export async function getAllCategories(): Promise<CategoryItem[]> {
     .from(categories)
     .orderBy(desc(categories.merchantCount));
 
-  const result = await Promise.all(
-    rows.map(async (cat) => {
-      const [topMerchantRows, avgScoreRows] = await Promise.all([
-        db
-          .select({
-            address: merchants.payeeAddress,
-            score: merchants.rankerScore,
-          })
-          .from(merchants)
-          .where(eq(merchants.categoryId, cat.id))
-          .orderBy(desc(merchants.rankerScore))
-          .limit(1),
-        db
-          .select({ avg: sql<number>`AVG(${merchants.rankerScore})`.mapWith(Number) })
-          .from(merchants)
-          .where(eq(merchants.categoryId, cat.id)),
-      ]);
+  // Per-category average score and top merchant in two set-based queries
+  // instead of two queries per category.
+  const aggRows = await db
+    .select({
+      categoryId: merchants.categoryId,
+      avg: sql<number>`AVG(${merchants.rankerScore})`.mapWith(Number),
+    })
+    .from(merchants)
+    .where(sql`${merchants.categoryId} IS NOT NULL`)
+    .groupBy(merchants.categoryId);
+  const avgByCategory = new Map<string, number>();
+  for (const a of aggRows) {
+    if (a.categoryId) avgByCategory.set(a.categoryId, a.avg);
+  }
 
-      return {
-        name: cat.name,
-        slug: toSlug(cat.name),
-        merchantCount: cat.merchantCount ?? 0,
-        medianPriceUsd: cat.medianPrice != null ? Number(cat.medianPrice) : null,
-        avgScore: avgScoreRows[0]?.avg ?? null,
-        topMerchant: topMerchantRows[0]
-          ? {
-              address: topMerchantRows[0].address,
-              score: Number(topMerchantRows[0].score ?? 0),
-            }
-          : null,
-        growthIndicator: 0,
-      };
-    }),
-  );
+  const topRows = await db
+    .select({
+      categoryId: merchants.categoryId,
+      address: merchants.payeeAddress,
+      score: merchants.rankerScore,
+      rn: sql<number>`row_number() over (partition by ${merchants.categoryId} order by ${merchants.rankerScore} desc)`,
+    })
+    .from(merchants)
+    .where(sql`${merchants.categoryId} IS NOT NULL`);
+  const topByCategory = new Map<string, { address: string; score: number }>();
+  for (const t of topRows) {
+    if (!t.categoryId || Number(t.rn) !== 1) continue;
+    topByCategory.set(t.categoryId, {
+      address: t.address,
+      score: Number(t.score ?? 0),
+    });
+  }
 
-  return result;
+  return rows.map((cat) => ({
+    name: cat.name,
+    slug: toSlug(cat.name),
+    merchantCount: cat.merchantCount ?? 0,
+    medianPriceUsd: cat.medianPrice != null ? Number(cat.medianPrice) : null,
+    avgScore: avgByCategory.get(cat.id) ?? null,
+    topMerchant: topByCategory.get(cat.id) ?? null,
+    growthIndicator: 0,
+  }));
 }
 
 export async function getCategoryBySlug(slug: string): Promise<CategoryDetail | null> {
@@ -259,7 +276,7 @@ export async function getCategoryBySlug(slug: string): Promise<CategoryDetail | 
   const resourceSubquery = buildResourceSubquery();
 
   const merchantRows = await db
-    .select(merchantSelect())
+    .select(merchantSelect(resourceSubquery))
     .from(merchants)
     .leftJoin(resourceSubquery, eq(merchants.id, resourceSubquery.merchantId))
     .leftJoin(categories, eq(merchants.categoryId, categories.id))
@@ -482,7 +499,7 @@ function buildImprovements(metrics: {
 
 export async function searchMerchants(query: string): Promise<SearchResult> {
   const rows = await db
-    .select(merchantSelect())
+    .select(merchantSelect(resources))
     .from(merchants)
     .leftJoin(resources, eq(merchants.id, resources.merchantId))
     .leftJoin(categories, eq(merchants.categoryId, categories.id))

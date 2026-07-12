@@ -1,7 +1,17 @@
 import { db } from "@/lib/db";
 import { merchants, resources, categories } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { inArray, sql } from "drizzle-orm";
 import type { Category } from "@/lib/types";
+
+const UPDATE_CHUNK_SIZE = 1000;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    out.push(items.slice(i, i + size));
+  }
+  return out;
+}
 
 export function assignCategory(
   tags: string[],
@@ -35,16 +45,27 @@ export async function assignAllMerchantCategories(): Promise<number> {
     }
   }
 
+  // Group merchant ids by their assigned category, then issue one batched
+  // UPDATE per category instead of one UPDATE per merchant.
+  const merchantIdsByCategory = new Map<string, string[]>();
   let assigned = 0;
   for (const merchant of allMerchants) {
     const allTags = tagsByMerchant.get(merchant.id) ?? [];
     const categoryId = assignCategory(allTags, allCategories);
     if (categoryId) {
+      const list = merchantIdsByCategory.get(categoryId) ?? [];
+      list.push(merchant.id);
+      merchantIdsByCategory.set(categoryId, list);
+      assigned++;
+    }
+  }
+
+  for (const [categoryId, merchantIds] of merchantIdsByCategory) {
+    for (const batch of chunk(merchantIds, UPDATE_CHUNK_SIZE)) {
       await db
         .update(merchants)
         .set({ categoryId })
-        .where(eq(merchants.id, merchant.id));
-      assigned++;
+        .where(inArray(merchants.id, batch));
     }
   }
 

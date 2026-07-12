@@ -45,7 +45,8 @@ describe("writeDailySnapshot", () => {
 
     const result = await writeDailySnapshot();
     expect(result).toBe(2);
-    expect(mockInsert).toHaveBeenCalledTimes(2);
+    // Rows are inserted in a single batched statement.
+    expect(mockInsert).toHaveBeenCalledTimes(1);
   });
 
   it("returns 0 when no merchants", async () => {

@@ -50,7 +50,7 @@ describe("upsertCatalog", () => {
       accepts: [{ amount: "0.01", asset: "USDC", network: "base", payTo: "0xPayee", scheme: "exact" }],
     });
 
-    selectResults = [[{ id: "merchant-1" }]];
+    selectResults = [[{ id: "merchant-1", payeeAddress: "0xPayee" }]];
 
     const result = await upsertCatalog([resource]);
     expect(result.merchantsUpserted).toBe(1);
@@ -69,10 +69,7 @@ describe("upsertCatalog", () => {
       accepts: [{ amount: "0.02", asset: "USDC", network: "base", payTo: "0xSame", scheme: "exact" }],
     });
 
-    selectResults = [
-      [{ id: "merchant-1" }],
-      [{ id: "merchant-1" }],
-    ];
+    selectResults = [[{ id: "merchant-1", payeeAddress: "0xSame" }]];
 
     const result = await upsertCatalog([r1, r2]);
     expect(result.merchantsUpserted).toBe(1);
@@ -92,7 +89,7 @@ describe("upsertCatalog", () => {
       accepts: [{ amount: "0.01", asset: "USDC", network: "base", payTo: "0xPayee", scheme: "exact" }],
     });
 
-    selectResults = [[{ id: "m-1" }]];
+    selectResults = [[{ id: "m-1", payeeAddress: "0xPayee" }]];
     const result = await upsertCatalog([r1]);
     expect(result.categoriesUpdated).toBe(2);
   });
@@ -109,10 +106,10 @@ describe("upsertCatalog", () => {
       accepts: [{ amount: "0.01", asset: "USDC", network: "base", payTo: "0xP2", scheme: "exact" }],
     });
 
-    selectResults = [
-      [{ id: "m-1" }],
-      [{ id: "m-2" }],
-    ];
+    selectResults = [[
+      { id: "m-1", payeeAddress: "0xP1" },
+      { id: "m-2", payeeAddress: "0xP2" },
+    ]];
 
     const result = await upsertCatalog([r1, r2]);
     expect(result.categoriesUpdated).toBe(1);
@@ -130,15 +127,9 @@ describe("upsertCatalog", () => {
       accepts: [{ amount: "0.01", asset: "USDC", network: "base", payTo: "0xPayee", scheme: "exact" }],
     });
 
-    selectResults = [
-      [{ id: "m-1" }],
-      [{ id: "m-1" }],
-    ];
+    selectResults = [[{ id: "m-1", payeeAddress: "0xPayee" }]];
 
     await upsertCatalog([r1, r2]);
-    const merchantInsertCall = mockInsert.mock.calls.find(
-      (call: unknown[]) => true
-    );
     expect(mockInsert).toHaveBeenCalled();
   });
 
@@ -153,7 +144,7 @@ describe("upsertCatalog", () => {
       accepts: [{ amount: "0.01", asset: "USDC", network: "base", payTo: "0xPayee", scheme: "exact" }],
     });
 
-    selectResults = [[{ id: "m-1" }]];
+    selectResults = [[{ id: "m-1", payeeAddress: "0xPayee" }]];
     const result = await upsertCatalog([resource]);
     expect(result.resourcesUpserted).toBe(1);
   });
@@ -168,10 +159,10 @@ describe("upsertCatalog", () => {
       accepts: [{ amount: "0.01", asset: "USDC", network: "base", payTo: "0xPayee2", scheme: "exact" }],
     });
 
-    selectResults = [
-      [{ id: "m-1" }],
-      [{ id: "m-2" }],
-    ];
+    selectResults = [[
+      { id: "m-1", payeeAddress: "0xPayee1" },
+      { id: "m-2", payeeAddress: "0xPayee2" },
+    ]];
 
     const result = await upsertCatalog([r1, r2]);
     expect(result.merchantsUpserted).toBe(2);

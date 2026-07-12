@@ -1,37 +1,43 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { makeSelectChain } from "../fixtures/mock-chains";
 
-const mockFindMany = vi.fn();
+const mockSelect = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
-    query: new Proxy({}, {
-      get() {
-        return {
-          findMany: (...args: unknown[]) => mockFindMany(...args),
-        };
-      },
-    }),
+    select: (...args: unknown[]) => mockSelect(...args),
   },
 }));
 
 import { GET } from "@/app/api/categories/route";
 
+let selectResults: unknown[][] = [];
+let selectIndex = 0;
+
 beforeEach(() => {
   vi.clearAllMocks();
-  mockFindMany.mockResolvedValue([]);
+  selectResults = [];
+  selectIndex = 0;
+  mockSelect.mockImplementation(() => {
+    const result =
+      selectIndex < selectResults.length ? selectResults[selectIndex] : [];
+    selectIndex++;
+    return makeSelectChain(result);
+  });
 });
 
 describe("GET /api/categories", () => {
   it("returns categories sorted by merchantCount", async () => {
-    mockFindMany
-      .mockResolvedValueOnce([
+    // 1st select: categories. 2nd select: ranked merchants (windowed).
+    selectResults = [
+      [
         { id: "c1", name: "api", merchantCount: 10, medianPrice: "0.05", createdAt: new Date(), color: null, description: null },
         { id: "c2", name: "ml", merchantCount: 5, medianPrice: null, createdAt: new Date(), color: null, description: null },
-      ])
-      .mockResolvedValueOnce([
-        { payeeAddress: "0x1", rankerScore: "0.8", txCount30d: 50 },
-      ])
-      .mockResolvedValueOnce([]);
+      ],
+      [
+        { categoryId: "c1", payeeAddress: "0x1", rankerScore: "0.8", txCount30d: 50, rn: 1 },
+      ],
+    ];
 
     const res = await GET();
     const body = await res.json();
@@ -44,26 +50,29 @@ describe("GET /api/categories", () => {
   });
 
   it("returns empty when no categories", async () => {
-    mockFindMany.mockResolvedValueOnce([]);
+    selectResults = [[], []];
     const res = await GET();
     const body = await res.json();
     expect(body.total).toBe(0);
     expect(body.categories).toEqual([]);
   });
 
-  it("includes top merchants per category", async () => {
-    mockFindMany
-      .mockResolvedValueOnce([
+  it("includes top merchants per category, capped at 3", async () => {
+    selectResults = [
+      [
         { id: "c1", name: "api", merchantCount: 5, medianPrice: null, createdAt: new Date(), color: null, description: null },
-      ])
-      .mockResolvedValueOnce([
-        { payeeAddress: "0xTop", rankerScore: "0.9", txCount30d: 100 },
-        { payeeAddress: "0xSecond", rankerScore: "0.7", txCount30d: 50 },
-      ]);
+      ],
+      [
+        { categoryId: "c1", payeeAddress: "0xTop", rankerScore: "0.9", txCount30d: 100, rn: 1 },
+        { categoryId: "c1", payeeAddress: "0xSecond", rankerScore: "0.7", txCount30d: 50, rn: 2 },
+        { categoryId: "c1", payeeAddress: "0xThird", rankerScore: "0.6", txCount30d: 20, rn: 3 },
+        { categoryId: "c1", payeeAddress: "0xFourth", rankerScore: "0.5", txCount30d: 10, rn: 4 },
+      ],
+    ];
 
     const res = await GET();
     const body = await res.json();
-    expect(body.categories[0].top_merchants).toHaveLength(2);
+    expect(body.categories[0].top_merchants).toHaveLength(3);
     expect(body.categories[0].top_merchants[0].address).toBe("0xTop");
     expect(body.categories[0].top_merchants[0].score).toBe(0.9);
   });

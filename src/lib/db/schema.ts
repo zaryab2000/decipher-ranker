@@ -19,7 +19,7 @@ export const categories = pgTable("categories", {
   color: text("color"),
   description: text("description"),
   merchantCount: integer("merchant_count").default(0),
-  medianPrice: decimal("median_price", { precision: 10, scale: 6 }),
+  medianPrice: decimal("median_price", { precision: 20, scale: 6 }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -66,7 +66,7 @@ export const resources = pgTable(
     description: text("description"),
     tags: text("tags").array(),
     toolCalls: integer("tool_calls").default(0),
-    priceUsd: decimal("price_usd", { precision: 10, scale: 6 }),
+    priceUsd: decimal("price_usd", { precision: 20, scale: 6 }),
     chain: text("chain"),
 
     l30dCalls: integer("l30d_calls"),
@@ -129,7 +129,7 @@ export const categoryCache = pgTable("category_cache", {
   categoryName: text("category_name").notNull().unique(),
   merchantCount: integer("merchant_count"),
   totalVolume30d: decimal("total_volume_30d", { precision: 20, scale: 6 }),
-  medianPrice: decimal("median_price", { precision: 10, scale: 6 }),
+  medianPrice: decimal("median_price", { precision: 20, scale: 6 }),
   avgBuyers: decimal("avg_buyers", { precision: 10, scale: 2 }),
   topMerchants: jsonb("top_merchants"),
   refreshedAt: timestamp("refreshed_at", { withTimezone: true }).notNull().defaultNow(),
