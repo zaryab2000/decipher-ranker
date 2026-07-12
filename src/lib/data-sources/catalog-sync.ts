@@ -76,15 +76,16 @@ export async function upsertCatalog(
 async function upsertCategories(tags: string[]): Promise<number> {
   if (tags.length === 0) return 0;
 
-  let updated = 0;
+  let inserted = 0;
   for (const batch of chunk(tags, INSERT_CHUNK_SIZE)) {
-    await db
+    const rows = await db
       .insert(categories)
       .values(batch.map((name) => ({ name: sanitizeText(name) ?? name })))
-      .onConflictDoNothing({ target: categories.name });
-    updated += batch.length;
+      .onConflictDoNothing({ target: categories.name })
+      .returning({ id: categories.id });
+    inserted += rows.length;
   }
-  return updated;
+  return inserted;
 }
 
 async function upsertMerchants(
