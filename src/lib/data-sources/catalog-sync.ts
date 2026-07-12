@@ -80,7 +80,7 @@ async function upsertCategories(tags: string[]): Promise<number> {
   for (const batch of chunk(tags, INSERT_CHUNK_SIZE)) {
     await db
       .insert(categories)
-      .values(batch.map((name) => ({ name })))
+      .values(batch.map((name) => ({ name: sanitizeText(name) ?? name })))
       .onConflictDoNothing({ target: categories.name });
     updated += batch.length;
   }
