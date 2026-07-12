@@ -41,3 +41,12 @@ drizzle/meta
 
 # test coverage
 coverage/
+
+
+# docs
+docs-internal
+
+
+# agent tooling artifacts
+.agents/
+skills-lock.json

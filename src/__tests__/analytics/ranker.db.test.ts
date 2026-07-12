@@ -402,7 +402,8 @@ describe("scoreAllMerchants", () => {
 
     const result = await scoreAllMerchants();
     expect(result).toBe(2);
-    expect(mockUpdate).toHaveBeenCalledTimes(2);
+    // Scores are applied via batched UPDATE ... FROM (VALUES ...) statements
+    // and rank assignment runs via SQL, so all writes go through db.execute.
     expect(mockExecute).toHaveBeenCalled();
   });
 
@@ -420,12 +421,15 @@ describe("scoreAllMerchants", () => {
     expect(result).toBe(1);
   });
 
-  it("runs rank assignment SQL per category plus global", async () => {
+  it("runs set-based rank assignment (partitioned + global) via SQL", async () => {
     const cat1 = makeCategory({ id: "c1" });
     const cat2 = makeCategory({ id: "c2" });
     setSelectResults([], [], [cat1, cat2]);
 
     await scoreAllMerchants();
-    expect(mockExecute).toHaveBeenCalledTimes(3);
+    // With no merchants there is no score-batch UPDATE, leaving exactly two
+    // rank statements: one partitioned per-category, one global. This count is
+    // independent of category count.
+    expect(mockExecute).toHaveBeenCalledTimes(2);
   });
 });

@@ -32,6 +32,11 @@ export interface BazaarResource {
     network: string;
     payTo: string;
     scheme: string;
+    extra?: {
+      name?: string;
+      version?: string;
+      decimals?: number;
+    };
   }>;
   extensions?: {
     bazaar?: {

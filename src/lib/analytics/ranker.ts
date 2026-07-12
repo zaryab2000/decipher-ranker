@@ -573,37 +573,47 @@ export async function scoreAllMerchants(): Promise<number> {
     categoryById.set(c.id, c);
   }
 
-  let scored = 0;
+  const scoreById: Array<{ id: string; score: number }> = [];
   for (const merchant of allMerchants) {
     const data: MerchantData = {
       merchant,
       resources: resourcesByMerchant.get(merchant.id) ?? [],
       category: merchant.categoryId ? categoryById.get(merchant.categoryId) ?? null : null,
     };
-
-    const score = computeRankerScore(data);
-
-    await db
-      .update(merchants)
-      .set({ rankerScore: score.toString() })
-      .where(eq(merchants.id, merchant.id));
-
-    scored++;
+    scoreById.push({ id: merchant.id, score: computeRankerScore(data) });
   }
 
-  // Assign rank positions per category using a single UPDATE per category
-  for (const cat of allCategories) {
+  // Apply scores in batches via a single UPDATE ... FROM (VALUES ...) per chunk.
+  const CHUNK = 1000;
+  for (let i = 0; i < scoreById.length; i += CHUNK) {
+    const batch = scoreById.slice(i, i + CHUNK);
+    const values = sql.join(
+      batch.map((b) => sql`(${b.id}::uuid, ${b.score.toString()}::numeric)`),
+      sql`, `,
+    );
     await db.execute(sql`
-      UPDATE merchants SET rank_position = sub.rn
-      FROM (
-        SELECT id, ROW_NUMBER() OVER (ORDER BY ranker_score DESC) AS rn
-        FROM merchants WHERE category_id = ${cat.id}
-      ) sub
-      WHERE merchants.id = sub.id
+      UPDATE merchants AS m
+      SET ranker_score = v.score
+      FROM (VALUES ${values}) AS v(id, score)
+      WHERE m.id = v.id
     `);
   }
+  const scored = scoreById.length;
 
-  // Rank unassigned merchants globally
+  // Assign rank positions within each category in a single windowed statement
+  // (partition by category) instead of one UPDATE per category.
+  await db.execute(sql`
+    UPDATE merchants SET rank_position = sub.rn
+    FROM (
+      SELECT id, ROW_NUMBER() OVER (
+        PARTITION BY category_id ORDER BY ranker_score DESC
+      ) AS rn
+      FROM merchants WHERE category_id IS NOT NULL
+    ) sub
+    WHERE merchants.id = sub.id
+  `);
+
+  // Rank unassigned merchants globally.
   await db.execute(sql`
     UPDATE merchants SET rank_position = sub.rn
     FROM (
