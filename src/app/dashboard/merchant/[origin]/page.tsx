@@ -1,4 +1,6 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { Trophy, DollarSign, BarChart3, Users } from "lucide-react";
 import { getMerchantByOrigin } from "@/dashboard/lib/api";
 import { MerchantHeader } from "@/dashboard/components/merchant/MerchantHeader";
@@ -9,6 +11,32 @@ import { Badge } from "@/dashboard/components/shared/Badge";
 import { Card } from "@/dashboard/components/shared/Card";
 import { formatNumber, formatPrice } from "@/dashboard/lib/formatters";
 
+const getCachedMerchant = cache(getMerchantByOrigin);
+
+export async function generateMetadata(
+  props: { params: Promise<{ origin: string }> },
+): Promise<Metadata> {
+  const { origin } = await props.params;
+  const decoded = decodeURIComponent(origin);
+  const merchant = await getCachedMerchant(decoded);
+  if (!merchant) return { title: "Merchant not found — decipher-ranker" };
+  const name = merchant.serviceName ?? merchant.payeeAddress;
+  const rankStr = merchant.rankPosition != null
+    ? `Ranked #${merchant.rankPosition}`
+    : "";
+  const catStr = merchant.category != null
+    ? `in ${merchant.category}`
+    : "";
+  return {
+    title: `${name} — decipher-ranker`,
+    description: `${rankStr} ${catStr}. Score: ${(merchant.rankerScore * 100).toFixed(0)}. Volume: ${merchant.txCount30d} tx, ${merchant.uniqueBuyers} buyers.`.replace(/\s+/g, " ").trim(),
+    openGraph: {
+      title: `${name} — decipher-ranker`,
+      description: `x402 merchant profile and competitive analysis.`,
+    },
+  };
+}
+
 export default async function MerchantProfilePage({
   params,
 }: {
@@ -16,7 +44,7 @@ export default async function MerchantProfilePage({
 }) {
   const { origin } = await params;
   const decodedOrigin = decodeURIComponent(origin);
-  const merchant = await getMerchantByOrigin(decodedOrigin);
+  const merchant = await getCachedMerchant(decodedOrigin);
 
   if (!merchant) {
     notFound();
