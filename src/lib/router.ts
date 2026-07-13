@@ -1,0 +1,32 @@
+import { createRouterFromEnv } from "@agentcash/router";
+
+/**
+ * Central @agentcash/router instance. Reads CDP keys, EVM payee, BASE_URL, and
+ * KV credentials from the environment (validated up front; throws a single
+ * RouterConfigError listing every problem if misconfigured).
+ *
+ * Every route module registers itself against this instance via a side-effect
+ * import; see `@/lib/routes-barrel`, which the discovery endpoints import so the
+ * full registry is visible to OpenAPI / .well-known / llms.txt.
+ */
+export const router = createRouterFromEnv({
+  title: "decipher-ranker",
+  description:
+    "Merchant analytics and ranking for the x402 ecosystem. Get rank position, competitor benchmarks, pricing analysis, and improvement recommendations.",
+  guidance: `decipher-ranker helps API providers understand their marketplace position.
+
+FREE ENDPOINTS (no payment):
+- GET /categories — Browse all API categories with counts
+- GET /leaderboard — Top APIs by category
+- POST /report/origin — Basic rank report for your origin (SIWX wallet identity required)
+
+PAID ENDPOINTS ($0.03 each):
+- POST /report/competitive — Deep competitive analysis with gap analysis
+- POST /report/merchant — Deep-dive on any merchant by address
+
+The free /report/origin endpoint requires wallet identity (SIWX) but no payment. Paid endpoints use x402 micropayment in USDC on Base.`,
+  strictRoutes: true,
+  contact: {
+    email: "zaryabafser2000@gmail.com",
+  },
+});

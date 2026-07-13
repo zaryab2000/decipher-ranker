@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { makeMerchant, makeResource, resetIdCounter } from "../fixtures/factories";
+import { installRouterMock } from "../fixtures/mock-router";
 
 const mockGetMerchantByOrigin = vi.fn();
 const mockComputeCompetitiveReport = vi.fn();
@@ -25,6 +26,8 @@ vi.mock("@/lib/config", () => ({
   REPORT_COST_USDC: "0.03",
 }));
 
+installRouterMock();
+
 import { POST } from "@/app/api/report/competitive/route";
 
 beforeEach(() => {
@@ -37,11 +40,13 @@ beforeEach(() => {
   mockInsert.mockReturnValue(insertChain);
 });
 
-function makeRequest(body: unknown): NextRequest {
+function makeRequest(body: unknown, wallet?: string): NextRequest {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (wallet) headers["x-test-wallet"] = wallet;
   return new NextRequest("http://localhost/api/report/competitive", {
     method: "POST",
     body: JSON.stringify(body),
-    headers: { "Content-Type": "application/json" },
+    headers,
   });
 }
 
@@ -99,6 +104,37 @@ describe("POST /api/report/competitive", () => {
     expect(body.pricing_benchmark).toBeDefined();
     expect(body.pricing_benchmark.your_price).toBe(0.01);
     expect(mockInsert).toHaveBeenCalled();
+  });
+
+  it("records the payer wallet in the audit trail", async () => {
+    const merchant = makeMerchant();
+    mockGetMerchantByOrigin.mockResolvedValueOnce({
+      merchant,
+      resources: [],
+      category: null,
+    });
+    mockComputeCompetitiveReport.mockResolvedValueOnce({
+      category: null,
+      yourRank: null,
+      totalCompetitors: 0,
+      topCompetitors: [],
+      gapAnalysis: { missingTags: [], missingKeywords: [], competitorCount: 0 },
+      yourPrice: null,
+      medianPrice: null,
+      minPrice: null,
+      maxPrice: null,
+      pricePercentile: null,
+      recommendations: [],
+    });
+
+    const insertChain = mockInsert() as { values: ReturnType<typeof vi.fn> };
+    mockInsert.mockClear();
+    mockInsert.mockReturnValue(insertChain);
+
+    await POST(makeRequest({ origin: "https://test.com" }, "0xPayer"));
+    expect(insertChain.values).toHaveBeenCalledWith(
+      expect.objectContaining({ requesterWallet: "0xPayer" }),
+    );
   });
 
   it("limits competitors to 10 in response", async () => {

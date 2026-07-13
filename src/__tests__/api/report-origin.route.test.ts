@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
-import { makeMerchant, makeResource, makeCategory, resetIdCounter } from "../fixtures/factories";
+import { makeMerchant, makeResource, resetIdCounter } from "../fixtures/factories";
+import { installRouterMock } from "../fixtures/mock-router";
 
 const mockGetMerchantByOrigin = vi.fn();
 const mockComputeBasicReport = vi.fn();
@@ -10,7 +11,7 @@ vi.mock("@/lib/analytics/ranker", () => ({
   computeBasicReport: (...args: unknown[]) => mockComputeBasicReport(...args),
 }));
 
-vi.mock("@/lib/db", () => ({ db: {} }));
+installRouterMock();
 
 import { POST } from "@/app/api/report/origin/route";
 
@@ -35,8 +36,8 @@ describe("POST /api/report/origin", () => {
     expect(body.error).toBeDefined();
   });
 
-  it("returns 400 when origin is not a string", async () => {
-    const res = await POST(makeRequest({ origin: 123 }));
+  it("returns 400 when origin is not a valid url", async () => {
+    const res = await POST(makeRequest({ origin: "not-a-url" }));
     expect(res.status).toBe(400);
   });
 

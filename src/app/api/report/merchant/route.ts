@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { router } from "@/lib/router";
 import { db } from "@/lib/db";
 import { reports } from "@/lib/db/schema";
 import {
@@ -7,40 +8,52 @@ import {
 } from "@/lib/analytics/ranker";
 import { REPORT_COST_USDC } from "@/lib/config";
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const address = body.address;
-    const chain = body.chain ?? "base";
+const MerchantRequestSchema = z.object({
+  address: z
+    .string()
+    .min(32)
+    .max(48)
+    .describe("The payee address (EVM or Solana) of the merchant"),
+  chain: z
+    .enum(["base", "solana"])
+    .optional()
+    .default("base")
+    .describe("Blockchain network"),
+});
 
-    if (!address || typeof address !== "string") {
-      return NextResponse.json(
-        { error: "Missing required field: address (wallet address string)" },
-        { status: 400 },
-      );
-    }
-
-    const data = await getMerchantByAddress(address, chain);
+export const POST = router
+  .route({ path: "report/merchant" })
+  .paid(REPORT_COST_USDC)
+  .body(MerchantRequestSchema)
+  .description(
+    "Get a detailed merchant deep-dive by wallet address. Returns volume stats, buyer diversity, trend signals, and recommendations.",
+  )
+  .inputExample({
+    address: "0xe9030014f5dae217d0a152f02a043567b16c1abf",
+    chain: "base",
+  })
+  .handler(async ({ body, wallet }) => {
+    const data = await getMerchantByAddress(body.address, body.chain);
     if (!data) {
-      return NextResponse.json({
+      return {
         found: false,
         message: "Merchant not found. Try a different address.",
-      });
+      };
     }
 
     const report = await computeMerchantDeepDive(data);
 
     await db.insert(reports).values({
-      requesterWallet: body.wallet ?? "anonymous",
+      requesterWallet: wallet ?? "anonymous",
       reportType: "merchant",
-      inputParams: { address, chain },
+      inputParams: { address: body.address, chain: body.chain },
       costUsdc: REPORT_COST_USDC,
     });
 
-    return NextResponse.json({
+    return {
       found: true,
-      address,
-      chain,
+      address: body.address,
+      chain: body.chain,
       service_name: report.serviceName,
       category: report.category,
       rank: report.rank,
@@ -62,12 +75,5 @@ export async function POST(request: NextRequest) {
       },
       trends: report.trends,
       recommendations: report.recommendations,
-    });
-  } catch (error) {
-    console.error("Report merchant error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
-  }
-}
+    };
+  });

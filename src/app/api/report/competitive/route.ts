@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { router } from "@/lib/router";
 import { db } from "@/lib/db";
 import { reports } from "@/lib/db/schema";
 import {
@@ -7,39 +8,40 @@ import {
 } from "@/lib/analytics/ranker";
 import { REPORT_COST_USDC } from "@/lib/config";
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const origin = body.origin;
+const CompetitiveRequestSchema = z.object({
+  origin: z.string().url().describe("Your API origin URL"),
+});
 
-    if (!origin || typeof origin !== "string") {
-      return NextResponse.json(
-        { error: "Missing required field: origin (URL string)" },
-        { status: 400 },
-      );
-    }
-
-    const data = await getMerchantByOrigin(origin);
+export const POST = router
+  .route({ path: "report/competitive" })
+  .paid(REPORT_COST_USDC)
+  .body(CompetitiveRequestSchema)
+  .description(
+    "Get a detailed competitive analysis. Returns top 10 competitors in your category with gap analysis, pricing benchmarks, and recommendations.",
+  )
+  .inputExample({ origin: "https://mesh.heurist.xyz" })
+  .handler(async ({ body, wallet }) => {
+    const data = await getMerchantByOrigin(body.origin);
     if (!data) {
-      return NextResponse.json({
+      return {
         found: false,
         message:
           "Origin not found in index. Try the free /report/origin endpoint first.",
-      });
+      };
     }
 
     const report = await computeCompetitiveReport(data);
 
     await db.insert(reports).values({
-      requesterWallet: body.wallet ?? "anonymous",
+      requesterWallet: wallet ?? "anonymous",
       reportType: "competitive",
-      inputParams: { origin },
+      inputParams: { origin: body.origin },
       costUsdc: REPORT_COST_USDC,
     });
 
-    return NextResponse.json({
+    return {
       found: true,
-      origin,
+      origin: body.origin,
       category: report.category,
       your_rank: report.yourRank,
       total_competitors: report.totalCompetitors,
@@ -61,12 +63,5 @@ export async function POST(request: NextRequest) {
         percentile: report.pricePercentile,
       },
       recommendations: report.recommendations,
-    });
-  } catch (error) {
-    console.error("Report competitive error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
-  }
-}
+    };
+  });

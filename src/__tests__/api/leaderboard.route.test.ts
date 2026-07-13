@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { makeSelectChain } from "../fixtures/mock-chains";
+import { installRouterMock } from "../fixtures/mock-router";
 
 const mockSelect = vi.fn();
 const mockFindMany = vi.fn();
@@ -17,6 +18,8 @@ vi.mock("@/lib/db", () => ({
     }),
   },
 }));
+
+installRouterMock();
 
 import { GET } from "@/app/api/leaderboard/route";
 
@@ -60,6 +63,14 @@ describe("GET /api/leaderboard", () => {
     expect(body.leaderboard[0].score).toBe(0.8);
   });
 
+  it("uses default limit of 50 when omitted", async () => {
+    mockFindMany.mockResolvedValueOnce([]);
+    await GET(makeRequest());
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 50 }),
+    );
+  });
+
   it("respects category filter", async () => {
     selectResults = [[{ id: "cat-1" }]];
     mockFindMany.mockResolvedValueOnce([]);
@@ -69,20 +80,14 @@ describe("GET /api/leaderboard", () => {
     expect(body.category).toBe("api");
   });
 
-  it("clamps limit to 100 max", async () => {
-    mockFindMany.mockResolvedValueOnce([]);
-    await GET(makeRequest({ limit: "200" }));
-    expect(mockFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({ limit: 100 }),
-    );
+  it("rejects limit above 100 with 400", async () => {
+    const res = await GET(makeRequest({ limit: "200" }));
+    expect(res.status).toBe(400);
   });
 
-  it("falls back to 50 for limit=0 (falsy parseInt)", async () => {
-    mockFindMany.mockResolvedValueOnce([]);
-    await GET(makeRequest({ limit: "0" }));
-    expect(mockFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({ limit: 50 }),
-    );
+  it("rejects limit below 1 with 400", async () => {
+    const res = await GET(makeRequest({ limit: "0" }));
+    expect(res.status).toBe(400);
   });
 
   it("handles null scores in response", async () => {
