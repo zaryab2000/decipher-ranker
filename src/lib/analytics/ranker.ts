@@ -117,7 +117,7 @@ function computeListingQualityForResource(r: Resource): number {
 
   const tagCount = r.tags?.length ?? 0;
   if (tagCount >= 3 && tagCount <= 5) score += 0.3;
-  else if (tagCount > 5 || tagCount >= 1) score += 0.1;
+  else if (tagCount >= 1) score += 0.1;
 
   return Math.min(score / LISTING_QUALITY_MAX, 1);
 }
