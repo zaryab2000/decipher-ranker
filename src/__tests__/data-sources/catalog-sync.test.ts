@@ -149,6 +149,101 @@ describe("upsertCatalog", () => {
     expect(result.resourcesUpserted).toBe(1);
   });
 
+  it("persists schema-presence flags on resources", async () => {
+    const withSchemas = makeBazaarResource({
+      resource: "https://a.com",
+      accepts: [{ amount: "0.01", asset: "USDC", network: "base", payTo: "0xPayee", scheme: "exact" }],
+      extensions: {
+        bazaar: {
+          info: {
+            input: { type: "http", method: "POST" },
+            output: { type: "json", example: { ok: true } },
+          },
+        },
+      },
+    });
+
+    selectResults = [[{ id: "m-1", payeeAddress: "0xPayee" }]];
+
+    // Capture the row handed to the resources insert.
+    let insertedRow: Record<string, unknown> | undefined;
+    mockInsert.mockImplementation(() => {
+      const chain = makeInsertChain();
+      const originalValues = chain.values as (rows: unknown) => unknown;
+      chain.values = vi.fn((rows: unknown) => {
+        const arr = Array.isArray(rows) ? rows : [rows];
+        const candidate = arr[0] as Record<string, unknown>;
+        if (candidate && "resourceUrl" in candidate) insertedRow = candidate;
+        return originalValues(rows);
+      });
+      return chain;
+    });
+
+    await upsertCatalog([withSchemas]);
+    expect(insertedRow?.hasInputSchema).toBe(true);
+    expect(insertedRow?.hasOutputExample).toBe(true);
+  });
+
+  it("defaults schema-presence flags to false when absent", async () => {
+    const noSchemas = makeBazaarResource({
+      resource: "https://a.com",
+      extensions: undefined,
+      accepts: [{ amount: "0.01", asset: "USDC", network: "base", payTo: "0xPayee", scheme: "exact" }],
+    });
+
+    selectResults = [[{ id: "m-1", payeeAddress: "0xPayee" }]];
+
+    let insertedRow: Record<string, unknown> | undefined;
+    mockInsert.mockImplementation(() => {
+      const chain = makeInsertChain();
+      const originalValues = chain.values as (rows: unknown) => unknown;
+      chain.values = vi.fn((rows: unknown) => {
+        const arr = Array.isArray(rows) ? rows : [rows];
+        const candidate = arr[0] as Record<string, unknown>;
+        if (candidate && "resourceUrl" in candidate) insertedRow = candidate;
+        return originalValues(rows);
+      });
+      return chain;
+    });
+
+    await upsertCatalog([noSchemas]);
+    expect(insertedRow?.hasInputSchema).toBe(false);
+    expect(insertedRow?.hasOutputExample).toBe(false);
+  });
+
+  it("aggregates volume30d as calls × price per merchant", async () => {
+    const r1 = makeBazaarResource({
+      resource: "https://a.com",
+      quality: { l30DaysTotalCalls: 100, l30DaysUniquePayers: 3, lastCalledAt: "2024-06-01" },
+      accepts: [{ amount: "1000000", asset: "USDC", network: "base", payTo: "0xPayee", scheme: "exact" }],
+    });
+    const r2 = makeBazaarResource({
+      resource: "https://b.com",
+      quality: { l30DaysTotalCalls: 50, l30DaysUniquePayers: 2, lastCalledAt: "2024-06-01" },
+      accepts: [{ amount: "2000000", asset: "USDC", network: "base", payTo: "0xPayee", scheme: "exact" }],
+    });
+
+    selectResults = [[{ id: "m-1", payeeAddress: "0xPayee" }]];
+
+    let merchantRow: Record<string, unknown> | undefined;
+    mockInsert.mockImplementation(() => {
+      const chain = makeInsertChain();
+      const originalValues = chain.values as (rows: unknown) => unknown;
+      chain.values = vi.fn((rows: unknown) => {
+        const arr = Array.isArray(rows) ? rows : [rows];
+        const candidate = arr[0] as Record<string, unknown>;
+        if (candidate && "payeeAddress" in candidate) merchantRow = candidate;
+        return originalValues(rows);
+      });
+      return chain;
+    });
+
+    await upsertCatalog([r1, r2]);
+    // $1 amount is 1000000 atomic units (6 decimals) -> $1; $2 -> $2.
+    // 100×$1 + 50×$2 = $200.
+    expect(Number(merchantRow?.volume30d)).toBeCloseTo(200, 6);
+  });
+
   it("handles multiple payees creating multiple merchants", async () => {
     const r1 = makeBazaarResource({
       resource: "https://a.com",

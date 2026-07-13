@@ -8,6 +8,7 @@ import {
   integer,
   jsonb,
   date,
+  boolean,
   index,
   unique,
 } from "drizzle-orm/pg-core";
@@ -65,6 +66,8 @@ export const resources = pgTable(
     serviceName: text("service_name"),
     description: text("description"),
     tags: text("tags").array(),
+    hasInputSchema: boolean("has_input_schema").default(false),
+    hasOutputExample: boolean("has_output_example").default(false),
     toolCalls: integer("tool_calls").default(0),
     priceUsd: decimal("price_usd", { precision: 20, scale: 6 }),
     chain: text("chain"),
