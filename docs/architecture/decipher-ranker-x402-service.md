@@ -69,9 +69,11 @@ Paginated fetch from `https://api.cdp.coinbase.com/platform/v2/x402/discovery/re
 
 Groups Bazaar resources by `payTo` address → creates `merchants` rows. Extracts tags from all resources → creates `categories` rows (unique tag names). Inserts individual `resources` rows linked to merchants. All via chunked upserts (`INSERT_CHUNK_SIZE = 500`).
 
-**Two critical data transformations:**
+**Key data transformations:**
 1. **Atomic prices:** Bazaar amounts arrive in the asset's smallest units (USDC has 6 decimals: `"1000000000"` = $1000). `extractPriceUsd` divides by `10**decimals` and clamps to `[0, 1_000_000]`. Price DB columns are `DECIMAL(20,6)`.
 2. **NUL bytes:** Free-text Bazaar fields can contain `\u0000`, which Postgres text columns reject. `sanitizeText` strips them in `catalog-sync.ts`.
+3. **Dollar volume:** `volume30d` is computed per merchant as `Σ(calls × extractPriceUsd)` across all resources — Bazaar provides call counts but not USD volume.
+4. **Schema presence:** `has_input_schema` and `has_output_example` boolean flags are populated on each resource using `hasInputSchema()` and `hasSchemaExample()` helpers from `bazaar.ts`.
 
 ### Stage 3: `assignAllMerchantCategories` (`src/lib/analytics/categorizer.ts`)
 
@@ -79,7 +81,7 @@ Matches merchant resources' tags against known category names. Issues one batche
 
 ### Stage 4: `scoreAllMerchants` (`src/lib/analytics/ranker.ts`)
 
-Computes a `ranker_score` for every merchant (see formula below), then assigns `rank_position` within each category via a single windowed statement:
+Computes a `ranker_score` for every merchant using `RANKER_WEIGHTS` (see formula below), then assigns `rank_position` within each category via a single windowed statement:
 
 ```sql
 ROW_NUMBER() OVER (PARTITION BY category_id ORDER BY ranker_score DESC)
@@ -96,27 +98,27 @@ Unassigned merchants (no category) get a global rank. Both operations run as sin
 The core of the product:
 
 ```
-0.30·volumeSignal + 0.25·buyerDiversity + 0.15·reliability + 0.15·listingQuality + 0.15·recency
+0.40·volumeSignal + 0.25·buyerDiversity + 0.05·reliability + 0.15·listingQuality + 0.15·recency
 ```
 
-Result is rounded to 4 decimal places (`Math.round(score * 10000) / 10000`). Defined in `computeRankerScore` at `src/lib/analytics/ranker.ts:13`.
+Result is rounded to 4 decimal places (`Math.round(score * 10000) / 10000`). Defined in `computeRankerScore` at `src/lib/analytics/ranker.ts`. Component weights are exported as `RANKER_WEIGHTS` (must sum to 1.0, asserted in tests).
 
-### Component 1: Volume Signal (30%)
+### Component 1: Volume Signal (40%)
 
 ```typescript
-// src/lib/analytics/ranker.ts:16-18
+// src/lib/analytics/ranker.ts
 0.5 * logNorm(merchant.txCount30d ?? 0) +
 0.5 * logNorm(Number(merchant.volume30d ?? 0))
 ```
 
 `logNorm(value, cap=1_000_000)` maps value to `[0, 1]` via `log10(value + 1) / log10(cap)`. A merchant with 1M transactions or 1M in volume hits 1.0. Combining transaction count and dollar volume prevents cheap APIs with many $0 calls from dominating.
 
-**Source:** `txCount30d` and `volume30d` come from Bazaar's `l30DaysTotalCalls` summed across all resources belonging to a merchant.
+**Source:** `txCount30d` comes from Bazaar's `l30DaysTotalCalls` summed across all resources. `volume30d` is computed during catalog sync as `Σ(calls × price)` per merchant using `extractPriceUsd`, which handles USDC's 6-decimal atomic units.
 
 ### Component 2: Buyer Diversity (25%)
 
 ```typescript
-// src/lib/analytics/ranker.ts:20,57-59
+// src/lib/analytics/ranker.ts
 logNorm(merchant.buyers30d ?? 0, 10_000)
 ```
 
@@ -124,10 +126,10 @@ Measures unique wallet diversity. Capped at 10,000 (a service with 10k unique bu
 
 **Source:** `buyers30d` comes from Bazaar's `l30DaysUniquePayers` summed across merchant resources.
 
-### Component 3: Reliability (15%)
+### Component 3: Reliability (5%)
 
 ```typescript
-// src/lib/analytics/ranker.ts:69-78
+// src/lib/analytics/ranker.ts
 function computeReliability(merchantResources: Resource[]): number {
   const scores = merchantResources
     .map((r) => Number(r.reliabilityScore ?? r.apiSuccessRate ?? 0))
@@ -139,26 +141,43 @@ function computeReliability(merchantResources: Resource[]): number {
 
 Averages either `reliabilityScore` (x402scan-reported) or `apiSuccessRate` across all resources. Falls back to 0.5 for merchants with no reliability data — neutral, not punitive.
 
+**No external API provides reliability data.** Neither Bazaar nor x402scan exposes success rates, uptime, or latency. The weight is held at 5% as a placeholder — the slot stays wired so a real reliability source later is a one-line weight change.
+
 ### Component 4: Listing Quality (15%)
 
+Per-resource scoring separates always-available structural signals (schemas, description) from rare opt-in metadata (service name, tags):
+
 ```typescript
-// src/lib/analytics/ranker.ts:80-97
-// Per-resource scoring:
-let score = 0;
-if (description > 150 chars) score += 1.0;
-else if (description > 50 chars) score += 0.6;
-else if (description > 0 chars) score += 0.3;
-if (tags && tags.length > 0) score += 0.2;
-// Capped at 1.0: min(score / 1.2, 1)
-// Final: average across all resources
+// src/lib/analytics/ranker.ts
+const LISTING_QUALITY_MAX = 3.6;
+
+function computeListingQualityForResource(r: Resource): number {
+  let score = 0;
+  // Structural (max 2.8)
+  if (r.hasInputSchema) score += 1.0;
+  if (r.hasOutputExample) score += 1.0;
+  if (descLen > 150) score += 0.8;
+  else if (descLen > 50) score += 0.4;
+  // Opt-in (max 0.8)
+  if (r.serviceName) score += 0.5;
+  if (tagCount >= 3 && tagCount <= 5) score += 0.3;
+  else if (tagCount > 5 || tagCount >= 1) score += 0.1;
+  return Math.min(score / LISTING_QUALITY_MAX, 1);
+}
 ```
 
-Measures how well a merchant presents their API. Description length is the primary signal (150+ chars = full points); tags add a minor boost. Score per resource capped at 1.0.
+**Structural signals** (always present, differentiate documentation effort): input schema (+1.0), output example (+1.0), description length (>150 chars +0.8, >50 chars +0.4 — mutually exclusive).
+
+**Opt-in signals** (rare, reward extra effort): service name (+0.5), tags 3–5 (+0.3), any other tag count (+0.1 — diminishing returns to discourage spam).
+
+Normalized by 3.6 so a fully-documented merchant hits exactly 1.0. Score is averaged across all resources.
+
+**Database support:** `has_input_schema` and `has_output_example` boolean columns on the `resources` table, populated during catalog sync using `hasInputSchema()` and `hasSchemaExample()` helpers from `bazaar.ts`.
 
 ### Component 5: Recency (15%)
 
 ```typescript
-// src/lib/analytics/ranker.ts:99-117
+// src/lib/analytics/ranker.ts
 const daysSince = (now - mostRecent) / (1000 * 60 * 60 * 24);
 if (daysSince < 1)  return 1.0;   // Today
 if (daysSince < 7)  return 0.8;   // This week
@@ -173,10 +192,10 @@ Uses `max(lastCalledAt, lastUpdated)` across all resources. Penalizes stale list
 
 | Component | What it tells a merchant |
 |---|---|
-| Volume | "Get more transaction volume — traffic correlates with quality" |
+| Volume | "Get more transaction volume — both call count and dollar throughput matter" |
 | Buyer Diversity | "Diversify your customer base — reliance on few wallets hurts your ranking" |
-| Reliability | "Keep your API uptime high — failures are averaged across all your endpoints" |
-| Listing Quality | "Write detailed descriptions (150+ chars) and tag your resources — better listings rank higher" |
+| Reliability | "Keep your API uptime high — once a data source exists, this slot activates" |
+| Listing Quality | "Add input/output schemas and a good description — structural completeness beats verbosity" |
 | Recency | "Stay active — services unused for 90+ days get zero for this component" |
 
 ## Endpoint Reference
@@ -439,6 +458,8 @@ erDiagram
         text service_name
         text description
         text[] tags
+        boolean has_input_schema
+        boolean has_output_example
         int tool_calls
         decimal price_usd
         text chain
@@ -481,7 +502,7 @@ erDiagram
     }
 ```
 
-**Table purposes:** `merchants` (1 per payee, aggregates resources), `resources` (1 per Bazaar URL, raw listing data), `categories` (1 per unique tag, seeded in pipeline stage 2), `category_cache` (precomputed per-category aggregates for dashboard), `trends` (daily merchant snapshots for time-series), `reports` (audit log of every paid/SIWX request).
+**Table purposes:** `merchants` (1 per payee, aggregates resources), `resources` (1 per Bazaar URL, raw listing data + schema presence flags), `categories` (1 per unique tag, seeded in pipeline stage 2), `category_cache` (precomputed per-category aggregates for dashboard), `trends` (daily merchant snapshots for time-series), `reports` (audit log of every paid/SIWX request).
 
 ## Security Model
 
