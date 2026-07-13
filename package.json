@@ -1,0 +1,50 @@
+{
+  "name": "decipher-ranker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "x402 Merchant Intelligence Platform — rankings, competitive analysis, and actionable insights for the AgentCash/x402 ecosystem",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "seed": "tsx --env-file=.env.local scripts/seed-from-bazaar.ts",
+    "refresh": "tsx --env-file=.env.local scripts/refresh-catalog.ts"
+  },
+  "dependencies": {
+    "@agentcash/router": "latest",
+    "@neondatabase/serverless": "^0.10.0",
+    "@vercel/kv": "^3.0.0",
+    "@vercel/postgres": "^0.10.0",
+    "drizzle-orm": "^0.45.2",
+    "lucide-react": "^0.460.0",
+    "next": "^15.0.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "recharts": "^2.14.0",
+    "viem": "^2.0.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "^15.0.0",
+    "@tailwindcss/postcss": "^4.0.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^4.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.0.0"
+  }
+}
