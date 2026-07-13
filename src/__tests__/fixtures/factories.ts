@@ -50,6 +50,8 @@ export function makeResource(
     serviceName: "Test Service",
     description: "A".repeat(200),
     tags: ["api", "test"],
+    hasInputSchema: false,
+    hasOutputExample: false,
     toolCalls: 0,
     priceUsd: "0.01",
     chain: "base",

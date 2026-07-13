@@ -6,6 +6,8 @@ import {
   extractPayeeAddress,
   extractPriceUsd,
   extractChain,
+  hasInputSchema,
+  hasSchemaExample,
 } from "./bazaar";
 
 interface SyncResult {
@@ -103,6 +105,16 @@ async function upsertMerchants(
       (sum, r) => sum + (r.quality?.l30DaysUniquePayers ?? 0),
       0,
     ),
+    // Bazaar reports call counts but not USD volume. Estimate it as
+    // Σ(calls × price) across the merchant's resources — the ranker's volume
+    // signal weights dollar throughput equally with raw call count.
+    volume30d: payeeResources
+      .reduce((sum, r) => {
+        const calls = r.quality?.l30DaysTotalCalls ?? 0;
+        const price = extractPriceUsd(r) ?? 0;
+        return sum + calls * price;
+      }, 0)
+      .toString(),
     lastUpdated: new Date(),
   }));
 
@@ -117,6 +129,7 @@ async function upsertMerchants(
           chain: sql`excluded.chain`,
           txCount30d: sql`excluded.tx_count_30d`,
           buyers30d: sql`excluded.buyers_30d`,
+          volume30d: sql`excluded.volume_30d`,
           lastUpdated: sql`excluded.last_updated`,
         },
       });
@@ -158,6 +171,8 @@ async function upsertResources(
       tags: resource.tags
         ?.map((t) => sanitizeText(t))
         .filter((t): t is string => t !== null),
+      hasInputSchema: hasInputSchema(resource),
+      hasOutputExample: hasSchemaExample(resource),
       priceUsd: priceUsd?.toString(),
       chain,
       l30dCalls: resource.quality?.l30DaysTotalCalls,
@@ -181,6 +196,8 @@ async function upsertResources(
           serviceName: sql`excluded.service_name`,
           description: sql`excluded.description`,
           tags: sql`excluded.tags`,
+          hasInputSchema: sql`excluded.has_input_schema`,
+          hasOutputExample: sql`excluded.has_output_example`,
           priceUsd: sql`excluded.price_usd`,
           l30dCalls: sql`excluded.l30d_calls`,
           l30dUniquePayers: sql`excluded.l30d_unique_payers`,

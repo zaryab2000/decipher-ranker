@@ -15,6 +15,13 @@
       "when": 1783861243377,
       "tag": "0001_skinny_magdalene",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783946216948,
+      "tag": "0002_tricky_wildside",
+      "breakpoints": true
     }
   ]
 }

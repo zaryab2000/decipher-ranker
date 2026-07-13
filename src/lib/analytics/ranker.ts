@@ -10,6 +10,22 @@ export interface MerchantData {
   category: Category | null;
 }
 
+/**
+ * Component weights for the ranker score. Must sum to 1.0 (asserted in tests).
+ *
+ * Reliability is held at 0.05 as a placeholder: no external API exposes service
+ * health, so the component is a constant 0.5 for every merchant today. The slot
+ * stays wired so a real reliability source later is a one-line weight change.
+ * The freed 0.10 goes to volume, the strongest available differentiator.
+ */
+export const RANKER_WEIGHTS = {
+  volume: 0.4,
+  buyerDiversity: 0.25,
+  reliability: 0.05,
+  listingQuality: 0.15,
+  recency: 0.15,
+} as const;
+
 export function computeRankerScore(data: MerchantData): number {
   const { merchant, resources: merchantResources } = data;
 
@@ -26,11 +42,11 @@ export function computeRankerScore(data: MerchantData): number {
   const recency = computeRecency(merchantResources);
 
   const score =
-    0.3 * volumeSignal +
-    0.25 * buyerDiversity +
-    0.15 * reliability +
-    0.15 * listingQuality +
-    0.15 * recency;
+    RANKER_WEIGHTS.volume * volumeSignal +
+    RANKER_WEIGHTS.buyerDiversity * buyerDiversity +
+    RANKER_WEIGHTS.reliability * reliability +
+    RANKER_WEIGHTS.listingQuality * listingQuality +
+    RANKER_WEIGHTS.recency * recency;
 
   return Math.round(score * 10000) / 10000;
 }
@@ -77,20 +93,41 @@ function computeReliability(merchantResources: Resource[]): number {
   return scores.reduce((a, b) => a + b, 0) / scores.length;
 }
 
+// Listing-quality scoring separates always-available structural signals
+// (schemas, description) from rare opt-in metadata (service name, tags), so a
+// merchant is rewarded for documentation effort rather than for verbosity or
+// tag spam. Raw score is normalized by the theoretical max below.
+//
+//   Structural (max 2.8): input schema +1.0, output example +1.0,
+//                         description tier (exclusive) >150 +0.8 / >50 +0.4
+//   Opt-in    (max 0.8):  service name +0.5, tags 3-5 +0.3 / >5 or 1-2 +0.1
+const LISTING_QUALITY_MAX = 3.6;
+
+function computeListingQualityForResource(r: Resource): number {
+  let score = 0;
+
+  if (r.hasInputSchema) score += 1.0;
+  if (r.hasOutputExample) score += 1.0;
+
+  const descLen = r.description?.length ?? 0;
+  if (descLen > 150) score += 0.8;
+  else if (descLen > 50) score += 0.4;
+
+  if (r.serviceName && r.serviceName.length > 0) score += 0.5;
+
+  const tagCount = r.tags?.length ?? 0;
+  if (tagCount >= 3 && tagCount <= 5) score += 0.3;
+  else if (tagCount > 5 || tagCount >= 1) score += 0.1;
+
+  return Math.min(score / LISTING_QUALITY_MAX, 1);
+}
+
 function computeListingQualityFromResources(merchantResources: Resource[]): number {
   if (merchantResources.length === 0) return 0;
 
   let totalScore = 0;
   for (const r of merchantResources) {
-    let score = 0;
-    const descLen = r.description?.length ?? 0;
-    if (descLen > 150) score += 1.0;
-    else if (descLen > 50) score += 0.6;
-    else if (descLen > 0) score += 0.3;
-
-    if (r.tags && r.tags.length > 0) score += 0.2;
-
-    totalScore += Math.min(score / 1.2, 1);
+    totalScore += computeListingQualityForResource(r);
   }
 
   return totalScore / merchantResources.length;
