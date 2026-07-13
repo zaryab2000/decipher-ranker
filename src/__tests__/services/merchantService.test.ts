@@ -4,6 +4,7 @@ import { makeSelectChain } from "../fixtures/mock-chains";
 
 const mockSelect = vi.fn();
 const mockGetMerchantByOrigin = vi.fn();
+const mockGetMerchantData = vi.fn();
 const mockComputeScoreBreakdown = vi.fn();
 
 vi.mock("@/lib/db", () => ({
@@ -16,7 +17,7 @@ vi.mock("@/lib/analytics/ranker", () => ({
   getMerchantByOrigin: (...args: unknown[]) => mockGetMerchantByOrigin(...args),
   computeScoreBreakdown: (...args: unknown[]) => mockComputeScoreBreakdown(...args),
   getMerchantByAddress: vi.fn(),
-  getMerchantData: vi.fn(),
+  getMerchantData: (...args: unknown[]) => mockGetMerchantData(...args),
 }));
 
 import { searchMerchants, getMerchantProfile } from "@/lib/services/merchantService";
@@ -39,7 +40,7 @@ beforeEach(() => {
 
 describe("searchMerchants", () => {
   it("returns merchants matching by resource URL and address", async () => {
-    const merchant = makeMerchant();
+    const merchant = makeMerchant({ payeeAddress: "0xabc" });
     const resource = makeResource(merchant.id, { serviceName: "Test API" });
 
     selectResults = [
@@ -47,9 +48,16 @@ describe("searchMerchants", () => {
       [{ id: merchant.id }],
     ];
 
+    mockGetMerchantData.mockResolvedValueOnce({
+      merchant,
+      resources: [resource],
+      category: null,
+    });
+
     const result = await searchMerchants("test");
     expect(result.query).toBe("test");
-    expect(result.total).toBeGreaterThanOrEqual(0);
+    expect(result.total).toBe(1);
+    expect(result.merchants[0].serviceName).toBe("Test API");
   });
 
   it("returns empty array when no matches found", async () => {
@@ -61,7 +69,9 @@ describe("searchMerchants", () => {
   });
 
   it("deduplicates results by merchant ID", async () => {
-    const merchant = makeMerchant();
+    const merchant = makeMerchant({ payeeAddress: "0xabc" });
+    const resource = makeResource(merchant.id, { serviceName: "Test API" });
+
     selectResults = [
       [
         { merchantId: merchant.id, resourceUrl: "https://a.com", serviceName: "A" },
@@ -70,15 +80,38 @@ describe("searchMerchants", () => {
       [],
     ];
 
+    mockGetMerchantData.mockResolvedValueOnce({
+      merchant,
+      resources: [resource],
+      category: null,
+    });
+
     const result = await searchMerchants("test");
-    expect(result.merchants.length).toBeLessThanOrEqual(1);
+    expect(result.total).toBe(1);
   });
 
   it("respects limit parameter", async () => {
-    selectResults = [[], []];
+    const m1 = makeMerchant({ payeeAddress: "0xa" });
+    const m2 = makeMerchant({ payeeAddress: "0xb" });
+    const m3 = makeMerchant({ payeeAddress: "0xc" });
 
-    const result = await searchMerchants("test", 5);
-    expect(result.merchants.length).toBeLessThanOrEqual(5);
+    selectResults = [
+      [
+        { merchantId: m1.id, resourceUrl: "https://a.com", serviceName: "A" },
+        { merchantId: m2.id, resourceUrl: "https://b.com", serviceName: "B" },
+        { merchantId: m3.id, resourceUrl: "https://c.com", serviceName: "C" },
+      ],
+      [],
+    ];
+
+    mockGetMerchantData.mockResolvedValueOnce({
+      merchant: m1,
+      resources: [makeResource(m1.id, { serviceName: "A" })],
+      category: null,
+    });
+
+    const result = await searchMerchants("test", 1);
+    expect(result.total).toBe(1);
   });
 });
 

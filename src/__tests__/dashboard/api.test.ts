@@ -1,15 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { makeMerchant, makeResource, makeCategory, resetIdCounter } from "../fixtures/factories";
-import { makeSelectChain, makeInsertChain } from "../fixtures/mock-chains";
+import { makeMerchant, resetIdCounter } from "../fixtures/factories";
+import { makeSelectChain } from "../fixtures/mock-chains";
 
 const mockSelect = vi.fn();
-const mockInsert = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
     select: (...args: unknown[]) => mockSelect(...args),
-    query: { merchants: { findMany: vi.fn() }, categories: { findMany: vi.fn() } },
-    insert: (...args: unknown[]) => mockInsert(...args),
   },
 }));
 
@@ -37,8 +34,6 @@ beforeEach(() => {
     selectIndex++;
     return makeSelectChain(result);
   });
-
-  mockInsert.mockImplementation(() => makeInsertChain());
 });
 
 describe("getEcosystemStats", () => {

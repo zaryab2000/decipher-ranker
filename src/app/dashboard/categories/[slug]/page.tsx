@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getCategoryBySlug } from "@/dashboard/lib/api";
@@ -7,11 +8,13 @@ import { LeaderboardTable } from "@/dashboard/components/leaderboard/Leaderboard
 import { ScoreDistributionChart } from "@/dashboard/components/categories/ScoreDistributionChart";
 import { formatNumber, formatPrice } from "@/dashboard/lib/formatters";
 
+const getCachedCategory = cache(getCategoryBySlug);
+
 export async function generateMetadata(
   props: { params: Promise<{ slug: string }> },
 ): Promise<Metadata> {
   const { slug } = await props.params;
-  const category = await getCategoryBySlug(slug);
+  const category = await getCachedCategory(slug);
   if (!category) return { title: "Category not found — decipher-ranker" };
   const priceStr = category.medianPriceUsd != null
     ? `Median price: $${category.medianPriceUsd.toFixed(2)}`
@@ -32,7 +35,7 @@ export default async function CategoryDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const category = await getCategoryBySlug(slug);
+  const category = await getCachedCategory(slug);
 
   if (!category) {
     notFound();
