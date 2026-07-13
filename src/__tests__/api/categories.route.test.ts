@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
 import { makeSelectChain } from "../fixtures/mock-chains";
+import { installRouterMock } from "../fixtures/mock-router";
 
 const mockSelect = vi.fn();
 
@@ -8,6 +10,8 @@ vi.mock("@/lib/db", () => ({
     select: (...args: unknown[]) => mockSelect(...args),
   },
 }));
+
+installRouterMock();
 
 import { GET } from "@/app/api/categories/route";
 
@@ -26,6 +30,10 @@ beforeEach(() => {
   });
 });
 
+function makeRequest(): NextRequest {
+  return new NextRequest("http://localhost/api/categories");
+}
+
 describe("GET /api/categories", () => {
   it("returns categories sorted by merchantCount", async () => {
     // 1st select: categories. 2nd select: ranked merchants (windowed).
@@ -39,7 +47,7 @@ describe("GET /api/categories", () => {
       ],
     ];
 
-    const res = await GET();
+    const res = await GET(makeRequest());
     const body = await res.json();
     expect(body.total).toBe(2);
     expect(body.categories).toHaveLength(2);
@@ -51,7 +59,7 @@ describe("GET /api/categories", () => {
 
   it("returns empty when no categories", async () => {
     selectResults = [[], []];
-    const res = await GET();
+    const res = await GET(makeRequest());
     const body = await res.json();
     expect(body.total).toBe(0);
     expect(body.categories).toEqual([]);
@@ -70,7 +78,7 @@ describe("GET /api/categories", () => {
       ],
     ];
 
-    const res = await GET();
+    const res = await GET(makeRequest());
     const body = await res.json();
     expect(body.categories[0].top_merchants).toHaveLength(3);
     expect(body.categories[0].top_merchants[0].address).toBe("0xTop");

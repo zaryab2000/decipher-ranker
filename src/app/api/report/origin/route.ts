@@ -1,33 +1,38 @@
-import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { router } from "@/lib/router";
 import { getMerchantByOrigin, computeBasicReport } from "@/lib/analytics/ranker";
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const origin = body.origin;
+const OriginRequestSchema = z.object({
+  origin: z
+    .string()
+    .url()
+    .describe("The origin URL of the merchant (e.g. https://mesh.heurist.xyz)"),
+});
 
-    if (!origin || typeof origin !== "string") {
-      return NextResponse.json(
-        { error: "Missing required field: origin (URL string)" },
-        { status: 400 },
-      );
-    }
-
-    const data = await getMerchantByOrigin(origin);
+export const POST = router
+  .route({ path: "report/origin", method: "POST" })
+  .siwx()
+  .body(OriginRequestSchema)
+  .description(
+    "Get a free basic ranking report for your API origin. Returns category, competitor count, price position, and improvement tips.",
+  )
+  .inputExample({ origin: "https://mesh.heurist.xyz" })
+  .handler(async ({ body }) => {
+    const data = await getMerchantByOrigin(body.origin);
     if (!data) {
-      return NextResponse.json({
+      return {
         found: false,
-        origin,
+        origin: body.origin,
         message:
           "This origin is not yet indexed. It may take up to 24 hours after registration on x402scan to appear.",
-      });
+      };
     }
 
     const report = await computeBasicReport(data);
 
-    return NextResponse.json({
+    return {
       found: true,
-      origin,
+      origin: body.origin,
       category: report.category,
       rank_position: report.rankPosition,
       total_competitors: report.totalCompetitors,
@@ -36,12 +41,5 @@ export async function POST(request: NextRequest) {
       listing_completeness: report.listingCompleteness,
       tips: report.tips,
       last_updated: data.merchant.lastUpdated.toISOString(),
-    });
-  } catch (error) {
-    console.error("Report origin error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
-  }
-}
+    };
+  });

@@ -1,10 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { makeMerchant, makeResource, resetIdCounter } from "../fixtures/factories";
+import { installRouterMock } from "../fixtures/mock-router";
 
 const mockGetMerchantByAddress = vi.fn();
 const mockComputeMerchantDeepDive = vi.fn();
 const mockInsert = vi.fn();
+
+// Valid EVM address (42 chars) — within the schema's 32-48 length bound.
+const ADDR = "0xe9030014f5dae217d0a152f02a043567b16c1abf";
 
 vi.mock("@/lib/analytics/ranker", () => ({
   getMerchantByAddress: (...args: unknown[]) => mockGetMerchantByAddress(...args),
@@ -24,6 +28,8 @@ vi.mock("@/lib/db/schema", () => ({
 vi.mock("@/lib/config", () => ({
   REPORT_COST_USDC: "0.03",
 }));
+
+installRouterMock();
 
 import { POST } from "@/app/api/report/merchant/route";
 
@@ -51,14 +57,14 @@ describe("POST /api/report/merchant", () => {
     expect(res.status).toBe(400);
   });
 
-  it("returns 400 when address is not a string", async () => {
-    const res = await POST(makeRequest({ address: 123 }));
+  it("returns 400 when address is too short", async () => {
+    const res = await POST(makeRequest({ address: "0xTest" }));
     expect(res.status).toBe(400);
   });
 
   it("returns found=false when merchant not found", async () => {
     mockGetMerchantByAddress.mockResolvedValueOnce(null);
-    const res = await POST(makeRequest({ address: "0xUnknown" }));
+    const res = await POST(makeRequest({ address: ADDR }));
     const body = await res.json();
     expect(body.found).toBe(false);
   });
@@ -89,22 +95,28 @@ describe("POST /api/report/merchant", () => {
       recommendations: [],
     });
 
-    const res = await POST(makeRequest({ address: "0xTest" }));
+    const res = await POST(makeRequest({ address: ADDR }));
     const body = await res.json();
     expect(body.found).toBe(true);
     expect(body.service_name).toBe("Test");
     expect(mockInsert).toHaveBeenCalled();
   });
 
+  it("defaults chain to base and passes it through", async () => {
+    mockGetMerchantByAddress.mockResolvedValueOnce(null);
+    await POST(makeRequest({ address: ADDR }));
+    expect(mockGetMerchantByAddress).toHaveBeenCalledWith(ADDR, "base");
+  });
+
   it("passes custom chain param", async () => {
     mockGetMerchantByAddress.mockResolvedValueOnce(null);
-    await POST(makeRequest({ address: "0xTest", chain: "ethereum" }));
-    expect(mockGetMerchantByAddress).toHaveBeenCalledWith("0xTest", "ethereum");
+    await POST(makeRequest({ address: ADDR, chain: "solana" }));
+    expect(mockGetMerchantByAddress).toHaveBeenCalledWith(ADDR, "solana");
   });
 
   it("returns 500 on unexpected error", async () => {
     mockGetMerchantByAddress.mockRejectedValueOnce(new Error("DB error"));
-    const res = await POST(makeRequest({ address: "0xTest" }));
+    const res = await POST(makeRequest({ address: ADDR }));
     expect(res.status).toBe(500);
   });
 });
