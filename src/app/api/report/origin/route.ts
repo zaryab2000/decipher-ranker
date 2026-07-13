@@ -10,7 +10,7 @@ const OriginRequestSchema = z.object({
 });
 
 export const POST = router
-  .route({ path: "report/origin" })
+  .route({ path: "report/origin", method: "POST" })
   .siwx()
   .body(OriginRequestSchema)
   .description(

@@ -22,7 +22,7 @@ const MerchantRequestSchema = z.object({
 });
 
 export const POST = router
-  .route({ path: "report/merchant" })
+  .route({ path: "report/merchant", method: "POST" })
   .paid(REPORT_COST_USDC)
   .body(MerchantRequestSchema)
   .description(

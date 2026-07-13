@@ -13,7 +13,7 @@ const CompetitiveRequestSchema = z.object({
 });
 
 export const POST = router
-  .route({ path: "report/competitive" })
+  .route({ path: "report/competitive", method: "POST" })
   .paid(REPORT_COST_USDC)
   .body(CompetitiveRequestSchema)
   .description(
