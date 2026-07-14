@@ -22,6 +22,12 @@ vi.mock("@/lib/data-sources/x402scan", () => ({
   fetchMerchantStats: (...args: unknown[]) => mockFetchMerchantStats(...args),
 }));
 
+// Stub the AI analyst so the competitive report never makes a real LLM HTTP
+// call (which would hang past the test timeout when OPENCODE_API_KEY is set).
+vi.mock("@/lib/analytics/ai-analyst", () => ({
+  computeAIInsights: vi.fn(async () => null),
+}));
+
 import {
   getMerchantData,
   getMerchantByOrigin,
@@ -176,10 +182,8 @@ describe("getMerchantByAddress", () => {
     const resource = makeResource(merchant.id);
     setSelectResults([merchant], [merchant], [resource]);
 
-    const result = await getMerchantByAddress(
-      "0xABC0000000000000000000000000000000000000".slice(0, 5),
-      "base",
-    );
+    // Client sends the checksummed (mixed-case) form; lookup lowercases to match.
+    const result = await getMerchantByAddress("0xABC", "base");
     expect(result).not.toBeNull();
     expect(result!.merchant.payeeAddress).toBe("0xabc");
   });

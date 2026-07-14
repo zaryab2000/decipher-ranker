@@ -100,8 +100,9 @@ async function upsertMerchants(
 ): Promise<number> {
   const rows = [...merchantMap.entries()].map(([payee, payeeResources]) => ({
     payeeAddress: payee,
-    // Non-null: upsertCatalog only passes chain-normalizable (mainnet) resources.
-    chain: extractChain(payeeResources[0]) ?? "base",
+    // Non-null assertion: upsertCatalog filters to chain-normalizable (mainnet)
+    // resources before building merchantMap, so extractChain never returns null here.
+    chain: extractChain(payeeResources[0])!,
     facilitator: null,
     txCount30d: payeeResources.reduce(
       (sum, r) => sum + (r.quality?.l30DaysTotalCalls ?? 0),
