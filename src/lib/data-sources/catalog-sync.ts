@@ -6,6 +6,8 @@ import {
   extractPayeeAddress,
   extractPriceUsd,
   extractChain,
+  hasInputSchema,
+  hasSchemaExample,
 } from "./bazaar";
 
 interface SyncResult {
@@ -38,10 +40,15 @@ function sanitizeText(value: string | null | undefined): string | null {
 export async function upsertCatalog(
   bazaarResources: BazaarResource[],
 ): Promise<SyncResult> {
+  // Index mainnet EVM/Solana resources only. Testnets and unsupported chains
+  // normalize to a null chain (extractChain) and are dropped up front, so they
+  // never reach the merchant or resource writes.
+  const indexable = bazaarResources.filter((r) => extractChain(r) !== null);
+
   const merchantMap = new Map<string, BazaarResource[]>();
   const tagSet = new Set<string>();
 
-  for (const resource of bazaarResources) {
+  for (const resource of indexable) {
     const payee = extractPayeeAddress(resource);
     if (!payee) continue;
 
@@ -57,7 +64,7 @@ export async function upsertCatalog(
 
   const categoriesUpdated = await upsertCategories([...tagSet]);
   const merchantsUpserted = await upsertMerchants(merchantMap);
-  const resourcesUpserted = await upsertResources(bazaarResources);
+  const resourcesUpserted = await upsertResources(indexable);
 
   // Update category merchant counts (set-based, single statement)
   await db.execute(sql`
@@ -93,7 +100,9 @@ async function upsertMerchants(
 ): Promise<number> {
   const rows = [...merchantMap.entries()].map(([payee, payeeResources]) => ({
     payeeAddress: payee,
-    chain: extractChain(payeeResources[0]),
+    // Non-null assertion: upsertCatalog filters to chain-normalizable (mainnet)
+    // resources before building merchantMap, so extractChain never returns null here.
+    chain: extractChain(payeeResources[0])!,
     facilitator: null,
     txCount30d: payeeResources.reduce(
       (sum, r) => sum + (r.quality?.l30DaysTotalCalls ?? 0),
@@ -103,6 +112,16 @@ async function upsertMerchants(
       (sum, r) => sum + (r.quality?.l30DaysUniquePayers ?? 0),
       0,
     ),
+    // Bazaar reports call counts but not USD volume. Estimate it as
+    // Σ(calls × price) across the merchant's resources — the ranker's volume
+    // signal weights dollar throughput equally with raw call count.
+    volume30d: payeeResources
+      .reduce((sum, r) => {
+        const calls = r.quality?.l30DaysTotalCalls ?? 0;
+        const price = extractPriceUsd(r) ?? 0;
+        return sum + calls * price;
+      }, 0)
+      .toString(),
     lastUpdated: new Date(),
   }));
 
@@ -117,6 +136,7 @@ async function upsertMerchants(
           chain: sql`excluded.chain`,
           txCount30d: sql`excluded.tx_count_30d`,
           buyers30d: sql`excluded.buyers_30d`,
+          volume30d: sql`excluded.volume_30d`,
           lastUpdated: sql`excluded.last_updated`,
         },
       });
@@ -158,6 +178,8 @@ async function upsertResources(
       tags: resource.tags
         ?.map((t) => sanitizeText(t))
         .filter((t): t is string => t !== null),
+      hasInputSchema: hasInputSchema(resource),
+      hasOutputExample: hasSchemaExample(resource),
       priceUsd: priceUsd?.toString(),
       chain,
       l30dCalls: resource.quality?.l30DaysTotalCalls,
@@ -181,6 +203,8 @@ async function upsertResources(
           serviceName: sql`excluded.service_name`,
           description: sql`excluded.description`,
           tags: sql`excluded.tags`,
+          hasInputSchema: sql`excluded.has_input_schema`,
+          hasOutputExample: sql`excluded.has_output_example`,
           priceUsd: sql`excluded.price_usd`,
           l30dCalls: sql`excluded.l30d_calls`,
           l30dUniquePayers: sql`excluded.l30d_unique_payers`,

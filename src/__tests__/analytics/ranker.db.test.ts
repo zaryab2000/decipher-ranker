@@ -16,6 +16,18 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+const mockFetchMerchantStats = vi.fn();
+
+vi.mock("@/lib/data-sources/x402scan", () => ({
+  fetchMerchantStats: (...args: unknown[]) => mockFetchMerchantStats(...args),
+}));
+
+// Stub the AI analyst so the competitive report never makes a real LLM HTTP
+// call (which would hang past the test timeout when OPENCODE_API_KEY is set).
+vi.mock("@/lib/analytics/ai-analyst", () => ({
+  computeAIInsights: vi.fn(async () => null),
+}));
+
 import {
   getMerchantData,
   getMerchantByOrigin,
@@ -51,6 +63,9 @@ beforeEach(() => {
   mockUpdate.mockImplementation(() => makeUpdateChain());
   mockInsert.mockImplementation(() => makeInsertChain());
   mockExecute.mockResolvedValue(undefined);
+  // Default: x402scan unavailable — deep-dive falls back to nulls for all-time
+  // stats. Tests that assert real all-time figures set a resolved value.
+  mockFetchMerchantStats.mockResolvedValue(null);
 });
 
 describe("getMerchantData", () => {
@@ -99,7 +114,7 @@ describe("getMerchantByOrigin", () => {
     expect(result).toBeNull();
   });
 
-  it("finds merchant via resource URL", async () => {
+  it("finds merchant via exact resource URL", async () => {
     const merchant = makeMerchant({ categoryId: null });
     const resource = makeResource(merchant.id, {
       resourceUrl: "https://api.test.com/endpoint",
@@ -109,6 +124,36 @@ describe("getMerchantByOrigin", () => {
     const result = await getMerchantByOrigin("https://api.test.com/endpoint");
     expect(result).not.toBeNull();
     expect(result!.merchant.id).toBe(merchant.id);
+  });
+
+  it("falls back to host match when the domain-only origin has no exact row", async () => {
+    const merchant = makeMerchant({ categoryId: null });
+    const resource = makeResource(merchant.id, {
+      resourceUrl: "https://mesh.heurist.xyz/api/v1/tool",
+    });
+    // 1st select (exact) empty, 2nd select (host) hits, then getMerchantData.
+    setSelectResults([], [resource], [merchant], [resource]);
+
+    const result = await getMerchantByOrigin("https://mesh.heurist.xyz");
+    expect(result).not.toBeNull();
+    expect(result!.merchant.id).toBe(merchant.id);
+  });
+
+  it("accepts a bare host with no scheme", async () => {
+    const merchant = makeMerchant({ categoryId: null });
+    const resource = makeResource(merchant.id, {
+      resourceUrl: "https://mesh.heurist.xyz/api/v1/tool",
+    });
+    setSelectResults([], [resource], [merchant], [resource]);
+
+    const result = await getMerchantByOrigin("mesh.heurist.xyz");
+    expect(result).not.toBeNull();
+  });
+
+  it("returns null for an unparseable origin", async () => {
+    setSelectResults([]);
+    const result = await getMerchantByOrigin("://::not-a-url");
+    expect(result).toBeNull();
   });
 });
 
@@ -121,14 +166,35 @@ describe("getMerchantByAddress", () => {
 
   it("finds merchant by address and chain", async () => {
     const merchant = makeMerchant({
-      payeeAddress: "0xTest",
+      payeeAddress: "0xtest",
       chain: "base",
       categoryId: null,
     });
     const resource = makeResource(merchant.id);
     setSelectResults([merchant], [merchant], [resource]);
 
-    const result = await getMerchantByAddress("0xTest", "base");
+    const result = await getMerchantByAddress("0xtest", "base");
+    expect(result).not.toBeNull();
+  });
+
+  it("resolves a checksummed (mixed-case) address by lowercasing it", async () => {
+    const merchant = makeMerchant({ payeeAddress: "0xabc", chain: "base", categoryId: null });
+    const resource = makeResource(merchant.id);
+    setSelectResults([merchant], [merchant], [resource]);
+
+    // Client sends the checksummed (mixed-case) form; lookup lowercases to match.
+    const result = await getMerchantByAddress("0xABC", "base");
+    expect(result).not.toBeNull();
+    expect(result!.merchant.payeeAddress).toBe("0xabc");
+  });
+
+  it("resolves a CAIP-2 chain string by normalizing it to shorthand", async () => {
+    const merchant = makeMerchant({ payeeAddress: "0xabc", chain: "base", categoryId: null });
+    const resource = makeResource(merchant.id);
+    setSelectResults([merchant], [merchant], [resource]);
+
+    // Client passes the raw CAIP-2 form; the lookup normalizes to "base".
+    const result = await getMerchantByAddress("0xABC", "eip155:8453");
     expect(result).not.toBeNull();
   });
 });
@@ -224,6 +290,8 @@ describe("computeBasicReport", () => {
       tags: ["api", "ml"],
       serviceName: "Great Service",
       priceUsd: "0.01",
+      hasInputSchema: true,
+      hasOutputExample: true,
     });
     const data = { merchant, resources: [resource], category: null };
 
@@ -238,7 +306,7 @@ describe("computeCompetitiveReport", () => {
     const resource = makeResource(merchant.id);
     const data = { merchant, resources: [resource], category: null };
 
-    const report = await computeCompetitiveReport(data);
+    const report = await computeCompetitiveReport(data, "https://merchant.example.com");
     expect(report.category).toBeNull();
     expect(report.topCompetitors).toEqual([]);
     expect(report.totalCompetitors).toBe(0);
@@ -262,32 +330,87 @@ describe("computeCompetitiveReport", () => {
       resourceUrl: "https://comp.com/api",
     });
 
+    // Query order: category count, competitor merchants, competitor resources,
+    // then the category-wide per-merchant price aggregate.
     setSelectResults(
       [{ count: 5 }],
       [merchant, comp],
       [compResource],
+      [{ avgPrice: "0.02" }, { avgPrice: "0.04" }, { avgPrice: "0.06" }],
     );
 
-    const report = await computeCompetitiveReport(data);
+    const report = await computeCompetitiveReport(data, "https://merchant.example.com");
     expect(report.category).toBe("api");
     expect(report.totalCompetitors).toBe(5);
     expect(report.topCompetitors.length).toBeGreaterThan(0);
     expect(report.gapAnalysis).toBeDefined();
     expect(report.gapAnalysis.missingTags).toContain("ml");
+    // Median of [0.02, 0.04, 0.06] = 0.04, computed category-wide.
+    expect(report.medianPrice).toBeCloseTo(0.04, 6);
+    expect(report.minPrice).toBeCloseTo(0.02, 6);
+    expect(report.maxPrice).toBeCloseTo(0.06, 6);
+    // AI insights fall back to null when OPENCODE_API_KEY is unset (test env);
+    // the static report is returned regardless.
+    expect(report.aiInsights).toBeNull();
+  });
+
+  it("uses 30-day call counts (l30dCalls) for competitor toolCalls, not the dead toolCalls column", async () => {
+    const cat = makeCategory();
+    const merchant = makeMerchant({ id: "self", categoryId: cat.id, rankPosition: 1 });
+    const resource = makeResource(merchant.id);
+    const data = { merchant, resources: [resource], category: cat };
+
+    const comp = makeMerchant({ id: "comp-1", categoryId: cat.id, rankerScore: "0.8", rankPosition: 2, buyers30d: 7 });
+    const compResource = makeResource(comp.id, {
+      resourceUrl: "https://comp.com/api",
+      l30dCalls: 1234,
+      toolCalls: 0,
+    });
+
+    setSelectResults(
+      [{ count: 2 }],
+      [merchant, comp],
+      [compResource],
+      [{ avgPrice: "0.01" }],
+    );
+
+    const report = await computeCompetitiveReport(data, "https://merchant.example.com");
+    const entry = report.topCompetitors[0];
+    expect(entry.toolCalls).toBe(1234);
+    expect(entry.uniqueBuyers).toBe(7);
+    expect(entry.rank).toBe(2);
+  });
+
+  it("computes an even-length category median as the average of the two middle values", async () => {
+    const cat = makeCategory();
+    const merchant = makeMerchant({ id: "self", categoryId: cat.id, rankPosition: 1 });
+    const resource = makeResource(merchant.id, { priceUsd: "0.03" });
+    const data = { merchant, resources: [resource], category: cat };
+
+    // Only self in the competitor list → the competitor-resources query is
+    // skipped, so the pricing aggregate is the 3rd select, not the 4th.
+    setSelectResults(
+      [{ count: 4 }],
+      [merchant],
+      [{ avgPrice: "0.01" }, { avgPrice: "0.02" }, { avgPrice: "0.04" }, { avgPrice: "0.08" }],
+    );
+
+    const report = await computeCompetitiveReport(data, "https://merchant.example.com");
+    // median of [0.01, 0.02, 0.04, 0.08] = (0.02 + 0.04) / 2 = 0.03
+    expect(report.medianPrice).toBeCloseTo(0.03, 6);
+    // yourPrice 0.03; atOrBelow = {0.01,0.02} + ... yourPrice not in set → 2/4 = 50
+    expect(report.pricePercentile).toBe(50);
   });
 });
 
 describe("computeMerchantDeepDive", () => {
-  it("returns full deep dive report", async () => {
+  it("returns full deep dive report enriched from x402scan", async () => {
     const cat = makeCategory();
     const merchant = makeMerchant({
       categoryId: cat.id,
       rankPosition: 1,
-      txCount: 100,
-      totalAmountUsd: "500",
       volume30d: "200",
       txCount30d: 50,
-      uniqueBuyers: 20,
       buyers30d: 10,
     });
     const resource = makeResource(merchant.id, {
@@ -296,6 +419,19 @@ describe("computeMerchantDeepDive", () => {
     });
     const data = { merchant, resources: [resource], category: cat };
     const trend = makeTrend(merchant.id);
+
+    // All-time figures come from x402scan, not the Bazaar catalog.
+    mockFetchMerchantStats.mockResolvedValueOnce({
+      address: merchant.payeeAddress,
+      chain: "base",
+      totalTransactions: 100,
+      totalVolumeUsd: 500,
+      uniqueBuyers: 20,
+      uniqueSellers: 3,
+      volume30d: 200,
+      txCount30d: 50,
+      buyers30d: 10,
+    });
 
     setSelectResults(
       [trend],
@@ -311,9 +447,37 @@ describe("computeMerchantDeepDive", () => {
     expect(report.volume30d).toBe(200);
     expect(report.txCount30d).toBe(50);
     expect(report.totalUniqueBuyers).toBe(20);
+    expect(report.uniqueSellers).toBe(3);
     expect(report.uniqueBuyers30d).toBe(10);
+    expect(report.allTimeStatsAvailable).toBe(true);
     expect(report.trends).toHaveLength(1);
     expect(report.price).toBe(0.05);
+  });
+
+  it("returns null all-time stats and a flag when x402scan is unavailable", async () => {
+    const cat = makeCategory();
+    const merchant = makeMerchant({
+      categoryId: cat.id,
+      rankPosition: 1,
+      volume30d: "200",
+      txCount30d: 50,
+      buyers30d: 10,
+    });
+    const resource = makeResource(merchant.id, { priceUsd: "0.05" });
+    const data = { merchant, resources: [resource], category: cat };
+
+    mockFetchMerchantStats.mockResolvedValueOnce(null);
+    setSelectResults([makeTrend(merchant.id)], [{ count: 5 }]);
+
+    const report = await computeMerchantDeepDive(data);
+    expect(report.totalTxns).toBeNull();
+    expect(report.totalVolumeUsd).toBeNull();
+    expect(report.totalUniqueBuyers).toBeNull();
+    expect(report.allTimeStatsAvailable).toBe(false);
+    // 30-day figures still come from the catalog.
+    expect(report.volume30d).toBe(200);
+    expect(report.txCount30d).toBe(50);
+    expect(report.uniqueBuyers30d).toBe(10);
   });
 
   it("computes buyer concentration correctly", async () => {

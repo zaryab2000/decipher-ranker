@@ -1,6 +1,13 @@
 import { checkCache, setCache } from "@/lib/cache";
+import { payAndFetch } from "@/lib/data-sources/x402scan-client";
 
-const X402SCAN_BASE_URL = "https://x402scan.com/api/x402";
+// The apex domain 307-redirects to www; use www directly to avoid the hop.
+// x402scan's own API is x402-paid — stats and transactions are fetched via
+// outbound x402 micropayment through the client in x402scan-client.ts.
+// fetchMerchantStats returns null when the client is unconfigured or the
+// payment fails; deep-dive reports use allTimeStatsAvailable: false rather
+// than fabricating zeros.
+const X402SCAN_BASE_URL = "https://www.x402scan.com/api/x402";
 const CACHE_TTL_SECONDS = 3600;
 
 export interface X402MerchantStats {
@@ -32,20 +39,12 @@ export async function fetchMerchantStats(
   const cached = await checkCache<X402MerchantStats>(cacheKey);
   if (cached) return cached;
 
-  try {
-    const url = `${X402SCAN_BASE_URL}/merchants/${address}/stats?timeframe=30&chain=${chain}`;
-    const response = await fetch(url, {
-      headers: { "Content-Type": "application/json" },
-    });
+  const url = `${X402SCAN_BASE_URL}/merchants/${address}/stats?timeframe=30&chain=${chain}`;
+  const data = await payAndFetch<X402MerchantStats>(url);
+  if (!data) return null;
 
-    if (!response.ok) return null;
-
-    const data: X402MerchantStats = await response.json();
-    await setCache(cacheKey, data, CACHE_TTL_SECONDS);
-    return data;
-  } catch {
-    return null;
-  }
+  await setCache(cacheKey, data, CACHE_TTL_SECONDS);
+  return data;
 }
 
 export async function fetchMerchantTransactions(
@@ -57,18 +56,10 @@ export async function fetchMerchantTransactions(
   const cached = await checkCache<X402Transaction[]>(cacheKey);
   if (cached) return cached;
 
-  try {
-    const url = `${X402SCAN_BASE_URL}/merchants/${address}/transactions?page_size=${limit}&sort_by=amount&sort_order=desc&chain=${chain}`;
-    const response = await fetch(url, {
-      headers: { "Content-Type": "application/json" },
-    });
+  const url = `${X402SCAN_BASE_URL}/merchants/${address}/transactions?page_size=${limit}&sort_by=amount&sort_order=desc&chain=${chain}`;
+  const data = await payAndFetch<X402Transaction[]>(url);
+  if (!data) return [];
 
-    if (!response.ok) return [];
-
-    const data: X402Transaction[] = await response.json();
-    await setCache(cacheKey, data, CACHE_TTL_SECONDS);
-    return data;
-  } catch {
-    return [];
-  }
+  await setCache(cacheKey, data, CACHE_TTL_SECONDS);
+  return data;
 }

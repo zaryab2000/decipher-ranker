@@ -1,4 +1,6 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { getCategoryBySlug } from "@/dashboard/lib/api";
 import { Card } from "@/dashboard/components/shared/Card";
 import { ScoreBar } from "@/dashboard/components/shared/ScoreBar";
@@ -6,13 +8,34 @@ import { LeaderboardTable } from "@/dashboard/components/leaderboard/Leaderboard
 import { ScoreDistributionChart } from "@/dashboard/components/categories/ScoreDistributionChart";
 import { formatNumber, formatPrice } from "@/dashboard/lib/formatters";
 
+const getCachedCategory = cache(getCategoryBySlug);
+
+export async function generateMetadata(
+  props: { params: Promise<{ slug: string }> },
+): Promise<Metadata> {
+  const { slug } = await props.params;
+  const category = await getCachedCategory(slug);
+  if (!category) return { title: "Category not found — decipher-ranker" };
+  const priceStr = category.medianPriceUsd != null
+    ? `Median price: $${category.medianPriceUsd.toFixed(2)}`
+    : "";
+  return {
+    title: `${category.name} — decipher-ranker`,
+    description: `Top ${category.merchantCount} merchants in ${category.name}. ${priceStr}`.trim(),
+    openGraph: {
+      title: `${category.name} — decipher-ranker`,
+      description: `Merchant rankings for the ${category.name} category.`,
+    },
+  };
+}
+
 export default async function CategoryDetailPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const category = await getCategoryBySlug(slug);
+  const category = await getCachedCategory(slug);
 
   if (!category) {
     notFound();

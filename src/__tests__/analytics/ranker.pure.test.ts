@@ -4,7 +4,11 @@ vi.mock("@/lib/db", () => ({
   db: {},
 }));
 
-import { computeRankerScore, computeScoreBreakdown } from "@/lib/analytics/ranker";
+import {
+  computeRankerScore,
+  computeScoreBreakdown,
+  RANKER_WEIGHTS,
+} from "@/lib/analytics/ranker";
 import { makeMerchantData, resetIdCounter } from "../fixtures/factories";
 
 beforeEach(() => resetIdCounter());
@@ -140,7 +144,16 @@ describe("computeRankerScore", () => {
     });
   });
 
-  describe("listing quality (weight 0.15)", () => {
+  describe("listing quality (weight 0.15, structural signals, max divisor 3.6)", () => {
+    // Bare resource: no schemas, no serviceName, no tags, empty description.
+    const bare = {
+      hasInputSchema: false,
+      hasOutputExample: false,
+      serviceName: null,
+      description: "",
+      tags: [],
+    };
+
     it("returns 0 for no resources", () => {
       const data = makeMerchantData({ resources: [] });
       data.resources = [];
@@ -148,83 +161,106 @@ describe("computeRankerScore", () => {
       expect(breakdown.listingQuality).toBe(0);
     });
 
-    it("gives 0.3/1.2 for short description (1-50 chars)", () => {
-      const data = makeMerchantData({
-        resources: [{ description: "short", tags: [] }],
-      });
+    it("gives 0 for a fully-bare resource", () => {
+      const data = makeMerchantData({ resources: [{ ...bare }] });
       const breakdown = computeScoreBreakdown(data);
-      expect(breakdown.listingQuality).toBeCloseTo(0.3 / 1.2, 4);
+      expect(breakdown.listingQuality).toBe(0);
     });
 
-    it("gives 0.6/1.2 for medium description (51-150 chars)", () => {
+    it("scores input schema at 1.0/3.6", () => {
       const data = makeMerchantData({
-        resources: [{ description: "A".repeat(100), tags: [] }],
+        resources: [{ ...bare, hasInputSchema: true }],
       });
-      const breakdown = computeScoreBreakdown(data);
-      expect(breakdown.listingQuality).toBeCloseTo(0.6 / 1.2, 4);
+      expect(computeScoreBreakdown(data).listingQuality).toBeCloseTo(1.0 / 3.6, 4);
     });
 
-    it("gives 1.0/1.2 for long description (>150 chars)", () => {
+    it("scores output example at 1.0/3.6", () => {
       const data = makeMerchantData({
-        resources: [{ description: "A".repeat(200), tags: [] }],
+        resources: [{ ...bare, hasOutputExample: true }],
       });
-      const breakdown = computeScoreBreakdown(data);
-      expect(breakdown.listingQuality).toBeCloseTo(1.0 / 1.2, 4);
+      expect(computeScoreBreakdown(data).listingQuality).toBeCloseTo(1.0 / 3.6, 4);
     });
 
-    it("adds 0.2 tag bonus when tags exist", () => {
-      const noTags = makeMerchantData({
-        resources: [{ description: "A".repeat(200), tags: [] }],
+    it("uses mutually-exclusive description tiers (>150 => 0.8, >50 => 0.4)", () => {
+      const long = makeMerchantData({
+        resources: [{ ...bare, description: "A".repeat(200) }],
       });
-      const withTags = makeMerchantData({
-        resources: [{ description: "A".repeat(200), tags: ["api"] }],
+      const medium = makeMerchantData({
+        resources: [{ ...bare, description: "A".repeat(100) }],
       });
-      const bNoTags = computeScoreBreakdown(noTags);
-      const bWithTags = computeScoreBreakdown(withTags);
-      expect(bWithTags.listingQuality).toBeGreaterThan(bNoTags.listingQuality);
+      const short = makeMerchantData({
+        resources: [{ ...bare, description: "short" }],
+      });
+      expect(computeScoreBreakdown(long).listingQuality).toBeCloseTo(0.8 / 3.6, 4);
+      expect(computeScoreBreakdown(medium).listingQuality).toBeCloseTo(0.4 / 3.6, 4);
+      // <=50 chars scores nothing on description.
+      expect(computeScoreBreakdown(short).listingQuality).toBe(0);
     });
 
-    it("caps individual resource score at 1.0 (via /1.2 normalization)", () => {
+    it("scores service name at 0.5/3.6", () => {
       const data = makeMerchantData({
-        resources: [{ description: "A".repeat(200), tags: ["api", "test"] }],
+        resources: [{ ...bare, serviceName: "My API" }],
       });
-      const breakdown = computeScoreBreakdown(data);
-      expect(breakdown.listingQuality).toBeLessThanOrEqual(1.0);
+      expect(computeScoreBreakdown(data).listingQuality).toBeCloseTo(0.5 / 3.6, 4);
+    });
+
+    it("rewards 3-5 tags more than tag spam (>5) or a lone tag", () => {
+      const fourTags = makeMerchantData({
+        resources: [{ ...bare, tags: ["a", "b", "c", "d"] }],
+      });
+      const manyTags = makeMerchantData({
+        resources: [{ ...bare, tags: ["a", "b", "c", "d", "e", "f", "g"] }],
+      });
+      const oneTag = makeMerchantData({ resources: [{ ...bare, tags: ["a"] }] });
+      expect(computeScoreBreakdown(fourTags).listingQuality).toBeCloseTo(0.3 / 3.6, 4);
+      expect(computeScoreBreakdown(manyTags).listingQuality).toBeCloseTo(0.1 / 3.6, 4);
+      expect(computeScoreBreakdown(oneTag).listingQuality).toBeCloseTo(0.1 / 3.6, 4);
+    });
+
+    it("caps a maxed-out resource at 1.0", () => {
+      const data = makeMerchantData({
+        resources: [
+          {
+            hasInputSchema: true,
+            hasOutputExample: true,
+            description: "A".repeat(200),
+            serviceName: "My API",
+            tags: ["a", "b", "c", "d"],
+          },
+        ],
+      });
+      // Raw 1.0+1.0+0.8+0.5+0.3 = 3.6 => exactly 1.0.
+      expect(computeScoreBreakdown(data).listingQuality).toBeCloseTo(1.0, 4);
+    });
+
+    it("rewards documentation effort over verbosity", () => {
+      // Schemas + short description beats a long description with nothing else.
+      const documented = makeMerchantData({
+        resources: [
+          { ...bare, hasInputSchema: true, hasOutputExample: true, description: "short" },
+        ],
+      });
+      const verbose = makeMerchantData({
+        resources: [{ ...bare, description: "A".repeat(500) }],
+      });
+      expect(computeScoreBreakdown(documented).listingQuality).toBeGreaterThan(
+        computeScoreBreakdown(verbose).listingQuality,
+      );
     });
 
     it("averages across multiple resources", () => {
-      const data = makeMerchantData({
-        resources: [
-          { description: "A".repeat(200), tags: ["api"] },
-          { description: "", tags: [] },
-        ],
-      });
-      const breakdown = computeScoreBreakdown(data);
-      const singleGood = makeMerchantData({
-        resources: [{ description: "A".repeat(200), tags: ["api"] }],
-      });
-      const singleBad = makeMerchantData({
-        resources: [{ description: "", tags: [] }],
-      });
-      const bGood = computeScoreBreakdown(singleGood).listingQuality;
-      const bBad = computeScoreBreakdown(singleBad).listingQuality;
-      expect(breakdown.listingQuality).toBeCloseTo((bGood + bBad) / 2, 4);
-    });
-
-    it("gives 0 for empty description with no tags", () => {
-      const data = makeMerchantData({
-        resources: [{ description: "", tags: [] }],
-      });
-      const breakdown = computeScoreBreakdown(data);
-      expect(breakdown.listingQuality).toBe(0);
-    });
-
-    it("gives 0 for null description with no tags", () => {
-      const data = makeMerchantData({
-        resources: [{ description: null, tags: [] }],
-      });
-      const breakdown = computeScoreBreakdown(data);
-      expect(breakdown.listingQuality).toBe(0);
+      const good = { hasInputSchema: true, hasOutputExample: true, description: "A".repeat(200), serviceName: "X", tags: ["a", "b", "c"] };
+      const data = makeMerchantData({ resources: [{ ...good }, { ...bare }] });
+      const singleGood = computeScoreBreakdown(
+        makeMerchantData({ resources: [{ ...good }] }),
+      ).listingQuality;
+      const singleBad = computeScoreBreakdown(
+        makeMerchantData({ resources: [{ ...bare }] }),
+      ).listingQuality;
+      expect(computeScoreBreakdown(data).listingQuality).toBeCloseTo(
+        (singleGood + singleBad) / 2,
+        4,
+      );
     });
   });
 
@@ -317,7 +353,25 @@ describe("computeRankerScore", () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
 
-    it("uses correct weights: 0.30/0.25/0.15/0.15/0.15", () => {
+    it("weights sum to exactly 1.0", () => {
+      const sum =
+        RANKER_WEIGHTS.volume +
+        RANKER_WEIGHTS.buyerDiversity +
+        RANKER_WEIGHTS.reliability +
+        RANKER_WEIGHTS.listingQuality +
+        RANKER_WEIGHTS.recency;
+      expect(sum).toBeCloseTo(1.0, 10);
+    });
+
+    it("uses correct weights: 0.40/0.25/0.05/0.15/0.15", () => {
+      expect(RANKER_WEIGHTS.volume).toBe(0.4);
+      expect(RANKER_WEIGHTS.buyerDiversity).toBe(0.25);
+      expect(RANKER_WEIGHTS.reliability).toBe(0.05);
+      expect(RANKER_WEIGHTS.listingQuality).toBe(0.15);
+      expect(RANKER_WEIGHTS.recency).toBe(0.15);
+    });
+
+    it("combines components using RANKER_WEIGHTS", () => {
       vi.setSystemTime(new Date("2024-06-15T12:00:00Z"));
       const data = makeMerchantData({
         merchant: { txCount30d: 100, volume30d: "100", buyers30d: 50 },
@@ -325,6 +379,7 @@ describe("computeRankerScore", () => {
           {
             description: "A".repeat(200),
             tags: ["api"],
+            hasInputSchema: true,
             reliabilityScore: "0.95",
             lastCalledAt: new Date("2024-06-15T06:00:00Z"),
           },
@@ -332,11 +387,11 @@ describe("computeRankerScore", () => {
       });
       const breakdown = computeScoreBreakdown(data);
       const expected =
-        0.3 * breakdown.volumeSignal +
-        0.25 * breakdown.buyerDiversity +
-        0.15 * breakdown.reliability +
-        0.15 * breakdown.listingQuality +
-        0.15 * breakdown.recency;
+        RANKER_WEIGHTS.volume * breakdown.volumeSignal +
+        RANKER_WEIGHTS.buyerDiversity * breakdown.buyerDiversity +
+        RANKER_WEIGHTS.reliability * breakdown.reliability +
+        RANKER_WEIGHTS.listingQuality * breakdown.listingQuality +
+        RANKER_WEIGHTS.recency * breakdown.recency;
       const score = computeRankerScore(data);
       expect(score).toBeCloseTo(Math.round(expected * 10000) / 10000, 4);
     });

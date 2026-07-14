@@ -15,10 +15,10 @@ const MerchantRequestSchema = z.object({
     .max(48)
     .describe("The payee address (EVM or Solana) of the merchant"),
   chain: z
-    .enum(["base", "solana"])
+    .enum(["base", "solana", "polygon"])
     .optional()
     .default("base")
-    .describe("Blockchain network"),
+    .describe("Blockchain network (mainnet only)"),
 });
 
 export const POST = router
@@ -57,6 +57,7 @@ export const POST = router
       service_name: report.serviceName,
       category: report.category,
       rank: report.rank,
+      all_time_stats_available: report.allTimeStatsAvailable,
       volume: {
         total_transactions: report.totalTxns,
         total_volume_usd: report.totalVolumeUsd,
@@ -66,7 +67,9 @@ export const POST = router
       buyers: {
         total_unique: report.totalUniqueBuyers,
         unique_30d: report.uniqueBuyers30d,
+        unique_sellers: report.uniqueSellers,
         concentration: report.buyerConcentration,
+        concentration_is_estimate: report.buyerConcentrationIsEstimate,
         diversity_score: report.diversityScore,
       },
       pricing: {

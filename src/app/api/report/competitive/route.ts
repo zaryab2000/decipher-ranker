@@ -30,7 +30,7 @@ export const POST = router
       };
     }
 
-    const report = await computeCompetitiveReport(data);
+    const report = await computeCompetitiveReport(data, body.origin);
 
     await db.insert(reports).values({
       requesterWallet: wallet ?? "anonymous",
@@ -63,5 +63,13 @@ export const POST = router
         percentile: report.pricePercentile,
       },
       recommendations: report.recommendations,
+      ai_insights: report.aiInsights
+        ? {
+            summary: report.aiInsights.summary,
+            top_action: report.aiInsights.topAction,
+            insights: report.aiInsights.insights,
+            model: report.aiInsights.model,
+          }
+        : null,
     };
   });
