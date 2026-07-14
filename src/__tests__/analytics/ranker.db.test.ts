@@ -328,6 +328,9 @@ describe("computeCompetitiveReport", () => {
     expect(report.medianPrice).toBeCloseTo(0.04, 6);
     expect(report.minPrice).toBeCloseTo(0.02, 6);
     expect(report.maxPrice).toBeCloseTo(0.06, 6);
+    // AI insights fall back to null when OPENCODE_API_KEY is unset (test env);
+    // the static report is returned regardless.
+    expect(report.aiInsights).toBeNull();
   });
 
   it("uses 30-day call counts (l30dCalls) for competitor toolCalls, not the dead toolCalls column", async () => {

@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { merchants, resources, categories, trends } from "@/lib/db/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 import type { Merchant, Resource, Category } from "@/lib/types";
-import type { ScoreBreakdown, BasicReport, GapAnalysis, PricingBenchmark, CompetitorEntry } from "@/lib/types";
+import type { ScoreBreakdown, BasicReport, GapAnalysis, PricingBenchmark, CompetitorEntry, AIInsights } from "@/lib/types";
 import { fetchMerchantStats } from "@/lib/data-sources/x402scan";
 
 export interface MerchantData {
@@ -401,6 +401,7 @@ export async function computeCompetitiveReport(data: MerchantData): Promise<{
   maxPrice: number | null;
   pricePercentile: number | null;
   recommendations: string[];
+  aiInsights: AIInsights | null;
 }> {
   const categoryName = data.category?.name ?? null;
 
@@ -485,6 +486,24 @@ export async function computeCompetitiveReport(data: MerchantData): Promise<{
     pricing,
   );
 
+  // LLM post-processor: additive, never blocking. Returns null on any failure,
+  // in which case the merchant still gets the full static report above.
+  const { computeAIInsights } = await import("./ai-analyst");
+  const aiInsights = await computeAIInsights({
+    serviceName: data.resources[0]?.serviceName ?? null,
+    category: categoryName,
+    descriptions: data.resources
+      .map((r) => r.description)
+      .filter((d): d is string => !!d),
+    tags: [...new Set(data.resources.flatMap((r) => r.tags ?? []))],
+    price: pricing.yourPrice,
+    rank: data.merchant.rankPosition,
+    totalCompetitors,
+    competitors: topCompetitors,
+    gapAnalysis,
+    pricing,
+  });
+
   return {
     category: categoryName,
     yourRank: data.merchant.rankPosition,
@@ -493,6 +512,7 @@ export async function computeCompetitiveReport(data: MerchantData): Promise<{
     gapAnalysis,
     ...pricing,
     recommendations,
+    aiInsights,
   };
 }
 

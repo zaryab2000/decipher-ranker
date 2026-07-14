@@ -91,6 +91,13 @@ export interface GapAnalysis {
   competitorCount: number;
 }
 
+export interface AIInsights {
+  summary: string | null;
+  topAction: string | null;
+  insights: string[];
+  model: string;
+}
+
 export interface PricingBenchmark {
   yourPrice: number | null;
   medianPrice: number | null;
