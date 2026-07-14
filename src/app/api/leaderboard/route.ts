@@ -3,6 +3,7 @@ import { router } from "@/lib/router";
 import { db } from "@/lib/db";
 import { merchants, categories } from "@/lib/db/schema";
 import { desc, eq } from "drizzle-orm";
+import { withRateLimit } from "@/lib/rate-limit";
 
 const LeaderboardQuerySchema = z.object({
   category: z
@@ -19,7 +20,7 @@ const LeaderboardQuerySchema = z.object({
     .describe("Number of merchants to return (1-100)"),
 });
 
-export const GET = router
+const handler = router
   .route({ path: "leaderboard", method: "GET" })
   .unprotected()
   .query(LeaderboardQuerySchema)
@@ -68,3 +69,6 @@ export const GET = router
       })),
     };
   });
+
+// Light open-data endpoint — a more generous limit than the report routes.
+export const GET = withRateLimit(handler, { limit: 30 });

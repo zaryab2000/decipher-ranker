@@ -2,8 +2,9 @@ import { router } from "@/lib/router";
 import { db } from "@/lib/db";
 import { categories, merchants } from "@/lib/db/schema";
 import { desc, sql } from "drizzle-orm";
+import { withRateLimit } from "@/lib/rate-limit";
 
-export const GET = router
+const handler = router
   .route({ path: "categories", method: "GET" })
   .unprotected()
   .description(
@@ -52,3 +53,6 @@ export const GET = router
 
     return { categories: transformed, total: transformed.length };
   });
+
+// Light open-data endpoint — a more generous limit than the report routes.
+export const GET = withRateLimit(handler, { limit: 30 });
