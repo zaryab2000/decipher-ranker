@@ -4,6 +4,7 @@ import { eq, desc, sql, and } from "drizzle-orm";
 import type { Merchant, Resource, Category } from "@/lib/types";
 import type { ScoreBreakdown, BasicReport, GapAnalysis, PricingBenchmark, CompetitorEntry, AIInsights } from "@/lib/types";
 import { fetchMerchantStats } from "@/lib/data-sources/x402scan";
+import { computeAIInsights } from "@/lib/analytics/ai-analyst";
 
 export interface MerchantData {
   merchant: Merchant;
@@ -488,7 +489,6 @@ export async function computeCompetitiveReport(data: MerchantData): Promise<{
 
   // LLM post-processor: additive, never blocking. Returns null on any failure,
   // in which case the merchant still gets the full static report above.
-  const { computeAIInsights } = await import("./ai-analyst");
   const aiInsights = await computeAIInsights({
     serviceName: data.resources[0]?.serviceName ?? null,
     category: categoryName,

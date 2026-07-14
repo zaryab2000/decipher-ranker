@@ -2,11 +2,11 @@ import { checkCache, setCache } from "@/lib/cache";
 import { payAndFetch } from "@/lib/data-sources/x402scan-client";
 
 // The apex domain 307-redirects to www; use www directly to avoid the hop.
-// NOTE: x402scan's own API is x402-paid — these endpoints currently return 402
-// to an unauthenticated fetch. Populating all-time stats end-to-end requires an
-// outbound x402 payment client (AgentCash wallet); until that is wired,
-// fetchMerchantStats returns null and the deep-dive reports
-// allTimeStatsAvailable: false rather than fabricating zeros.
+// x402scan's own API is x402-paid — stats and transactions are fetched via
+// outbound x402 micropayment through the client in x402scan-client.ts.
+// fetchMerchantStats returns null when the client is unconfigured or the
+// payment fails; deep-dive reports use allTimeStatsAvailable: false rather
+// than fabricating zeros.
 const X402SCAN_BASE_URL = "https://www.x402scan.com/api/x402";
 const CACHE_TTL_SECONDS = 3600;
 

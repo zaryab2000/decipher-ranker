@@ -303,12 +303,6 @@ describe("computeCompetitiveReport", () => {
       resourceUrl: "https://comp.com/api",
     });
 
-    setSelectResults(
-      [{ count: 5 }],
-      [merchant, comp],
-      [compResource],
-    );
-
     // Query order: category count, competitor merchants, competitor resources,
     // then the category-wide per-merchant price aggregate.
     setSelectResults(

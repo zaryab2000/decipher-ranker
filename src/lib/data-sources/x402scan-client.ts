@@ -98,7 +98,8 @@ export async function payAndFetch<T>(url: string): Promise<T | null> {
     if (!paid.ok) return null;
 
     return (await paid.json()) as T;
-  } catch {
+  } catch (error) {
+    console.error("x402scan payAndFetch failed:", error);
     return null;
   }
 }
