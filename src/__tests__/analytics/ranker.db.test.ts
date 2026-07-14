@@ -160,14 +160,37 @@ describe("getMerchantByAddress", () => {
 
   it("finds merchant by address and chain", async () => {
     const merchant = makeMerchant({
-      payeeAddress: "0xTest",
+      payeeAddress: "0xtest",
       chain: "base",
       categoryId: null,
     });
     const resource = makeResource(merchant.id);
     setSelectResults([merchant], [merchant], [resource]);
 
-    const result = await getMerchantByAddress("0xTest", "base");
+    const result = await getMerchantByAddress("0xtest", "base");
+    expect(result).not.toBeNull();
+  });
+
+  it("resolves a checksummed (mixed-case) address by lowercasing it", async () => {
+    const merchant = makeMerchant({ payeeAddress: "0xabc", chain: "base", categoryId: null });
+    const resource = makeResource(merchant.id);
+    setSelectResults([merchant], [merchant], [resource]);
+
+    const result = await getMerchantByAddress(
+      "0xABC0000000000000000000000000000000000000".slice(0, 5),
+      "base",
+    );
+    expect(result).not.toBeNull();
+    expect(result!.merchant.payeeAddress).toBe("0xabc");
+  });
+
+  it("resolves a CAIP-2 chain string by normalizing it to shorthand", async () => {
+    const merchant = makeMerchant({ payeeAddress: "0xabc", chain: "base", categoryId: null });
+    const resource = makeResource(merchant.id);
+    setSelectResults([merchant], [merchant], [resource]);
+
+    // Client passes the raw CAIP-2 form; the lookup normalizes to "base".
+    const result = await getMerchantByAddress("0xABC", "eip155:8453");
     expect(result).not.toBeNull();
   });
 });

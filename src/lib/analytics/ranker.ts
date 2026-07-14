@@ -5,6 +5,7 @@ import type { Merchant, Resource, Category } from "@/lib/types";
 import type { ScoreBreakdown, BasicReport, GapAnalysis, PricingBenchmark, CompetitorEntry, AIInsights } from "@/lib/types";
 import { fetchMerchantStats } from "@/lib/data-sources/x402scan";
 import { computeAIInsights } from "@/lib/analytics/ai-analyst";
+import { normalizeChain } from "@/lib/data-sources/bazaar";
 
 export interface MerchantData {
   merchant: Merchant;
@@ -238,11 +239,22 @@ export async function getMerchantByAddress(
   address: string,
   chain: string = "base",
 ): Promise<MerchantData | null> {
+  // Normalize to match how the catalog stores merchants: EVM addresses lowercased,
+  // chain reduced to a canonical mainnet shorthand. Without this, checksummed
+  // input or a CAIP-2 chain string silently misses.
+  const normalizedAddress = address.startsWith("0x")
+    ? address.toLowerCase()
+    : address;
+  const normalizedChain = normalizeChain(chain) ?? chain;
+
   const [merchant] = await db
     .select()
     .from(merchants)
     .where(
-      and(eq(merchants.payeeAddress, address), eq(merchants.chain, chain)),
+      and(
+        eq(merchants.payeeAddress, normalizedAddress),
+        eq(merchants.chain, normalizedChain),
+      ),
     )
     .limit(1);
 

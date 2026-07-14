@@ -15,10 +15,10 @@ const MerchantRequestSchema = z.object({
     .max(48)
     .describe("The payee address (EVM or Solana) of the merchant"),
   chain: z
-    .enum(["base", "solana"])
+    .enum(["base", "solana", "polygon"])
     .optional()
     .default("base")
-    .describe("Blockchain network"),
+    .describe("Blockchain network (mainnet only)"),
 });
 
 export const POST = router
