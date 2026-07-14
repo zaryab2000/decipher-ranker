@@ -1,33 +1,26 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockCheckCache = vi.fn();
 const mockSetCache = vi.fn();
+const mockPayAndFetch = vi.fn();
 
 vi.mock("@/lib/cache", () => ({
   checkCache: (...args: unknown[]) => mockCheckCache(...args),
   setCache: (...args: unknown[]) => mockSetCache(...args),
 }));
 
+vi.mock("@/lib/data-sources/x402scan-client", () => ({
+  payAndFetch: (...args: unknown[]) => mockPayAndFetch(...args),
+}));
+
 import { fetchMerchantStats, fetchMerchantTransactions } from "@/lib/data-sources/x402scan";
 import type { X402MerchantStats, X402Transaction } from "@/lib/data-sources/x402scan";
 
 beforeEach(() => {
-  vi.stubGlobal("fetch", vi.fn());
   vi.clearAllMocks();
   mockCheckCache.mockResolvedValue(null);
   mockSetCache.mockResolvedValue(undefined);
 });
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
-
-function mockFetchResponse(body: unknown, ok = true) {
-  return Promise.resolve({
-    ok,
-    json: () => Promise.resolve(body),
-  });
-}
 
 describe("fetchMerchantStats", () => {
   const mockStats: X402MerchantStats = {
@@ -42,28 +35,25 @@ describe("fetchMerchantStats", () => {
     buyers30d: 10,
   };
 
-  it("returns cached data when available", async () => {
+  it("returns cached data when available without paying", async () => {
     mockCheckCache.mockResolvedValueOnce(mockStats);
     const result = await fetchMerchantStats("0xTest", "base");
     expect(result).toEqual(mockStats);
-    expect(fetch).not.toHaveBeenCalled();
+    expect(mockPayAndFetch).not.toHaveBeenCalled();
   });
 
-  it("fetches from API when cache miss", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-      mockFetchResponse(mockStats),
-    );
-
+  it("pays x402scan on cache miss and returns the stats", async () => {
+    mockPayAndFetch.mockResolvedValueOnce(mockStats);
     const result = await fetchMerchantStats("0xTest", "base");
     expect(result).toEqual(mockStats);
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(mockPayAndFetch).toHaveBeenCalledTimes(1);
+    const url = mockPayAndFetch.mock.calls[0][0] as string;
+    expect(url).toContain("/merchants/0xTest/stats");
+    expect(url).toContain("chain=base");
   });
 
-  it("sets cache after successful fetch", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-      mockFetchResponse(mockStats),
-    );
-
+  it("sets cache after a successful paid fetch", async () => {
+    mockPayAndFetch.mockResolvedValueOnce(mockStats);
     await fetchMerchantStats("0xTest", "base");
     expect(mockSetCache).toHaveBeenCalledWith(
       "x402scan:stats:0xTest:base",
@@ -72,39 +62,24 @@ describe("fetchMerchantStats", () => {
     );
   });
 
-  it("returns null when API returns non-OK response", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-      mockFetchResponse(null, false),
-    );
-
+  it("returns null and does not cache when payAndFetch returns null", async () => {
+    mockPayAndFetch.mockResolvedValueOnce(null);
     const result = await fetchMerchantStats("0xTest", "base");
     expect(result).toBeNull();
+    expect(mockSetCache).not.toHaveBeenCalled();
   });
 
-  it("returns null when fetch throws", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("Network error"));
-
-    const result = await fetchMerchantStats("0xTest", "base");
-    expect(result).toBeNull();
-  });
-
-  it("uses correct cache key", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-      mockFetchResponse(mockStats),
-    );
-
+  it("uses the correct cache key", async () => {
+    mockPayAndFetch.mockResolvedValueOnce(mockStats);
     await fetchMerchantStats("0xABC", "ethereum");
     expect(mockCheckCache).toHaveBeenCalledWith("x402scan:stats:0xABC:ethereum");
   });
 
   it("defaults chain to base", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-      mockFetchResponse(mockStats),
-    );
-
+    mockPayAndFetch.mockResolvedValueOnce(mockStats);
     await fetchMerchantStats("0xTest");
     expect(mockCheckCache).toHaveBeenCalledWith("x402scan:stats:0xTest:base");
-    const url = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    const url = mockPayAndFetch.mock.calls[0][0] as string;
     expect(url).toContain("chain=base");
   });
 });
@@ -114,56 +89,36 @@ describe("fetchMerchantTransactions", () => {
     { hash: "0x1", from: "0xA", to: "0xB", amountUsd: 10, timestamp: "2024-06-01", chain: "base" },
   ];
 
-  it("returns cached data when available", async () => {
+  it("returns cached data when available without paying", async () => {
     mockCheckCache.mockResolvedValueOnce(mockTxns);
     const result = await fetchMerchantTransactions("0xTest", "base", 5);
     expect(result).toEqual(mockTxns);
-    expect(fetch).not.toHaveBeenCalled();
+    expect(mockPayAndFetch).not.toHaveBeenCalled();
   });
 
-  it("fetches from API when cache miss", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-      mockFetchResponse(mockTxns),
-    );
-
+  it("pays x402scan on cache miss and returns the txns", async () => {
+    mockPayAndFetch.mockResolvedValueOnce(mockTxns);
     const result = await fetchMerchantTransactions("0xTest", "base", 5);
     expect(result).toEqual(mockTxns);
   });
 
-  it("returns empty array on API error", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-      mockFetchResponse(null, false),
-    );
-
+  it("returns empty array when payAndFetch returns null", async () => {
+    mockPayAndFetch.mockResolvedValueOnce(null);
     const result = await fetchMerchantTransactions("0xTest", "base", 5);
     expect(result).toEqual([]);
-  });
-
-  it("returns empty array when fetch throws", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("Network error"));
-
-    const result = await fetchMerchantTransactions("0xTest", "base", 5);
-    expect(result).toEqual([]);
+    expect(mockSetCache).not.toHaveBeenCalled();
   });
 
   it("includes limit in cache key", async () => {
-    (fetch as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-      mockFetchResponse(mockTxns),
-    );
-
+    mockPayAndFetch.mockResolvedValueOnce(mockTxns);
     await fetchMerchantTransactions("0xTest", "base", 10);
     expect(mockCheckCache).toHaveBeenCalledWith("x402scan:txns:0xTest:base:10");
   });
 
   it("uses different cache keys for different limits", async () => {
-    mockCheckCache.mockResolvedValue(null);
-    (fetch as ReturnType<typeof vi.fn>)
-      .mockReturnValueOnce(mockFetchResponse(mockTxns))
-      .mockReturnValueOnce(mockFetchResponse(mockTxns));
-
+    mockPayAndFetch.mockResolvedValue(mockTxns);
     await fetchMerchantTransactions("0xTest", "base", 5);
     await fetchMerchantTransactions("0xTest", "base", 10);
-
     expect(mockCheckCache).toHaveBeenCalledWith("x402scan:txns:0xTest:base:5");
     expect(mockCheckCache).toHaveBeenCalledWith("x402scan:txns:0xTest:base:10");
   });

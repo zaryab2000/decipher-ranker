@@ -77,7 +77,7 @@ export interface BasicReport {
 
 export interface CompetitorEntry {
   origin: string;
-  rank: number;
+  rank: number | null;
   score: number;
   price: number | null;
   uniqueBuyers: number;
