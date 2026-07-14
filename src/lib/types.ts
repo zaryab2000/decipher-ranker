@@ -77,7 +77,7 @@ export interface BasicReport {
 
 export interface CompetitorEntry {
   origin: string;
-  rank: number;
+  rank: number | null;
   score: number;
   price: number | null;
   uniqueBuyers: number;
@@ -89,6 +89,13 @@ export interface GapAnalysis {
   missingTags: string[];
   missingKeywords: string[];
   competitorCount: number;
+}
+
+export interface AIInsights {
+  summary: string | null;
+  topAction: string | null;
+  insights: string[];
+  model: string;
 }
 
 export interface PricingBenchmark {

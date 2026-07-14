@@ -2,7 +2,9 @@ import { db } from "@/lib/db";
 import { merchants, resources, categories, trends } from "@/lib/db/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 import type { Merchant, Resource, Category } from "@/lib/types";
-import type { ScoreBreakdown, BasicReport, GapAnalysis, PricingBenchmark, CompetitorEntry } from "@/lib/types";
+import type { ScoreBreakdown, BasicReport, GapAnalysis, PricingBenchmark, CompetitorEntry, AIInsights } from "@/lib/types";
+import { fetchMerchantStats } from "@/lib/data-sources/x402scan";
+import { computeAIInsights } from "@/lib/analytics/ai-analyst";
 
 export interface MerchantData {
   merchant: Merchant;
@@ -181,14 +183,55 @@ export async function getMerchantData(merchantId: string): Promise<MerchantData 
 }
 
 export async function getMerchantByOrigin(origin: string): Promise<MerchantData | null> {
-  const [resource] = await db
+  // Merchants naturally pass their origin/base URL (e.g. https://mesh.heurist.xyz)
+  // but a resource_url is a full endpoint path (https://mesh.heurist.xyz/api/tool).
+  // Try an exact match first, then fall back to matching any resource whose URL
+  // shares the same host, so a domain-only input resolves.
+  const [exact] = await db
     .select()
     .from(resources)
     .where(eq(resources.resourceUrl, origin))
     .limit(1);
 
-  if (!resource) return null;
-  return getMerchantData(resource.merchantId);
+  if (exact) return getMerchantData(exact.merchantId);
+
+  const host = extractHost(origin);
+  if (!host) return null;
+
+  // Match https://host, http://host, and any path under that host. The pattern
+  // is anchored to the scheme+host boundary so "foo.com" cannot match
+  // "notfoo.com" or "foo.com.evil.com".
+  const [byHost] = await db
+    .select()
+    .from(resources)
+    .where(
+      sql`${resources.resourceUrl} ~ ${`^https?://${escapeRegex(host)}(/|$|:)`}`,
+    )
+    .orderBy(resources.resourceUrl)
+    .limit(1);
+
+  if (!byHost) return null;
+  return getMerchantData(byHost.merchantId);
+}
+
+/** Extract the lowercased host from a URL or bare host string; null if unusable. */
+function extractHost(input: string): string | null {
+  const trimmed = input.trim();
+  try {
+    return new URL(trimmed).host.toLowerCase();
+  } catch {
+    // Bare host without a scheme (e.g. "mesh.heurist.xyz").
+    try {
+      return new URL(`https://${trimmed}`).host.toLowerCase();
+    } catch {
+      return null;
+    }
+  }
+}
+
+/** Escape regex metacharacters so a host is matched literally. */
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export async function getMerchantByAddress(
@@ -277,13 +320,18 @@ function computeDescriptionQuality(merchantResources: Resource[]): number {
 function computeListingCompleteness(merchantResources: Resource[]): number {
   if (merchantResources.length === 0) return 0;
 
+  // Weighted toward the structural signals that drive the ranker's listing-quality
+  // score (input schema, output example) over opt-in metadata, so the free
+  // report's completeness advice matches what actually affects a merchant's rank.
   let total = 0;
   for (const r of merchantResources) {
     let score = 0;
-    if (r.description && r.description.length > 0) score += 25;
-    if (r.serviceName) score += 25;
-    if (r.tags && r.tags.length > 0) score += 25;
-    if (r.priceUsd) score += 25;
+    if (r.hasInputSchema) score += 25;
+    if (r.hasOutputExample) score += 20;
+    if (r.description && r.description.length > 50) score += 20;
+    if (r.priceUsd) score += 15;
+    if (r.serviceName) score += 10;
+    if (r.tags && r.tags.length > 0) score += 10;
     total += score;
   }
 
@@ -303,6 +351,15 @@ function generateTips(
     );
   }
 
+  const missingSchema = data.resources.some(
+    (r) => !r.hasInputSchema || !r.hasOutputExample,
+  );
+  if (missingSchema) {
+    tips.push(
+      "Publish input schemas and output examples for every endpoint — structured documentation is the strongest listing-quality signal.",
+    );
+  }
+
   const hasTaggedResources = data.resources.some(
     (r) => r.tags && r.tags.length > 0,
   );
@@ -314,7 +371,7 @@ function generateTips(
 
   if (listingCompleteness < 75) {
     tips.push(
-      "Complete your listings — add service names, descriptions, and pricing to all resources.",
+      "Complete your listings — add a service name, a 50+ character description, and pricing to every resource.",
     );
   }
 
@@ -345,6 +402,7 @@ export async function computeCompetitiveReport(data: MerchantData): Promise<{
   maxPrice: number | null;
   pricePercentile: number | null;
   recommendations: string[];
+  aiInsights: AIInsights | null;
 }> {
   const categoryName = data.category?.name ?? null;
 
@@ -393,17 +451,23 @@ export async function computeCompetitiveReport(data: MerchantData): Promise<{
     }
   }
 
-  const topCompetitors: CompetitorEntry[] = competitors.slice(0, 10).map((c, i) => {
+  const topCompetitors: CompetitorEntry[] = competitors.slice(0, 10).map((c) => {
     const firstResource = c.resources[0];
     return {
       origin: firstResource?.resourceUrl ?? c.merchant.payeeAddress,
-      rank: c.merchant.rankPosition ?? i + 1,
+      // rankPosition is assigned to every categorized merchant by scoreAllMerchants;
+      // null only for uncategorized rows, which never appear in a category query.
+      rank: c.merchant.rankPosition,
       score: Number(c.merchant.rankerScore ?? 0),
       price: c.resources.length > 0
         ? Number(c.resources[0].priceUsd ?? 0) || null
         : null,
-      uniqueBuyers: c.merchant.uniqueBuyers ?? 0,
-      toolCalls: c.resources.reduce((sum, r) => sum + (r.toolCalls ?? 0), 0),
+      // 30-day unique payers (Bazaar) — the buyer signal that is actually
+      // populated; all-time uniqueBuyers is not synced into the catalog.
+      uniqueBuyers: c.merchant.buyers30d ?? 0,
+      // 30-day total calls (Bazaar `l30dCalls`) — the real activity signal.
+      // The legacy `toolCalls` column is never populated and was always 0.
+      toolCalls: c.resources.reduce((sum, r) => sum + (r.l30dCalls ?? 0), 0),
       descriptionLength: c.resources.reduce(
         (sum, r) => sum + (r.description?.length ?? 0),
         0,
@@ -414,7 +478,7 @@ export async function computeCompetitiveReport(data: MerchantData): Promise<{
   const { computeGapAnalysis } = await import("./comparator");
   const gapAnalysis = computeGapAnalysis(data, competitors);
 
-  const pricing = await computePricingBenchmark(data, competitors);
+  const pricing = await computePricingBenchmark(data);
 
   const recommendations = generateCompetitiveRecommendations(
     data,
@@ -422,6 +486,23 @@ export async function computeCompetitiveReport(data: MerchantData): Promise<{
     gapAnalysis,
     pricing,
   );
+
+  // LLM post-processor: additive, never blocking. Returns null on any failure,
+  // in which case the merchant still gets the full static report above.
+  const aiInsights = await computeAIInsights({
+    serviceName: data.resources[0]?.serviceName ?? null,
+    category: categoryName,
+    descriptions: data.resources
+      .map((r) => r.description)
+      .filter((d): d is string => !!d),
+    tags: [...new Set(data.resources.flatMap((r) => r.tags ?? []))],
+    price: pricing.yourPrice,
+    rank: data.merchant.rankPosition,
+    totalCompetitors,
+    competitors: topCompetitors,
+    gapAnalysis,
+    pricing,
+  });
 
   return {
     category: categoryName,
@@ -431,12 +512,12 @@ export async function computeCompetitiveReport(data: MerchantData): Promise<{
     gapAnalysis,
     ...pricing,
     recommendations,
+    aiInsights,
   };
 }
 
 async function computePricingBenchmark(
   data: MerchantData,
-  competitors: MerchantData[],
 ): Promise<PricingBenchmark> {
   const yourPrices = data.resources
     .map((r) => Number(r.priceUsd ?? 0))
@@ -445,36 +526,55 @@ async function computePricingBenchmark(
     ? yourPrices.reduce((a, b) => a + b, 0) / yourPrices.length
     : null;
 
-  const allPrices: number[] = [];
-  for (const c of competitors) {
-    for (const r of c.resources) {
-      const p = Number(r.priceUsd ?? 0);
-      if (p > 0) allPrices.push(p);
-    }
+  if (!data.category) {
+    return { yourPrice, medianPrice: null, minPrice: null, maxPrice: null, pricePercentile: null };
   }
 
-  if (allPrices.length === 0) {
-    return {
-      yourPrice,
-      medianPrice: null,
-      minPrice: null,
-      maxPrice: null,
-      pricePercentile: null,
-    };
+  // Category-wide benchmark: one average price per merchant (so a multi-resource
+  // merchant counts once, not once per endpoint), across every merchant in the
+  // category — not just the top-10 competitors shown in the report.
+  const rows = await db
+    .select({ avgPrice: sql<string>`avg(${resources.priceUsd})` })
+    .from(resources)
+    .innerJoin(merchants, eq(resources.merchantId, merchants.id))
+    .where(
+      and(
+        eq(merchants.categoryId, data.category.id),
+        sql`${resources.priceUsd} > 0`,
+      ),
+    )
+    .groupBy(merchants.id);
+
+  const prices = rows
+    .map((r) => Number(r.avgPrice))
+    .filter((p) => p > 0)
+    .sort((a, b) => a - b);
+
+  if (prices.length === 0) {
+    return { yourPrice, medianPrice: null, minPrice: null, maxPrice: null, pricePercentile: null };
   }
 
-  allPrices.sort((a, b) => a - b);
-  const medianPrice = allPrices[Math.floor(allPrices.length / 2)];
-  const minPrice = allPrices[0];
-  const maxPrice = allPrices[allPrices.length - 1];
+  const medianPrice = median(prices);
+  const minPrice = prices[0];
+  const maxPrice = prices[prices.length - 1];
 
+  // Inclusive percentile: fraction of the category priced at or below you, so the
+  // most expensive merchant reaches 100 and equal-priced peers count as "at".
   let pricePercentile: number | null = null;
   if (yourPrice !== null) {
-    const belowCount = allPrices.filter((p) => p < yourPrice).length;
-    pricePercentile = Math.round((belowCount / allPrices.length) * 100);
+    const atOrBelow = prices.filter((p) => p <= yourPrice).length;
+    pricePercentile = Math.round((atOrBelow / prices.length) * 100);
   }
 
   return { yourPrice, medianPrice, minPrice, maxPrice, pricePercentile };
+}
+
+/** True median: average of the two middle values for even-length arrays. Input must be sorted ascending. */
+function median(sorted: number[]): number {
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[mid - 1] + sorted[mid]) / 2
+    : sorted[mid];
 }
 
 function generateCompetitiveRecommendations(
@@ -535,14 +635,17 @@ export async function computeMerchantDeepDive(data: MerchantData): Promise<{
   serviceName: string | null;
   category: string | null;
   rank: number | null;
-  totalTxns: number;
-  totalVolumeUsd: number;
+  totalTxns: number | null;
+  totalVolumeUsd: number | null;
   volume30d: number;
   txCount30d: number;
-  totalUniqueBuyers: number;
+  totalUniqueBuyers: number | null;
   uniqueBuyers30d: number;
+  uniqueSellers: number | null;
   buyerConcentration: number;
+  buyerConcentrationIsEstimate: boolean;
   diversityScore: number;
+  allTimeStatsAvailable: boolean;
   price: number | null;
   priceVsCategory: string;
   trends: Array<{ date: string; rank: number | null; score: number | null }>;
@@ -567,21 +670,40 @@ export async function computeMerchantDeepDive(data: MerchantData): Promise<{
     ? prices.reduce((a, b) => a + b, 0) / prices.length
     : null;
 
+  // All-time volume/buyers are not in the Bazaar catalog (it only reports 30-day
+  // activity). Enrich them at request time from x402scan, which is cache-first
+  // (1hr TTL). When x402scan is unreachable we return nulls + a flag rather than
+  // presenting stored zeros as real lifetime figures.
+  const stats = await fetchMerchantStats(
+    data.merchant.payeeAddress,
+    data.merchant.chain,
+  );
+
+  const txCount30d = stats?.txCount30d ?? data.merchant.txCount30d ?? 0;
+  const uniqueBuyers30d = stats?.buyers30d ?? data.merchant.buyers30d ?? 0;
+
+  const deepDiveRecommendations = generateDeepDiveRecommendations(
+    data,
+    basic.tips,
+  );
+
   return {
     serviceName: firstResource?.serviceName ?? null,
     category: data.category?.name ?? null,
     rank: data.merchant.rankPosition,
-    totalTxns: data.merchant.txCount ?? 0,
-    totalVolumeUsd: Number(data.merchant.totalAmountUsd ?? 0),
-    volume30d: Number(data.merchant.volume30d ?? 0),
-    txCount30d: data.merchant.txCount30d ?? 0,
-    totalUniqueBuyers: data.merchant.uniqueBuyers ?? 0,
-    uniqueBuyers30d: data.merchant.buyers30d ?? 0,
-    buyerConcentration: computeBuyerConcentration(
-      data.merchant.buyers30d ?? 0,
-      data.merchant.txCount30d ?? 0,
-    ),
-    diversityScore: Math.round(computeBuyerDiversity(data.merchant.buyers30d ?? 0) * 100),
+    totalTxns: stats?.totalTransactions ?? null,
+    totalVolumeUsd: stats?.totalVolumeUsd ?? null,
+    volume30d: stats?.volume30d ?? Number(data.merchant.volume30d ?? 0),
+    txCount30d,
+    totalUniqueBuyers: stats?.uniqueBuyers ?? null,
+    uniqueBuyers30d,
+    uniqueSellers: stats?.uniqueSellers ?? null,
+    buyerConcentration: computeBuyerConcentration(uniqueBuyers30d, txCount30d),
+    // Concentration is derived from buyer/tx counts under a uniform-distribution
+    // assumption, not measured per-buyer — flag it as an estimate.
+    buyerConcentrationIsEstimate: true,
+    diversityScore: Math.round(computeBuyerDiversity(uniqueBuyers30d) * 100),
+    allTimeStatsAvailable: stats !== null,
     price: avgPrice,
     priceVsCategory: pricePos,
     trends: merchantTrends.map((t) => ({
@@ -589,8 +711,35 @@ export async function computeMerchantDeepDive(data: MerchantData): Promise<{
       rank: t.rankPosition,
       score: t.rankerScore ? Number(t.rankerScore) : null,
     })),
-    recommendations: basic.tips,
+    recommendations: deepDiveRecommendations,
   };
+}
+
+/**
+ * Deep-dive advice: the free-tier tips plus paid-only observations derived from
+ * trend direction and category standing, so the paid report is not a verbatim
+ * copy of the free /report/origin tips.
+ */
+function generateDeepDiveRecommendations(
+  data: MerchantData,
+  baseTips: string[],
+): string[] {
+  const recs = [...baseTips];
+
+  const rank = data.merchant.rankPosition;
+  if (rank !== null && data.category) {
+    if (rank <= 3) {
+      recs.push(
+        "You rank in the top 3 of your category — defend the position by keeping listings and pricing current.",
+      );
+    } else if (rank > 10) {
+      recs.push(
+        "You rank outside the category top 10 — the fastest lever is buyer diversity and 30-day call volume.",
+      );
+    }
+  }
+
+  return recs.slice(0, 5);
 }
 
 export async function scoreAllMerchants(): Promise<number> {

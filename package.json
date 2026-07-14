@@ -23,6 +23,8 @@
     "@neondatabase/serverless": "^0.10.0",
     "@vercel/kv": "^3.0.0",
     "@vercel/postgres": "^0.10.0",
+    "@x402/core": "^2.17.0",
+    "@x402/evm": "^2.17.0",
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^0.460.0",
     "next": "^15.0.0",
