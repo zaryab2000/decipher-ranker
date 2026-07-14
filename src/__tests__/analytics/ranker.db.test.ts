@@ -302,7 +302,7 @@ describe("computeCompetitiveReport", () => {
     const resource = makeResource(merchant.id);
     const data = { merchant, resources: [resource], category: null };
 
-    const report = await computeCompetitiveReport(data);
+    const report = await computeCompetitiveReport(data, "https://merchant.example.com");
     expect(report.category).toBeNull();
     expect(report.topCompetitors).toEqual([]);
     expect(report.totalCompetitors).toBe(0);
@@ -335,7 +335,7 @@ describe("computeCompetitiveReport", () => {
       [{ avgPrice: "0.02" }, { avgPrice: "0.04" }, { avgPrice: "0.06" }],
     );
 
-    const report = await computeCompetitiveReport(data);
+    const report = await computeCompetitiveReport(data, "https://merchant.example.com");
     expect(report.category).toBe("api");
     expect(report.totalCompetitors).toBe(5);
     expect(report.topCompetitors.length).toBeGreaterThan(0);
@@ -370,7 +370,7 @@ describe("computeCompetitiveReport", () => {
       [{ avgPrice: "0.01" }],
     );
 
-    const report = await computeCompetitiveReport(data);
+    const report = await computeCompetitiveReport(data, "https://merchant.example.com");
     const entry = report.topCompetitors[0];
     expect(entry.toolCalls).toBe(1234);
     expect(entry.uniqueBuyers).toBe(7);
@@ -391,7 +391,7 @@ describe("computeCompetitiveReport", () => {
       [{ avgPrice: "0.01" }, { avgPrice: "0.02" }, { avgPrice: "0.04" }, { avgPrice: "0.08" }],
     );
 
-    const report = await computeCompetitiveReport(data);
+    const report = await computeCompetitiveReport(data, "https://merchant.example.com");
     // median of [0.01, 0.02, 0.04, 0.08] = (0.02 + 0.04) / 2 = 0.03
     expect(report.medianPrice).toBeCloseTo(0.03, 6);
     // yourPrice 0.03; atOrBelow = {0.01,0.02} + ... yourPrice not in set → 2/4 = 50

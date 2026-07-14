@@ -7,5 +7,10 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
     setupFiles: ["./src/__tests__/setup.ts"],
+    server: {
+      deps: {
+        inline: ["@agentcash/router"],
+      },
+    },
   },
 });
