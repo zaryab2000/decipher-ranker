@@ -8,6 +8,9 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+      BASE_URL: http://localhost:3000
+      EVM_PAYEE_ADDRESS: "0x1111111111111111111111111111111111111111"
     steps:
       - uses: actions/checkout@v4
 
