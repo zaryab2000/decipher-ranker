@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { router } from "@/lib/router";
 import { getMerchantByOrigin, computeBasicReport } from "@/lib/analytics/ranker";
+import { withRateLimit } from "@/lib/rate-limit";
 
 const OriginRequestSchema = z.object({
   origin: z
@@ -9,7 +10,7 @@ const OriginRequestSchema = z.object({
     .describe("The origin URL of the merchant (e.g. https://mesh.heurist.xyz)"),
 });
 
-export const POST = router
+const handler = router
   .route({ path: "report/origin", method: "POST" })
   .siwx()
   .body(OriginRequestSchema)
@@ -43,3 +44,5 @@ export const POST = router
       last_updated: data.merchant.lastUpdated.toISOString(),
     };
   });
+
+export const POST = withRateLimit(handler);
