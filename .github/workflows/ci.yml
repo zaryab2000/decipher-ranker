@@ -11,6 +11,7 @@ jobs:
     env:
       BASE_URL: http://localhost:3000
       EVM_PAYEE_ADDRESS: "0x1111111111111111111111111111111111111111"
+      POSTGRES_URL: postgres://user:pass@localhost:5432/db
     steps:
       - uses: actions/checkout@v4
 
