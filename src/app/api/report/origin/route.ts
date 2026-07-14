@@ -45,4 +45,5 @@ const handler = router
     };
   });
 
-export const POST = withRateLimit(handler);
+// Free but does real DB work per call (origin lookup + report) — tighter limit.
+export const POST = withRateLimit(handler, { limit: 15 });

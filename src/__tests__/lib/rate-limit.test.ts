@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 // Mock the Upstash SDK so no network/KV is touched. The Ratelimit double's
 // limit() is driven per-test via mockLimit.
 const mockLimit = vi.fn();
+const mockSlidingWindow = vi.fn((..._args: unknown[]) => ({}));
 
 vi.mock("@upstash/redis", () => ({
   Redis: class {
@@ -13,7 +14,9 @@ vi.mock("@upstash/redis", () => ({
 
 vi.mock("@upstash/ratelimit", () => ({
   Ratelimit: class {
-    static slidingWindow = vi.fn(() => ({}));
+    static slidingWindow(...args: unknown[]) {
+      return mockSlidingWindow(...args);
+    }
     limit = mockLimit;
   },
 }));
@@ -101,5 +104,19 @@ describe("withRateLimit", () => {
 
     await wrapped(makeRequest());
     expect(mockLimit).not.toHaveBeenCalled();
+  });
+
+  it("defaults to a limit of 15", async () => {
+    mockLimit.mockResolvedValueOnce({ success: true, reset: Date.now() + 60_000 });
+    const { withRateLimit } = await import("@/lib/rate-limit");
+    await withRateLimit(okHandler)(makeRequest());
+    expect(mockSlidingWindow).toHaveBeenCalledWith(15, "60 s");
+  });
+
+  it("honors a custom limit", async () => {
+    mockLimit.mockResolvedValueOnce({ success: true, reset: Date.now() + 60_000 });
+    const { withRateLimit } = await import("@/lib/rate-limit");
+    await withRateLimit(okHandler, { limit: 30 })(makeRequest());
+    expect(mockSlidingWindow).toHaveBeenCalledWith(30, "60 s");
   });
 });

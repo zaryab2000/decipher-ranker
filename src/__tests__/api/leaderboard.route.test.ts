@@ -19,6 +19,12 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+// Rate limiting is exercised in rate-limit.test.ts; here it's a passthrough so
+// these tests don't transitively depend on the @upstash packages.
+vi.mock("@/lib/rate-limit", () => ({
+  withRateLimit: (handler: unknown) => handler,
+}));
+
 installRouterMock();
 
 import { GET } from "@/app/api/leaderboard/route";

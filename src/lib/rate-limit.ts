@@ -3,40 +3,56 @@ import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
 /**
- * Per-IP rate limiting for the free, unauthenticated routes. Paid routes are
+ * Per-IP rate limiting for the free (non-paid) routes. Paid routes are
  * economically throttled by their price and are intentionally not limited here.
+ * Note `report/origin` is free but SIWX-authenticated — still IP-limited, since
+ * wallets are cheap to mint and cannot be trusted as a rate-limit identity.
  *
  * Backed by the same Upstash KV already used for the cache and router state
  * (KV_REST_API_URL / KV_REST_API_TOKEN). The limiter is:
- *   - lazy: built on first use, reused thereafter
+ *   - lazy: built on first use, one instance per distinct limit, reused after
  *   - no-op when KV is unconfigured (local dev without KV → requests pass)
  *   - fail-open: a KV error allows the request rather than taking the route down
  */
 
-const LIMIT = 15;
+const DEFAULT_LIMIT = 15;
 const WINDOW = "60 s" as const;
+
+interface RateLimitOptions {
+  /** Max requests per IP per 60s window. Defaults to 15. */
+  limit?: number;
+}
 
 type RouteHandler = (request: NextRequest) => Promise<Response>;
 
-let cachedLimiter: Ratelimit | null | undefined;
+// One limiter per distinct limit value. `undefined` means "KV unavailable →
+// disabled"; cached so we only probe the env once.
+const limiterCache = new Map<number, Ratelimit>();
+let kvAvailable: boolean | undefined;
 
-/** Build the limiter once, or null when KV env is absent (rate limiting disabled). */
-function getLimiter(): Ratelimit | null {
-  if (cachedLimiter !== undefined) return cachedLimiter;
-
-  const url = process.env.KV_REST_API_URL;
-  const token = process.env.KV_REST_API_TOKEN;
-  if (!url || !token || url.startsWith("mock")) {
-    cachedLimiter = null;
-    return null;
+/** Build (or reuse) the limiter for a given limit, or null when KV is absent. */
+function getLimiter(limit: number): Ratelimit | null {
+  if (kvAvailable === undefined) {
+    const url = process.env.KV_REST_API_URL;
+    const token = process.env.KV_REST_API_TOKEN;
+    kvAvailable = Boolean(url && token && !url.startsWith("mock"));
   }
+  if (!kvAvailable) return null;
 
-  cachedLimiter = new Ratelimit({
-    redis: new Redis({ url, token }),
-    limiter: Ratelimit.slidingWindow(LIMIT, WINDOW),
-    prefix: "ratelimit:decipher",
+  const existing = limiterCache.get(limit);
+  if (existing) return existing;
+
+  const limiter = new Ratelimit({
+    redis: new Redis({
+      url: process.env.KV_REST_API_URL!,
+      token: process.env.KV_REST_API_TOKEN!,
+    }),
+    limiter: Ratelimit.slidingWindow(limit, WINDOW),
+    // Per-limit prefix so buckets for different limits don't collide on the same IP.
+    prefix: `ratelimit:decipher:${limit}`,
   });
-  return cachedLimiter;
+  limiterCache.set(limit, limiter);
+  return limiter;
 }
 
 /** Best-effort client IP from proxy headers; falls back to a shared bucket. */
@@ -51,9 +67,13 @@ function clientIp(request: NextRequest): string {
  * with a Retry-After header; under the limit (or when the limiter is disabled /
  * errors) the wrapped handler runs normally.
  */
-export function withRateLimit(handler: RouteHandler): RouteHandler {
+export function withRateLimit(
+  handler: RouteHandler,
+  options: RateLimitOptions = {},
+): RouteHandler {
+  const limit = options.limit ?? DEFAULT_LIMIT;
   return async (request: NextRequest): Promise<Response> => {
-    const limiter = getLimiter();
+    const limiter = getLimiter(limit);
     if (!limiter) return handler(request);
 
     try {

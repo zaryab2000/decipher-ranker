@@ -54,4 +54,5 @@ const handler = router
     return { categories: transformed, total: transformed.length };
   });
 
-export const GET = withRateLimit(handler);
+// Light open-data endpoint — a more generous limit than the report routes.
+export const GET = withRateLimit(handler, { limit: 30 });
