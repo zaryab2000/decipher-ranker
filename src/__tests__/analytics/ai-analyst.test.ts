@@ -8,7 +8,8 @@ import {
 
 function makeInput(overrides: Partial<AIInsightsInput> = {}): AIInsightsInput {
   return {
-    serviceName: "Mercury Price Feed",
+    origin: "https://mercury.example.com",
+    serviceNames: ["Mercury Price Feed"],
     category: "defi",
     descriptions: ["Real-time blockchain price feeds with sub-second latency."],
     tags: ["prices", "oracle"],
@@ -33,15 +34,45 @@ function makeInput(overrides: Partial<AIInsightsInput> = {}): AIInsightsInput {
 }
 
 describe("buildPrompt", () => {
-  it("includes merchant, competitor, gap, and pricing sections", () => {
+  it("anchors identity on the merchant's origin and host", () => {
     const prompt = buildPrompt(makeInput());
+    expect(prompt).toContain("https://mercury.example.com");
+    expect(prompt).toContain("mercury.example.com");
     expect(prompt).toContain("Mercury Price Feed");
     expect(prompt).toContain("Category: defi");
     expect(prompt).toContain("https://comp-a.xyz/api");
     expect(prompt).toContain("Missing tags: analytics");
-    expect(prompt).toContain("Missing keywords: portfolio");
     expect(prompt).toContain("Category median: $0.002");
     expect(prompt).toContain("Percentile: 80");
+  });
+
+  it("includes the anti-substitution guardrail", () => {
+    const prompt = buildPrompt(makeInput());
+    expect(prompt).toContain("Do NOT substitute the name of any well-known company");
+    expect(prompt).toContain("do NOT infer the identity from the category label");
+  });
+
+  it("treats multiple service names as a multi-service provider (not one of them)", () => {
+    const prompt = buildPrompt(
+      makeInput({
+        origin: "https://mesh.heurist.xyz",
+        serviceNames: ["Firecrawl", "Heurist Mesh", "AIXBT"],
+      }),
+    );
+    expect(prompt).toContain("multi-service provider");
+    expect(prompt).toContain("mesh.heurist.xyz");
+    expect(prompt).toContain("Firecrawl");
+    expect(prompt).toContain("Heurist Mesh");
+    // Must not present any single hosted agent as "the" service identity.
+    expect(prompt).not.toMatch(/Provider: Firecrawl \(/);
+  });
+
+  it("handles an unnamed merchant by identifying it by host", () => {
+    const prompt = buildPrompt(
+      makeInput({ origin: "https://anon.example.io", serviceNames: [] }),
+    );
+    expect(prompt).toContain("provider at anon.example.io");
+    expect(prompt).toContain("no service name published");
   });
 
   it("caps competitors at 5 in the prompt", () => {
@@ -59,10 +90,10 @@ describe("buildPrompt", () => {
     expect(prompt).not.toContain("https://c5.xyz");
   });
 
-  it("renders placeholders for missing/empty fields", () => {
+  it("renders placeholders for missing/empty data fields", () => {
     const prompt = buildPrompt(
       makeInput({
-        serviceName: null,
+        serviceNames: [],
         category: null,
         descriptions: [],
         tags: [],
@@ -71,9 +102,8 @@ describe("buildPrompt", () => {
         gapAnalysis: { missingTags: [], missingKeywords: [], competitorCount: 0 },
       }),
     );
-    expect(prompt).toContain("Service: (unnamed)");
     expect(prompt).toContain("Category: (uncategorized)");
-    expect(prompt).toContain("Description: (none)");
+    expect(prompt).toContain("Description(s): (none)");
     expect(prompt).toContain("Tags: (none)");
     expect(prompt).toContain("Missing tags: (none)");
   });

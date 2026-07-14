@@ -30,7 +30,7 @@ export const POST = router
       };
     }
 
-    const report = await computeCompetitiveReport(data);
+    const report = await computeCompetitiveReport(data, body.origin);
 
     await db.insert(reports).values({
       requesterWallet: wallet ?? "anonymous",

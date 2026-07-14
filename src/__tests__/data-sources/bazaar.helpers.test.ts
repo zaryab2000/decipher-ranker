@@ -3,6 +3,7 @@ import {
   extractPayeeAddress,
   extractPriceUsd,
   extractChain,
+  normalizeChain,
   hasInputSchema,
   hasOutputSchema,
   hasSchemaExample,
@@ -12,11 +13,18 @@ import { makeBazaarResource, resetIdCounter } from "../fixtures/factories";
 beforeEach(() => resetIdCounter());
 
 describe("extractPayeeAddress", () => {
-  it("returns payTo from first accepts entry", () => {
+  it("lowercases the EVM payTo from the first accepts entry", () => {
     const r = makeBazaarResource({
       accepts: [{ amount: "1", asset: "USDC", network: "base", payTo: "0xABC", scheme: "exact" }],
     });
-    expect(extractPayeeAddress(r)).toBe("0xABC");
+    expect(extractPayeeAddress(r)).toBe("0xabc");
+  });
+
+  it("preserves case for non-EVM (Solana) addresses", () => {
+    const r = makeBazaarResource({
+      accepts: [{ amount: "1", asset: "USDC", network: "solana", payTo: "So1AnaMixedCase", scheme: "exact" }],
+    });
+    expect(extractPayeeAddress(r)).toBe("So1AnaMixedCase");
   });
 
   it("returns null for empty accepts array", () => {
@@ -24,14 +32,14 @@ describe("extractPayeeAddress", () => {
     expect(extractPayeeAddress(r)).toBeNull();
   });
 
-  it("returns first payTo when multiple accepts", () => {
+  it("returns first payTo (lowercased) when multiple accepts", () => {
     const r = makeBazaarResource({
       accepts: [
         { amount: "1", asset: "USDC", network: "base", payTo: "0xFIRST", scheme: "exact" },
         { amount: "2", asset: "ETH", network: "ethereum", payTo: "0xSECOND", scheme: "exact" },
       ],
     });
-    expect(extractPayeeAddress(r)).toBe("0xFIRST");
+    expect(extractPayeeAddress(r)).toBe("0xfirst");
   });
 });
 
@@ -93,24 +101,61 @@ describe("extractPriceUsd", () => {
   });
 });
 
-describe("extractChain", () => {
-  it("returns network from first accepts entry", () => {
-    const r = makeBazaarResource({
-      accepts: [{ amount: "1", asset: "USDC", network: "ethereum", payTo: "0x1", scheme: "exact" }],
-    });
-    expect(extractChain(r)).toBe("ethereum");
+describe("normalizeChain", () => {
+  it("maps CAIP-2 Base to 'base'", () => {
+    expect(normalizeChain("eip155:8453")).toBe("base");
   });
 
-  it("returns 'base' for empty accepts", () => {
-    const r = makeBazaarResource({ accepts: [] });
+  it("maps the shorthand 'base' to 'base'", () => {
+    expect(normalizeChain("base")).toBe("base");
+  });
+
+  it("maps CAIP-2 Solana (any case) to 'solana'", () => {
+    expect(normalizeChain("solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp")).toBe("solana");
+  });
+
+  it("maps CAIP-2 Polygon to 'polygon'", () => {
+    expect(normalizeChain("eip155:137")).toBe("polygon");
+  });
+
+  it("returns null for testnets (base-sepolia, eip155:84532)", () => {
+    expect(normalizeChain("base-sepolia")).toBeNull();
+    expect(normalizeChain("eip155:84532")).toBeNull();
+  });
+
+  it("returns null for unsupported chains and empty input", () => {
+    expect(normalizeChain("polkadot:2f0555cc")).toBeNull();
+    expect(normalizeChain("ethereum")).toBeNull();
+    expect(normalizeChain(null)).toBeNull();
+    expect(normalizeChain(undefined)).toBeNull();
+  });
+});
+
+describe("extractChain", () => {
+  it("returns the canonical shorthand for a mainnet resource", () => {
+    const r = makeBazaarResource({
+      accepts: [{ amount: "1", asset: "USDC", network: "eip155:8453", payTo: "0x1", scheme: "exact" }],
+    });
     expect(extractChain(r)).toBe("base");
   });
 
-  it("returns 'base' when network is undefined", () => {
+  it("returns null for a testnet resource (dropped from indexing)", () => {
+    const r = makeBazaarResource({
+      accepts: [{ amount: "1", asset: "USDC", network: "base-sepolia", payTo: "0x1", scheme: "exact" }],
+    });
+    expect(extractChain(r)).toBeNull();
+  });
+
+  it("returns null for empty accepts", () => {
+    const r = makeBazaarResource({ accepts: [] });
+    expect(extractChain(r)).toBeNull();
+  });
+
+  it("returns null when network is undefined", () => {
     const r = makeBazaarResource({
       accepts: [{ amount: "1", asset: "USDC", network: undefined as unknown as string, payTo: "0x1", scheme: "exact" }],
     });
-    expect(extractChain(r)).toBe("base");
+    expect(extractChain(r)).toBeNull();
   });
 });
 

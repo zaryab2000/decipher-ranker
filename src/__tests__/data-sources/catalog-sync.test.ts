@@ -50,7 +50,7 @@ describe("upsertCatalog", () => {
       accepts: [{ amount: "0.01", asset: "USDC", network: "base", payTo: "0xPayee", scheme: "exact" }],
     });
 
-    selectResults = [[{ id: "merchant-1", payeeAddress: "0xPayee" }]];
+    selectResults = [[{ id: "merchant-1", payeeAddress: "0xpayee" }]];
 
     const result = await upsertCatalog([resource]);
     expect(result.merchantsUpserted).toBe(1);
@@ -69,7 +69,7 @@ describe("upsertCatalog", () => {
       accepts: [{ amount: "0.02", asset: "USDC", network: "base", payTo: "0xSame", scheme: "exact" }],
     });
 
-    selectResults = [[{ id: "merchant-1", payeeAddress: "0xSame" }]];
+    selectResults = [[{ id: "merchant-1", payeeAddress: "0xsame" }]];
 
     const result = await upsertCatalog([r1, r2]);
     expect(result.merchantsUpserted).toBe(1);
@@ -83,13 +83,38 @@ describe("upsertCatalog", () => {
     expect(result.resourcesUpserted).toBe(0);
   });
 
+  it("drops testnet / unsupported-chain resources before writing", async () => {
+    const testnet = makeBazaarResource({
+      accepts: [{ amount: "0.01", asset: "USDC", network: "base-sepolia", payTo: "0xTest", scheme: "exact" }],
+    });
+    const unsupported = makeBazaarResource({
+      resource: "https://b.com",
+      accepts: [{ amount: "0.01", asset: "USDC", network: "polkadot:2f0555cc", payTo: "0xOther", scheme: "exact" }],
+    });
+
+    const result = await upsertCatalog([testnet, unsupported]);
+    expect(result.merchantsUpserted).toBe(0);
+    expect(result.resourcesUpserted).toBe(0);
+  });
+
+  it("indexes a CAIP-2 mainnet resource (eip155:8453 → base)", async () => {
+    const resource = makeBazaarResource({
+      accepts: [{ amount: "0.01", asset: "USDC", network: "eip155:8453", payTo: "0xPayee", scheme: "exact" }],
+    });
+    selectResults = [[{ id: "m-1", payeeAddress: "0xpayee" }]];
+
+    const result = await upsertCatalog([resource]);
+    expect(result.merchantsUpserted).toBe(1);
+    expect(result.resourcesUpserted).toBe(1);
+  });
+
   it("creates categories from unique tags", async () => {
     const r1 = makeBazaarResource({
       tags: ["api", "ml"],
       accepts: [{ amount: "0.01", asset: "USDC", network: "base", payTo: "0xPayee", scheme: "exact" }],
     });
 
-    selectResults = [[{ id: "m-1", payeeAddress: "0xPayee" }]];
+    selectResults = [[{ id: "m-1", payeeAddress: "0xpayee" }]];
     const result = await upsertCatalog([r1]);
     expect(result.categoriesUpdated).toBe(2);
   });
@@ -107,8 +132,8 @@ describe("upsertCatalog", () => {
     });
 
     selectResults = [[
-      { id: "m-1", payeeAddress: "0xP1" },
-      { id: "m-2", payeeAddress: "0xP2" },
+      { id: "m-1", payeeAddress: "0xp1" },
+      { id: "m-2", payeeAddress: "0xp2" },
     ]];
 
     const result = await upsertCatalog([r1, r2]);
@@ -127,7 +152,7 @@ describe("upsertCatalog", () => {
       accepts: [{ amount: "0.01", asset: "USDC", network: "base", payTo: "0xPayee", scheme: "exact" }],
     });
 
-    selectResults = [[{ id: "m-1", payeeAddress: "0xPayee" }]];
+    selectResults = [[{ id: "m-1", payeeAddress: "0xpayee" }]];
 
     await upsertCatalog([r1, r2]);
     expect(mockInsert).toHaveBeenCalled();
@@ -144,7 +169,7 @@ describe("upsertCatalog", () => {
       accepts: [{ amount: "0.01", asset: "USDC", network: "base", payTo: "0xPayee", scheme: "exact" }],
     });
 
-    selectResults = [[{ id: "m-1", payeeAddress: "0xPayee" }]];
+    selectResults = [[{ id: "m-1", payeeAddress: "0xpayee" }]];
     const result = await upsertCatalog([resource]);
     expect(result.resourcesUpserted).toBe(1);
   });
@@ -163,7 +188,7 @@ describe("upsertCatalog", () => {
       },
     });
 
-    selectResults = [[{ id: "m-1", payeeAddress: "0xPayee" }]];
+    selectResults = [[{ id: "m-1", payeeAddress: "0xpayee" }]];
 
     // Capture the row handed to the resources insert.
     let insertedRow: Record<string, unknown> | undefined;
@@ -191,7 +216,7 @@ describe("upsertCatalog", () => {
       accepts: [{ amount: "0.01", asset: "USDC", network: "base", payTo: "0xPayee", scheme: "exact" }],
     });
 
-    selectResults = [[{ id: "m-1", payeeAddress: "0xPayee" }]];
+    selectResults = [[{ id: "m-1", payeeAddress: "0xpayee" }]];
 
     let insertedRow: Record<string, unknown> | undefined;
     mockInsert.mockImplementation(() => {
@@ -223,7 +248,7 @@ describe("upsertCatalog", () => {
       accepts: [{ amount: "2000000", asset: "USDC", network: "base", payTo: "0xPayee", scheme: "exact" }],
     });
 
-    selectResults = [[{ id: "m-1", payeeAddress: "0xPayee" }]];
+    selectResults = [[{ id: "m-1", payeeAddress: "0xpayee" }]];
 
     let merchantRow: Record<string, unknown> | undefined;
     mockInsert.mockImplementation(() => {
@@ -255,8 +280,8 @@ describe("upsertCatalog", () => {
     });
 
     selectResults = [[
-      { id: "m-1", payeeAddress: "0xPayee1" },
-      { id: "m-2", payeeAddress: "0xPayee2" },
+      { id: "m-1", payeeAddress: "0xpayee1" },
+      { id: "m-2", payeeAddress: "0xpayee2" },
     ]];
 
     const result = await upsertCatalog([r1, r2]);

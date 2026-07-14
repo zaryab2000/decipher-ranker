@@ -40,10 +40,15 @@ function sanitizeText(value: string | null | undefined): string | null {
 export async function upsertCatalog(
   bazaarResources: BazaarResource[],
 ): Promise<SyncResult> {
+  // Index mainnet EVM/Solana resources only. Testnets and unsupported chains
+  // normalize to a null chain (extractChain) and are dropped up front, so they
+  // never reach the merchant or resource writes.
+  const indexable = bazaarResources.filter((r) => extractChain(r) !== null);
+
   const merchantMap = new Map<string, BazaarResource[]>();
   const tagSet = new Set<string>();
 
-  for (const resource of bazaarResources) {
+  for (const resource of indexable) {
     const payee = extractPayeeAddress(resource);
     if (!payee) continue;
 
@@ -59,7 +64,7 @@ export async function upsertCatalog(
 
   const categoriesUpdated = await upsertCategories([...tagSet]);
   const merchantsUpserted = await upsertMerchants(merchantMap);
-  const resourcesUpserted = await upsertResources(bazaarResources);
+  const resourcesUpserted = await upsertResources(indexable);
 
   // Update category merchant counts (set-based, single statement)
   await db.execute(sql`
@@ -95,7 +100,9 @@ async function upsertMerchants(
 ): Promise<number> {
   const rows = [...merchantMap.entries()].map(([payee, payeeResources]) => ({
     payeeAddress: payee,
-    chain: extractChain(payeeResources[0]),
+    // Non-null assertion: upsertCatalog filters to chain-normalizable (mainnet)
+    // resources before building merchantMap, so extractChain never returns null here.
+    chain: extractChain(payeeResources[0])!,
     facilitator: null,
     txCount30d: payeeResources.reduce(
       (sum, r) => sum + (r.quality?.l30DaysTotalCalls ?? 0),

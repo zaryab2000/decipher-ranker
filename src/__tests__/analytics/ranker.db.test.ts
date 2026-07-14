@@ -22,6 +22,12 @@ vi.mock("@/lib/data-sources/x402scan", () => ({
   fetchMerchantStats: (...args: unknown[]) => mockFetchMerchantStats(...args),
 }));
 
+// Stub the AI analyst so the competitive report never makes a real LLM HTTP
+// call (which would hang past the test timeout when OPENCODE_API_KEY is set).
+vi.mock("@/lib/analytics/ai-analyst", () => ({
+  computeAIInsights: vi.fn(async () => null),
+}));
+
 import {
   getMerchantData,
   getMerchantByOrigin,
@@ -160,14 +166,35 @@ describe("getMerchantByAddress", () => {
 
   it("finds merchant by address and chain", async () => {
     const merchant = makeMerchant({
-      payeeAddress: "0xTest",
+      payeeAddress: "0xtest",
       chain: "base",
       categoryId: null,
     });
     const resource = makeResource(merchant.id);
     setSelectResults([merchant], [merchant], [resource]);
 
-    const result = await getMerchantByAddress("0xTest", "base");
+    const result = await getMerchantByAddress("0xtest", "base");
+    expect(result).not.toBeNull();
+  });
+
+  it("resolves a checksummed (mixed-case) address by lowercasing it", async () => {
+    const merchant = makeMerchant({ payeeAddress: "0xabc", chain: "base", categoryId: null });
+    const resource = makeResource(merchant.id);
+    setSelectResults([merchant], [merchant], [resource]);
+
+    // Client sends the checksummed (mixed-case) form; lookup lowercases to match.
+    const result = await getMerchantByAddress("0xABC", "base");
+    expect(result).not.toBeNull();
+    expect(result!.merchant.payeeAddress).toBe("0xabc");
+  });
+
+  it("resolves a CAIP-2 chain string by normalizing it to shorthand", async () => {
+    const merchant = makeMerchant({ payeeAddress: "0xabc", chain: "base", categoryId: null });
+    const resource = makeResource(merchant.id);
+    setSelectResults([merchant], [merchant], [resource]);
+
+    // Client passes the raw CAIP-2 form; the lookup normalizes to "base".
+    const result = await getMerchantByAddress("0xABC", "eip155:8453");
     expect(result).not.toBeNull();
   });
 });
@@ -279,7 +306,7 @@ describe("computeCompetitiveReport", () => {
     const resource = makeResource(merchant.id);
     const data = { merchant, resources: [resource], category: null };
 
-    const report = await computeCompetitiveReport(data);
+    const report = await computeCompetitiveReport(data, "https://merchant.example.com");
     expect(report.category).toBeNull();
     expect(report.topCompetitors).toEqual([]);
     expect(report.totalCompetitors).toBe(0);
@@ -312,7 +339,7 @@ describe("computeCompetitiveReport", () => {
       [{ avgPrice: "0.02" }, { avgPrice: "0.04" }, { avgPrice: "0.06" }],
     );
 
-    const report = await computeCompetitiveReport(data);
+    const report = await computeCompetitiveReport(data, "https://merchant.example.com");
     expect(report.category).toBe("api");
     expect(report.totalCompetitors).toBe(5);
     expect(report.topCompetitors.length).toBeGreaterThan(0);
@@ -347,7 +374,7 @@ describe("computeCompetitiveReport", () => {
       [{ avgPrice: "0.01" }],
     );
 
-    const report = await computeCompetitiveReport(data);
+    const report = await computeCompetitiveReport(data, "https://merchant.example.com");
     const entry = report.topCompetitors[0];
     expect(entry.toolCalls).toBe(1234);
     expect(entry.uniqueBuyers).toBe(7);
@@ -368,7 +395,7 @@ describe("computeCompetitiveReport", () => {
       [{ avgPrice: "0.01" }, { avgPrice: "0.02" }, { avgPrice: "0.04" }, { avgPrice: "0.08" }],
     );
 
-    const report = await computeCompetitiveReport(data);
+    const report = await computeCompetitiveReport(data, "https://merchant.example.com");
     // median of [0.01, 0.02, 0.04, 0.08] = (0.02 + 0.04) / 2 = 0.03
     expect(report.medianPrice).toBeCloseTo(0.03, 6);
     // yourPrice 0.03; atOrBelow = {0.01,0.02} + ... yourPrice not in set → 2/4 = 50
