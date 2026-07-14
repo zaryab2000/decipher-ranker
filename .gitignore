@@ -50,3 +50,8 @@ docs-internal
 # agent tooling artifacts
 .agents/
 skills-lock.json
+
+
+# test
+scripts/test-payment.ts
+scripts/test-siwx.ts
