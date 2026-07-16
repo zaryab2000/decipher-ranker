@@ -29,7 +29,7 @@ flowchart LR
     end
 ```
 
-**Tech stack:** Next.js 15 (App Router), Neon Serverless Postgres, Drizzle ORM, `@agentcash/router` (x402/SIWX), Vercel KV (Upstash), TypeScript.
+**Tech stack:** Next.js 15 (App Router), Neon Serverless Postgres, Drizzle ORM, `@agentcash/router` (x402/SIWX), Vercel KV (Upstash), `@x402/core` + `@x402/evm` (outbound x402 payments to x402scan), TypeScript.
 
 **Two consumer paths** that share the same Postgres schema but interact differently:
 
@@ -161,7 +161,7 @@ function computeListingQualityForResource(r: Resource): number {
   // Opt-in (max 0.8)
   if (r.serviceName) score += 0.5;
   if (tagCount >= 3 && tagCount <= 5) score += 0.3;
-  else if (tagCount > 5 || tagCount >= 1) score += 0.1;
+  else if (tagCount >= 1) score += 0.1;
   return Math.min(score / LISTING_QUALITY_MAX, 1);
 }
 ```
@@ -202,7 +202,7 @@ Uses `max(lastCalledAt, lastUpdated)` across all resources. Penalizes stale list
 
 ### Free (no auth)
 
-**`GET /categories`** — `.unprotected()`
+**`GET /categories`** — `.unprotected()`, rate-limited (30 req/min per IP)
 
 Returns all categories with merchant counts, median pricing, and top-3 merchants per category.
 
@@ -221,27 +221,18 @@ Response: {
 }
 ```
 
-**`GET /leaderboard`** — `.unprotected()`
+**`GET /leaderboard`** — `.unprotected()`, rate-limited (30 req/min per IP)
 
 Returns top N merchants ranked by decipher score, optionally filtered by category.
 
-Query params: `category` (string, optional), `limit` (1-100, default 50).
-
-```typescript
-// Query construction in src/app/api/leaderboard/route.ts:43-55
-const results = await db.query.merchants.findMany({
-  where: categoryId ? eq(merchants.categoryId, categoryId) : undefined,
-  orderBy: [desc(merchants.rankerScore)],
-  limit,
-});
-```
+Query params: `category` (string, optional), `limit` (1-100, default 50). Input validated via Zod schema; out-of-range `limit` returns 400.
 
 - **What Bazaar provides:** Raw metrics per resource (call counts, buyer counts)
 - **What we compute:** The full ranking — Bazaar has no leaderboard concept
 
 ### SIWX (free, wallet identity required)
 
-**`POST /report/origin`** — `.siwx()`
+**`POST /report/origin`** — `.siwx()`, rate-limited (15 req/min per IP)
 
 Free basic report for a merchant's own origin. Requires SIWX wallet identity proof (no payment).
 
@@ -294,20 +285,28 @@ Body: `{ origin: "https://mesh.heurist.xyz" }`
     your_price, category_median,
     category_min, category_max, percentile
   },
-  recommendations: string[]          // Up to 5 prioritized actions
+  recommendations: string[],         // Up to 5 prioritized actions
+  ai_insights: {                     // LLM-generated strategic insights (null when unavailable)
+    summary: string,                 // One-paragraph competitive positioning
+    top_action: string,              // Single highest-impact recommendation
+    insights: string[],              // 3-5 semantic observations
+    model: string                    // Model ID used (e.g. "mimo-v2.5-free")
+  } | null
 }
 ```
 
 **What's unique:** The `gap_analysis` is computed by `computeGapAnalysis` in `src/lib/analytics/comparator.ts` — it extracts tags and keywords from competitor descriptions, identifies what the target merchant is missing. The `pricing_benchmark` compares the merchant's price against the full competitive set. Bazaar provides raw price data per resource; it does not compute percentiles or gap analysis.
 
+**AI insights:** When `OPENCODE_API_KEY` is configured, the competitive report is post-processed by `src/lib/analytics/ai-analyst.ts` — an LLM analyst that turns the static gap/pricing data into semantic, positioned insights via OpenCode Zen's chat API. When the key is absent or the LLM call fails, `ai_insights` is `null` and the static analysis is returned unchanged.
+
 **`POST /report/merchant`** — `.paid("0.03")`
 
 Deep dive into a specific merchant by wallet address.
 
-Body: `{ address: "0xe903...", chain: "base" | "solana" }`
+Body: `{ address: "0xe903...", chain: "base" | "solana" | "polygon" }`
 
 ```typescript
-// Response structure from src/app/api/report/merchant/route.ts:53-78
+// Response structure from src/app/api/report/merchant/route.ts
 {
   found: boolean,
   address: string,
@@ -315,13 +314,16 @@ Body: `{ address: "0xe903...", chain: "base" | "solana" }`
   service_name: string | null,
   category: string | null,
   rank: number | null,
+  all_time_stats_available: boolean,  // Whether x402scan enrichment succeeded
   volume: {
     total_transactions, total_volume_usd,
     volume_30d, tx_count_30d
   },
   buyers: {
     total_unique, unique_30d,
-    concentration,              // HHI-derived: 0 = even, 1 = one buyer dominates
+    unique_sellers: number | null,    // From x402scan all-time stats
+    concentration,                    // HHI-derived: 0 = even, 1 = one buyer dominates
+    concentration_is_estimate: boolean, // True when HHI is estimated from 30d data
     diversity_score
   },
   pricing: {
@@ -338,6 +340,8 @@ Body: `{ address: "0xe903...", chain: "base" | "solana" }`
 ```
 
 **What's unique:** `buyers.concentration` uses an HHI-inspired formula (`computeBuyerConcentration` at `ranker.ts:61-66` — a modified Herfindahl-Hirschman Index that measures buyer concentration risk). `trends` is a 30-day time-series from the `trends` table, showing how a merchant's rank and score have evolved. Neither of these exists in Bazaar.
+
+**x402scan enrichment:** All-time volume/buyers are not in the Bazaar catalog (it only reports 30-day activity). At request time, the handler enriches these stats via `src/lib/data-sources/x402scan-client.ts` — an outbound x402 payment client that calls x402scan's paid stats API using `@x402/core/client`. The client is cache-first (1hr TTL via Vercel KV). When `X402SCAN_PAYER_PRIVATE_KEY` is absent, all-time stats return `null` and `all_time_stats_available: false`.
 
 ### Cron + Discovery
 
@@ -511,8 +515,42 @@ erDiagram
 | `.unprotected()` | Open data (categories, leaderboard) | None |
 | `.siwx()` | Wallet identity verification, no payment | SIWX (Sign-In-With-X) |
 | `.paid($0.03)` | Micropayment before handler executes | x402 (USDC on Base, CDP facilitator) |
+| Per-IP rate limiting | Prevents abuse of free/SIWX routes | Upstash sliding-window (via `@upstash/ratelimit`) |
 | `CRON_SECRET` | Bearer token for pipeline trigger | HTTP `Authorization: Bearer` |
 | KV store | Nonce tracking for SIWX replay protection | Vercel KV / Upstash Redis |
 | MPP (optional) | Session-based micropayments (lower per-call cost) | MPP via Tempo |
 
-The `@agentcash/router` validates all five env vars at boot (`BASE_URL`, `EVM_PAYEE_ADDRESS`, `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `KV_REST_API_URL`, `KV_REST_API_TOKEN`) and throws a single `RouterConfigError` listing every problem. A `mock://` KV URL will not work — SIWX and x402 both require a real Upstash instance.
+### Rate Limiting
+
+Free and SIWX routes are wrapped with `withRateLimit` (`src/lib/rate-limit.ts`). Paid routes are intentionally not rate-limited — their price is the throttle. Limits per 60-second sliding window:
+
+| Route | Limit |
+|---|---|
+| `GET /categories` | 30/min |
+| `GET /leaderboard` | 30/min |
+| `POST /report/origin` | 15/min |
+| Paid routes | Unlimited (economically throttled) |
+
+The limiter is lazy (built on first use), backed by the same Upstash KV instance as the router, and **fail-open** — a KV error allows the request rather than taking the route down. When KV is unconfigured (local dev), rate limiting is disabled.
+
+### Router Configuration
+
+The `@agentcash/router` validates all env vars at boot (`BASE_URL`, `EVM_PAYEE_ADDRESS`, `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `KV_REST_API_URL`, `KV_REST_API_TOKEN`) and throws a single `RouterConfigError` listing every problem. A `mock://` KV URL will not work — SIWX and x402 both require a real Upstash instance.
+
+## AI Analyst
+
+`src/lib/analytics/ai-analyst.ts` is an optional LLM post-processor for the competitive report. It takes the static gap analysis, pricing benchmark, and competitor data and generates semantic strategic insights via OpenCode Zen's OpenAI-compatible chat API (plain `fetch` — no SDK dependency).
+
+- **Model:** `mimo-v2.5-free` (configurable in code)
+- **Timeout:** 10 seconds hard cap
+- **Failure mode:** Every failure path (no API key, timeout, HTTP error, malformed response) resolves to `null` — the competitive report falls back to static-only analysis. It never throws.
+- **Prompt design:** Capped at 5 competitors and 300 chars per description to keep prompt size bounded.
+
+## x402scan Outbound Client
+
+`src/lib/data-sources/x402scan-client.ts` is an outbound x402 payment client for calling x402scan's paid merchant stats API. x402scan itself is x402-protected — an unauthenticated request returns 402.
+
+- **SDK:** `@x402/core/client` + `@x402/evm/exact/client` (EVM payment scheme)
+- **Payment cap:** Hard ceiling of $0.05 per call — a malformed 402 response cannot authorize more
+- **Cache:** Results cached in Vercel KV (1hr TTL) via the existing `checkCache`/`setCache` wrapper
+- **Failure mode:** Returns `null` when `X402SCAN_PAYER_PRIVATE_KEY` is absent or when any payment/fetch step fails — callers degrade to "all-time stats unavailable"
