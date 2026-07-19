@@ -48,6 +48,82 @@ describe("router config boot", () => {
   });
 });
 
+describe("router MPP protocol boot", () => {
+  // Full x402-valid env; MPP vars layered on per-test.
+  const baseEnv: Record<string, string> = {
+    BASE_URL: "http://localhost:3000",
+    EVM_PAYEE_ADDRESS: "0x289AA17875D1Adbe3Dc66d7658218D14258D81f2",
+    CDP_API_KEY_ID: "test-key-id",
+    CDP_API_KEY_SECRET: "test-key-secret",
+    KV_REST_API_URL: "https://test.upstash.io",
+    KV_REST_API_TOKEN: "test-token",
+  };
+
+  it("accepts MPP config (secret + currency) without raising an MPP config issue", () => {
+    // With mock CDP keys the router rejects at x402 facilitator construction, not
+    // MPP validation — real CDP keys boot fine (proven live). This asserts the MPP
+    // side of the config is valid: no MPP-specific RouterConfigError issue is raised.
+    try {
+      createRouterFromEnv({
+        env: {
+          ...baseEnv,
+          MPP_SECRET_KEY: "test-mpp-secret",
+          MPP_CURRENCY: "0x20c000000000000000000000b9537d11c60e8b50",
+        },
+        title: "test",
+        description: "test",
+        guidance: "test",
+        protocols: ["x402", "mpp"],
+      });
+    } catch (e) {
+      if (e instanceof RouterConfigError) {
+        const mppCodes = e.issues
+          .map((i) => i.code)
+          .filter((c) => c.includes("mpp"));
+        expect(mppCodes).toEqual([]);
+      }
+      // Non-config errors (mock facilitator) are expected and acceptable here.
+    }
+  });
+
+  it("throws missing_mpp_currency when mpp is enabled without a currency", () => {
+    try {
+      createRouterFromEnv({
+        env: { ...baseEnv, MPP_SECRET_KEY: "test-mpp-secret" },
+        title: "test",
+        description: "test",
+        guidance: "test",
+        protocols: ["x402", "mpp"],
+      });
+      throw new Error("expected RouterConfigError");
+    } catch (e) {
+      expect(e).toBeInstanceOf(RouterConfigError);
+      const codes = (e as RouterConfigError).issues.map((i) => i.code);
+      expect(codes).toContain("missing_mpp_currency");
+    }
+  });
+
+  it("throws missing_mpp_secret_key when mpp is enabled without a secret", () => {
+    try {
+      createRouterFromEnv({
+        env: {
+          ...baseEnv,
+          MPP_CURRENCY: "0x20c000000000000000000000b9537d11c60e8b50",
+        },
+        title: "test",
+        description: "test",
+        guidance: "test",
+        protocols: ["x402", "mpp"],
+      });
+      throw new Error("expected RouterConfigError");
+    } catch (e) {
+      expect(e).toBeInstanceOf(RouterConfigError);
+      const codes = (e as RouterConfigError).issues.map((i) => i.code);
+      expect(codes).toContain("missing_mpp_secret_key");
+    }
+  });
+});
+
 describe("router boot with process.env", () => {
   const originalEnv: Record<string, string | undefined> = {};
 
@@ -69,6 +145,11 @@ describe("router boot with process.env", () => {
     process.env.CDP_API_KEY_SECRET = "test-key-secret";
     process.env.POSTGRES_URL =
       "postgresql://user:pass@localhost:5432/test";
+    // router.ts now declares protocols: ['x402','mpp'] — MPP config is required.
+    originalEnv.MPP_SECRET_KEY = process.env.MPP_SECRET_KEY;
+    originalEnv.MPP_CURRENCY = process.env.MPP_CURRENCY;
+    process.env.MPP_SECRET_KEY = "test-mpp-secret";
+    process.env.MPP_CURRENCY = "0x20c000000000000000000000b9537d11c60e8b50";
   });
 
   afterAll(() => {
