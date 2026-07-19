@@ -12,10 +12,25 @@ const CompetitiveRequestSchema = z.object({
   origin: z.string().url().describe("Your API origin URL"),
 });
 
+const CompetitiveResponseSchema = z.object({
+  found: z.boolean(),
+  message: z.string().optional(),
+  origin: z.string().optional(),
+  category: z.string().nullable().optional(),
+  your_rank: z.number().nullable().optional(),
+  total_competitors: z.number().optional(),
+  competitors: z.array(z.record(z.string(), z.unknown())).optional(),
+  gap_analysis: z.record(z.string(), z.unknown()).optional(),
+  pricing_benchmark: z.record(z.string(), z.unknown()).optional(),
+  recommendations: z.array(z.string()).optional(),
+  ai_insights: z.record(z.string(), z.unknown()).nullable().optional(),
+});
+
 export const POST = router
   .route({ path: "report/competitive", method: "POST" })
   .paid(REPORT_COST_USDC)
   .body(CompetitiveRequestSchema)
+  .output(CompetitiveResponseSchema)
   .description(
     "Get a detailed competitive analysis. Returns top 10 competitors in your category with gap analysis, pricing benchmarks, and recommendations.",
   )
