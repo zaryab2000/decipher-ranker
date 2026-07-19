@@ -35,6 +35,24 @@ export const POST = router
     "Get a detailed competitive analysis. Returns top 10 competitors in your category with gap analysis, pricing benchmarks, and recommendations.",
   )
   .inputExample({ origin: "https://mesh.heurist.xyz" })
+  .outputExample({
+    found: true,
+    origin: "https://mesh.heurist.xyz",
+    category: "scraping",
+    your_rank: 3,
+    total_competitors: 42,
+    competitors: [
+      { origin: "https://comp.example.com", rank: 1, score: 0.9, price: 0.002 },
+    ],
+    gap_analysis: { missingTags: ["analytics"], missingKeywords: ["portfolio"] },
+    pricing_benchmark: {
+      your_price: 0.005,
+      category_median: 0.002,
+      percentile: 80,
+    },
+    recommendations: ["Add competitor tags", "Lower your price toward the median"],
+    ai_insights: null,
+  })
   .handler(async ({ body, wallet }) => {
     const data = await getMerchantByOrigin(body.origin);
     if (!data) {

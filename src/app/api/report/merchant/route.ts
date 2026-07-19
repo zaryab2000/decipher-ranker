@@ -49,6 +49,20 @@ export const POST = router
     address: "0xe9030014f5dae217d0a152f02a043567b16c1abf",
     chain: "base",
   })
+  .outputExample({
+    found: true,
+    address: "0xe9030014f5dae217d0a152f02a043567b16c1abf",
+    chain: "base",
+    service_name: "Example Service",
+    category: "ai",
+    rank: 5,
+    all_time_stats_available: false,
+    volume: { total_transactions: null, volume_30d: 200, tx_count_30d: 50 },
+    buyers: { unique_30d: 10, concentration: 0.3, diversity_score: 65 },
+    pricing: { price_usd: 0.01, vs_category: "median" },
+    trends: [{ date: "2026-07-01", rank: 5, score: 0.55 }],
+    recommendations: ["Publish input schemas", "Increase buyer diversity"],
+  })
   .handler(async ({ body, wallet }) => {
     const data = await getMerchantByAddress(body.address, body.chain);
     if (!data) {

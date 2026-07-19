@@ -33,6 +33,18 @@ const handler = router
     "Get a free basic ranking report for your API origin. Returns category, competitor count, price position, and improvement tips.",
   )
   .inputExample({ origin: "https://mesh.heurist.xyz" })
+  .outputExample({
+    found: true,
+    origin: "https://mesh.heurist.xyz",
+    category: "scraping",
+    rank_position: 3,
+    total_competitors: 42,
+    price_position: "above_median",
+    description_quality: 80,
+    listing_completeness: 75,
+    tips: ["Publish input schemas and output examples", "Add 3-5 relevant tags"],
+    last_updated: "2026-07-19T00:00:00.000Z",
+  })
   .handler(async ({ body }) => {
     const data = await getMerchantByOrigin(body.origin);
     if (!data) {
