@@ -11,6 +11,8 @@ describe("routes-barrel", () => {
     originalEnv.POSTGRES_URL = process.env.POSTGRES_URL;
     originalEnv.KV_REST_API_URL = process.env.KV_REST_API_URL;
     originalEnv.KV_REST_API_TOKEN = process.env.KV_REST_API_TOKEN;
+    originalEnv.MPP_SECRET_KEY = process.env.MPP_SECRET_KEY;
+    originalEnv.MPP_CURRENCY = process.env.MPP_CURRENCY;
 
     process.env.BASE_URL = "http://localhost:3000";
     process.env.EVM_PAYEE_ADDRESS =
@@ -21,6 +23,9 @@ describe("routes-barrel", () => {
     process.env.KV_REST_API_TOKEN = "test-token";
     process.env.POSTGRES_URL =
       "postgresql://user:pass@ep-test.c-2.ap-southeast-1.aws.neon.tech/db";
+    // router.ts declares protocols: ['x402','mpp'] — MPP config required to boot.
+    process.env.MPP_SECRET_KEY = "test-mpp-secret";
+    process.env.MPP_CURRENCY = "0x20c000000000000000000000b9537d11c60e8b50";
   });
 
   afterAll(() => {
