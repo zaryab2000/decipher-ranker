@@ -24,8 +24,13 @@ PAID ENDPOINTS ($0.03 each):
 - POST /report/competitive — Deep competitive analysis with gap analysis
 - POST /report/merchant — Deep-dive on any merchant by address
 
-The free /report/origin endpoint requires wallet identity (SIWX) but no payment. Paid endpoints use x402 micropayment in USDC on Base.`,
+The free /report/origin endpoint requires wallet identity (SIWX) but no payment. Paid endpoints accept x402 (USDC on Base) or MPP (USDC on Tempo).`,
   strictRoutes: true,
+  // Paid routes accept both rails: x402 (Base/USDC) and MPP (Tempo/USDC).
+  // MPP config is read from env (MPP_SECRET_KEY + MPP_CURRENCY; recipient reuses
+  // EVM_PAYEE_ADDRESS). Listed explicitly rather than relying on the
+  // MPP_SECRET_KEY auto-enable, so the two rails are self-documented in code.
+  protocols: ["x402", "mpp"],
   contact: {
     email: "zaryabafser2000@gmail.com",
   },
