@@ -21,10 +21,27 @@ const MerchantRequestSchema = z.object({
     .describe("Blockchain network (mainnet only)"),
 });
 
+const MerchantResponseSchema = z.object({
+  found: z.boolean(),
+  message: z.string().optional(),
+  address: z.string().optional(),
+  chain: z.string().optional(),
+  service_name: z.string().nullable().optional(),
+  category: z.string().nullable().optional(),
+  rank: z.number().nullable().optional(),
+  all_time_stats_available: z.boolean().optional(),
+  volume: z.record(z.string(), z.unknown()).optional(),
+  buyers: z.record(z.string(), z.unknown()).optional(),
+  pricing: z.record(z.string(), z.unknown()).optional(),
+  trends: z.array(z.record(z.string(), z.unknown())).optional(),
+  recommendations: z.array(z.string()).optional(),
+});
+
 export const POST = router
   .route({ path: "report/merchant", method: "POST" })
   .paid(REPORT_COST_USDC)
   .body(MerchantRequestSchema)
+  .output(MerchantResponseSchema)
   .description(
     "Get a detailed merchant deep-dive by wallet address. Returns volume stats, buyer diversity, trend signals, and recommendations.",
   )

@@ -46,6 +46,8 @@ function makeBuilder(state: BuilderState) {
     unprotected: () => makeBuilder(state),
     description: () => makeBuilder(state),
     inputExample: () => makeBuilder(state),
+    outputExample: () => makeBuilder(state),
+    output: () => makeBuilder(state),
     tags: () => makeBuilder(state),
     method: () => makeBuilder(state),
     path: () => makeBuilder(state),

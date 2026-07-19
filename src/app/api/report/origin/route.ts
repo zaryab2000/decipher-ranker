@@ -10,10 +10,25 @@ const OriginRequestSchema = z.object({
     .describe("The origin URL of the merchant (e.g. https://mesh.heurist.xyz)"),
 });
 
+const OriginResponseSchema = z.object({
+  found: z.boolean(),
+  origin: z.string().optional(),
+  message: z.string().optional(),
+  category: z.string().nullable().optional(),
+  rank_position: z.number().nullable().optional(),
+  total_competitors: z.number().optional(),
+  price_position: z.string().optional(),
+  description_quality: z.number().optional(),
+  listing_completeness: z.number().optional(),
+  tips: z.array(z.string()).optional(),
+  last_updated: z.string().optional(),
+});
+
 const handler = router
   .route({ path: "report/origin", method: "POST" })
   .siwx()
   .body(OriginRequestSchema)
+  .output(OriginResponseSchema)
   .description(
     "Get a free basic ranking report for your API origin. Returns category, competitor count, price position, and improvement tips.",
   )
