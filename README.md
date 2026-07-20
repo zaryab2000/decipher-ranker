@@ -114,7 +114,20 @@ npm test             # vitest run (196 tests)
 npm run test:watch   # vitest in watch mode
 ```
 
+## Registry Listings
 
+decipher-ranker is registered in both agent-payment ecosystems:
+
+| Registry | Listing URL | Protocols |
+|---|---|---|
+| **x402scan** | https://www.x402scan.com/server/d683a3a0-e920-4ebb-9f5d-2f3e0fe25803 | x402 (USDC on Base) |
+| **MPPscan** | https://www.mppscan.com/server/a7118bdd8bcabdab2587bdd7c01e58c8fe31ceb50932a7fc3db81cfcbf549bfa | MPP (USDC on Tempo) |
+
+Install on any AgentCash-compatible client:
+
+```bash
+npx agentcash add https://decipherranker.com
+```
 
 ## License
 
