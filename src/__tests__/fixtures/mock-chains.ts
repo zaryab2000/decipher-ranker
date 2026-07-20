@@ -49,6 +49,14 @@ export function makeUpdateChain() {
   return chain;
 }
 
+export function makeDeleteChain() {
+  const chain: Record<string, unknown> = {};
+  chain.where = vi.fn(() => chain);
+  chain.then = (onFulfill: (v: unknown) => unknown) =>
+    Promise.resolve(undefined).then(onFulfill);
+  return chain;
+}
+
 export interface MockDbState {
   results: unknown[][];
   index: number;

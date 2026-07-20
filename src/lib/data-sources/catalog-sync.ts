@@ -1,6 +1,7 @@
 import { getDb } from "@/lib/db";
 import { merchants, resources, categories } from "@/lib/db/schema";
 import { sql } from "drizzle-orm";
+import { TAXONOMY, OTHER } from "@/lib/analytics/taxonomy";
 import type { BazaarResource } from "@/lib/types";
 import {
   extractPayeeAddress,
@@ -46,7 +47,6 @@ export async function upsertCatalog(
   const indexable = bazaarResources.filter((r) => extractChain(r) !== null);
 
   const merchantMap = new Map<string, BazaarResource[]>();
-  const tagSet = new Set<string>();
 
   for (const resource of indexable) {
     const payee = extractPayeeAddress(resource);
@@ -56,43 +56,51 @@ export async function upsertCatalog(
       merchantMap.set(payee, []);
     }
     merchantMap.get(payee)!.push(resource);
-
-    for (const tag of resource.tags ?? []) {
-      tagSet.add(tag);
-    }
   }
 
-  const categoriesUpdated = await upsertCategories([...tagSet]);
+  const categoriesUpdated = await upsertTaxonomyCategories();
   const merchantsUpserted = await upsertMerchants(merchantMap);
   const resourcesUpserted = await upsertResources(indexable);
 
-  // Update category merchant counts (set-based, single statement)
-  await getDb().execute(sql`
-    UPDATE categories c
-    SET merchant_count = (
-      SELECT COUNT(DISTINCT m.id)
-      FROM merchants m
-      JOIN resources r ON r.merchant_id = m.id
-      WHERE c.name = ANY(r.tags)
-    )
-  `);
+  // merchant_count / median_price are recomputed after categorization by
+  // assignAllMerchantCategories (they aggregate over category_id, which does not
+  // exist yet at this point in the pipeline).
 
   return { merchantsUpserted, resourcesUpserted, categoriesUpdated };
 }
 
-async function upsertCategories(tags: string[]): Promise<number> {
-  if (tags.length === 0) return 0;
+/**
+ * Seed the `categories` table with the fixed curated taxonomy (see
+ * `@/lib/analytics/taxonomy`). Upsert only — stale non-taxonomy rows are NOT
+ * deleted here because merchants may still reference them via `category_id`
+ * (a delete would violate the FK). Reconciliation happens in
+ * `assignAllMerchantCategories`, after every merchant is re-pointed at a
+ * taxonomy category. Runs on every seed and refresh. Returns the number of
+ * taxonomy rows upserted.
+ */
+async function upsertTaxonomyCategories(): Promise<number> {
+  const rows = [...TAXONOMY, OTHER].map((c) => ({
+    slug: c.slug,
+    name: c.name,
+    description: c.description,
+    color: c.color,
+  }));
 
-  let inserted = 0;
-  for (const batch of chunk(tags, INSERT_CHUNK_SIZE)) {
-    const rows = await getDb()
+  for (const batch of chunk(rows, INSERT_CHUNK_SIZE)) {
+    await getDb()
       .insert(categories)
-      .values(batch.map((name) => ({ name: sanitizeText(name) ?? name })))
-      .onConflictDoNothing({ target: categories.name })
-      .returning({ id: categories.id });
-    inserted += rows.length;
+      .values(batch)
+      .onConflictDoUpdate({
+        target: categories.slug,
+        set: {
+          name: sql`excluded.name`,
+          description: sql`excluded.description`,
+          color: sql`excluded.color`,
+        },
+      });
   }
-  return inserted;
+
+  return rows.length;
 }
 
 async function upsertMerchants(
