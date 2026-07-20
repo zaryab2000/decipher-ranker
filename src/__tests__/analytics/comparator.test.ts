@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { vi } from "vitest";
 
-vi.mock("@/lib/db", () => ({ db: {} }));
+vi.mock("@/lib/db", () => ({ getDb: () => ({}) }));
 
 import { computeGapAnalysis } from "@/lib/analytics/comparator";
 import { makeMerchantData, resetIdCounter } from "../fixtures/factories";

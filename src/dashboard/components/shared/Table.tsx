@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 interface TableProps {
-  headers: { key: string; label: string; sortable?: boolean }[];
+  headers: { key: string; label: string }[];
   children: ReactNode;
   className?: string;
 }
@@ -36,7 +36,7 @@ export function TableRow({
   className?: string;
 }) {
   return (
-    <tr className={`border-b border-gray-800 hover:bg-gray-800/50 transition-colors ${className ?? ""}`}>
+    <tr className={`hover:bg-gray-800/50 transition-colors ${className ?? ""}`}>
       {children}
     </tr>
   );

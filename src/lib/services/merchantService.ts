@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { merchants, resources, categories } from "@/lib/db/schema";
 import { eq, ilike, or, desc, sql } from "drizzle-orm";
 import {
@@ -11,7 +11,7 @@ import {
 export async function searchMerchants(query: string, limit: number = 20) {
   const pattern = `%${query}%`;
 
-  const matchingResources = await db
+  const matchingResources = await getDb()
     .select({
       merchantId: resources.merchantId,
       resourceUrl: resources.resourceUrl,
@@ -27,7 +27,7 @@ export async function searchMerchants(query: string, limit: number = 20) {
     )
     .limit(limit * 2);
 
-  const matchingMerchantsByAddress = await db
+  const matchingMerchantsByAddress = await getDb()
     .select({ id: merchants.id })
     .from(merchants)
     .where(ilike(merchants.payeeAddress, pattern))
@@ -67,7 +67,7 @@ export async function getMerchantProfile(origin: string) {
   const breakdown = computeScoreBreakdown(data);
 
   const competitors = data.category
-    ? await db
+    ? await getDb()
         .select()
         .from(merchants)
         .where(eq(merchants.categoryId, data.category.id))
@@ -78,7 +78,7 @@ export async function getMerchantProfile(origin: string) {
   const competitorItems = [];
   for (const cm of competitors) {
     if (cm.id === data.merchant.id) continue;
-    const cmResources = await db
+    const cmResources = await getDb()
       .select()
       .from(resources)
       .where(eq(resources.merchantId, cm.id))

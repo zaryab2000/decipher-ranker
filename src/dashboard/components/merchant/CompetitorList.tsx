@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Table, TableRow, TableCell } from "@/dashboard/components/shared/Table";
 import { RankBadge } from "@/dashboard/components/shared/RankBadge";
 import { ScoreBar } from "@/dashboard/components/shared/ScoreBar";
-import { truncate, formatNumber, formatPrice } from "@/dashboard/lib/formatters";
+import { truncate, displayName, formatNumber, formatPrice } from "@/dashboard/lib/formatters";
 import type { MerchantListItem } from "@/dashboard/types";
 
 export function CompetitorList({
@@ -21,6 +21,8 @@ export function CompetitorList({
     );
   }
 
+  const currentScaled = currentScore * 100;
+
   return (
     <div>
       <h2 className="text-lg font-semibold text-gray-50 mb-3">Competitors</h2>
@@ -34,9 +36,10 @@ export function CompetitorList({
         ]}
       >
         {competitors.map((comp, i) => {
-          const scoreDiff = currentScore - comp.rankerScore;
+          const compScaled = comp.rankerScore * 100;
+          const scoreDiff = currentScaled - compScaled;
           return (
-            <TableRow key={comp.payeeAddress}>
+            <TableRow key={comp.payeeAddress} className="cursor-pointer">
               <TableCell>
                 <RankBadge rank={i + 1} />
               </TableCell>
@@ -46,7 +49,7 @@ export function CompetitorList({
                     href={`/dashboard/merchant/${encodeURIComponent(comp.origin)}`}
                     className="text-gray-50 hover:text-emerald-400 transition-colors"
                   >
-                    {truncate(comp.serviceName ?? comp.origin, 25)}
+                    {truncate(displayName(comp), 25)}
                   </Link>
                   {scoreDiff > 0 && (
                     <span className="text-emerald-400 text-xs">+{Math.round(scoreDiff)}</span>
@@ -56,8 +59,8 @@ export function CompetitorList({
                   )}
                 </div>
               </TableCell>
-              <TableCell className="w-28">
-                <ScoreBar score={comp.rankerScore} showLabel />
+              <TableCell className="w-36">
+                <ScoreBar score={compScaled} showLabel />
               </TableCell>
               <TableCell className="text-gray-400 font-mono text-xs">
                 {formatNumber(comp.txCount30d)} txns

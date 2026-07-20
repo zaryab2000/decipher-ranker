@@ -8,7 +8,7 @@ const mockExecute = vi.fn();
 const mockFindMany = vi.fn();
 
 vi.mock("@/lib/db", () => ({
-  db: {
+  getDb: () => ({
     select: (...args: unknown[]) => mockSelect(...args),
     insert: (...args: unknown[]) => mockInsert(...args),
     execute: (...args: unknown[]) => mockExecute(...args),
@@ -17,7 +17,7 @@ vi.mock("@/lib/db", () => ({
         findMany: (...args: unknown[]) => mockFindMany(...args),
       },
     },
-  },
+  }),
 }));
 
 import { getAllCategories, getCategoryBySlug } from "@/lib/services/categoryService";

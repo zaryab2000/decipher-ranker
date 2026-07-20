@@ -3,11 +3,13 @@ import { makeMerchant, resetIdCounter } from "../fixtures/factories";
 import { makeSelectChain } from "../fixtures/mock-chains";
 
 const mockSelect = vi.fn();
+const mockSelectDistinctOn = vi.fn();
 
 vi.mock("@/lib/db", () => ({
-  db: {
+  getDb: () => ({
     select: (...args: unknown[]) => mockSelect(...args),
-  },
+    selectDistinctOn: (...args: unknown[]) => mockSelectDistinctOn(...args),
+  }),
 }));
 
 // The dashboard read functions wrap their DB queries in cached(); bypass KV so
@@ -41,6 +43,8 @@ beforeEach(() => {
     selectIndex++;
     return makeSelectChain(result);
   });
+
+  mockSelectDistinctOn.mockImplementation(() => makeSelectChain([]));
 });
 
 describe("getEcosystemStats", () => {

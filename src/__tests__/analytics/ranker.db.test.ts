@@ -8,12 +8,12 @@ const mockInsert = vi.fn();
 const mockExecute = vi.fn();
 
 vi.mock("@/lib/db", () => ({
-  db: {
+  getDb: () => ({
     select: (...args: unknown[]) => mockSelect(...args),
     update: (...args: unknown[]) => mockUpdate(...args),
     insert: (...args: unknown[]) => mockInsert(...args),
     execute: (...args: unknown[]) => mockExecute(...args),
-  },
+  }),
 }));
 
 const mockFetchMerchantStats = vi.fn();

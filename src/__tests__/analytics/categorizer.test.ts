@@ -7,11 +7,11 @@ const mockUpdate = vi.fn();
 const mockExecute = vi.fn();
 
 vi.mock("@/lib/db", () => ({
-  db: {
+  getDb: () => ({
     select: (...args: unknown[]) => mockSelect(...args),
     update: (...args: unknown[]) => mockUpdate(...args),
     execute: (...args: unknown[]) => mockExecute(...args),
-  },
+  }),
 }));
 
 import { assignCategory, assignAllMerchantCategories } from "@/lib/analytics/categorizer";

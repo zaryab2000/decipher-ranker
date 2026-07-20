@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { merchants, resources, categories, trends } from "@/lib/db/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 import type { Merchant, Resource, Category } from "@/lib/types";
@@ -157,7 +157,7 @@ function computeRecency(merchantResources: Resource[]): number {
 }
 
 export async function getMerchantData(merchantId: string): Promise<MerchantData | null> {
-  const [merchant] = await db
+  const [merchant] = await getDb()
     .select()
     .from(merchants)
     .where(eq(merchants.id, merchantId))
@@ -165,14 +165,14 @@ export async function getMerchantData(merchantId: string): Promise<MerchantData 
 
   if (!merchant) return null;
 
-  const merchantResources = await db
+  const merchantResources = await getDb()
     .select()
     .from(resources)
     .where(eq(resources.merchantId, merchantId));
 
   let category: Category | null = null;
   if (merchant.categoryId) {
-    const [cat] = await db
+    const [cat] = await getDb()
       .select()
       .from(categories)
       .where(eq(categories.id, merchant.categoryId))
@@ -188,7 +188,7 @@ export async function getMerchantByOrigin(origin: string): Promise<MerchantData 
   // but a resource_url is a full endpoint path (https://mesh.heurist.xyz/api/tool).
   // Try an exact match first, then fall back to matching any resource whose URL
   // shares the same host, so a domain-only input resolves.
-  const [exact] = await db
+  const [exact] = await getDb()
     .select()
     .from(resources)
     .where(eq(resources.resourceUrl, origin))
@@ -202,7 +202,7 @@ export async function getMerchantByOrigin(origin: string): Promise<MerchantData 
   // Match https://host, http://host, and any path under that host. The pattern
   // is anchored to the scheme+host boundary so "foo.com" cannot match
   // "notfoo.com" or "foo.com.evil.com".
-  const [byHost] = await db
+  const [byHost] = await getDb()
     .select()
     .from(resources)
     .where(
@@ -247,7 +247,7 @@ export async function getMerchantByAddress(
     : address;
   const normalizedChain = normalizeChain(chain) ?? chain;
 
-  const [merchant] = await db
+  const [merchant] = await getDb()
     .select()
     .from(merchants)
     .where(
@@ -269,7 +269,7 @@ export async function computeBasicReport(data: MerchantData): Promise<BasicRepor
   let rankPosition: number | null = null;
 
   if (data.category) {
-    const [countResult] = await db
+    const [countResult] = await getDb()
       .select({ count: sql<number>`count(*)` })
       .from(merchants)
       .where(eq(merchants.categoryId, data.category.id));
@@ -425,13 +425,13 @@ export async function computeCompetitiveReport(
   let totalCompetitors = 0;
 
   if (data.category) {
-    const [countResult] = await db
+    const [countResult] = await getDb()
       .select({ count: sql<number>`count(*)` })
       .from(merchants)
       .where(eq(merchants.categoryId, data.category.id));
     totalCompetitors = Number(countResult?.count ?? 0);
 
-    const competitorMerchants = await db
+    const competitorMerchants = await getDb()
       .select()
       .from(merchants)
       .where(eq(merchants.categoryId, data.category.id))
@@ -443,7 +443,7 @@ export async function computeCompetitiveReport(
       .map((cm) => cm.id);
 
     const competitorResources = competitorIds.length > 0
-      ? await db
+      ? await getDb()
           .select()
           .from(resources)
           .where(sql`${resources.merchantId} IN (${sql.join(competitorIds.map(id => sql`${id}`), sql`, `)})`)
@@ -557,7 +557,7 @@ async function computePricingBenchmark(
   // Category-wide benchmark: one average price per merchant (so a multi-resource
   // merchant counts once, not once per endpoint), across every merchant in the
   // category — not just the top-10 competitors shown in the report.
-  const rows = await db
+  const rows = await getDb()
     .select({ avgPrice: sql<string>`avg(${resources.priceUsd})` })
     .from(resources)
     .innerJoin(merchants, eq(resources.merchantId, merchants.id))
@@ -677,7 +677,7 @@ export async function computeMerchantDeepDive(data: MerchantData): Promise<{
 }> {
   const firstResource = data.resources[0];
 
-  const merchantTrends = await db
+  const merchantTrends = await getDb()
     .select()
     .from(trends)
     .where(eq(trends.merchantId, data.merchant.id))
@@ -767,9 +767,9 @@ function generateDeepDiveRecommendations(
 }
 
 export async function scoreAllMerchants(): Promise<number> {
-  const allMerchants = await db.select().from(merchants);
-  const allResources = await db.select().from(resources);
-  const allCategories = await db.select().from(categories);
+  const allMerchants = await getDb().select().from(merchants);
+  const allResources = await getDb().select().from(resources);
+  const allCategories = await getDb().select().from(categories);
 
   const resourcesByMerchant = new Map<string, Resource[]>();
   for (const r of allResources) {
@@ -801,7 +801,7 @@ export async function scoreAllMerchants(): Promise<number> {
       batch.map((b) => sql`(${b.id}::uuid, ${b.score.toString()}::numeric)`),
       sql`, `,
     );
-    await db.execute(sql`
+    await getDb().execute(sql`
       UPDATE merchants AS m
       SET ranker_score = v.score
       FROM (VALUES ${values}) AS v(id, score)
@@ -812,7 +812,7 @@ export async function scoreAllMerchants(): Promise<number> {
 
   // Assign rank positions within each category in a single windowed statement
   // (partition by category) instead of one UPDATE per category.
-  await db.execute(sql`
+  await getDb().execute(sql`
     UPDATE merchants SET rank_position = sub.rn
     FROM (
       SELECT id, ROW_NUMBER() OVER (
@@ -824,7 +824,7 @@ export async function scoreAllMerchants(): Promise<number> {
   `);
 
   // Rank unassigned merchants globally.
-  await db.execute(sql`
+  await getDb().execute(sql`
     UPDATE merchants SET rank_position = sub.rn
     FROM (
       SELECT id, ROW_NUMBER() OVER (ORDER BY ranker_score DESC) AS rn

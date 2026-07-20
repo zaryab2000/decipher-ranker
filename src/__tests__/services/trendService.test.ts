@@ -6,10 +6,10 @@ const mockSelect = vi.fn();
 const mockInsert = vi.fn();
 
 vi.mock("@/lib/db", () => ({
-  db: {
+  getDb: () => ({
     select: (...args: unknown[]) => mockSelect(...args),
     insert: (...args: unknown[]) => mockInsert(...args),
-  },
+  }),
 }));
 
 import { writeDailySnapshot } from "@/lib/services/trendService";

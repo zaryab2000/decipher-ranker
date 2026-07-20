@@ -21,11 +21,11 @@ export default async function DashboardHomePage() {
         <p className="text-gray-400 mt-1">Live analytics from the x402 merchant network</p>
       </div>
       <HeroStats stats={stats} />
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+        <div className="min-w-0">
           <TopGainersTable merchants={topMerchants} />
         </div>
-        <div>
+        <div className="min-w-0">
           <RecentUpdates merchants={recentUpdates} />
         </div>
       </div>

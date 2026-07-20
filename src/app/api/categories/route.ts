@@ -1,5 +1,5 @@
 import { router } from "@/lib/router";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { categories, merchants } from "@/lib/db/schema";
 import { desc, sql } from "drizzle-orm";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -11,14 +11,14 @@ const handler = router
     "Browse all API categories in the x402 ecosystem with merchant counts, median pricing, and the top merchants per category.",
   )
   .handler(async () => {
-    const cats = await db
+    const cats = await getDb()
       .select()
       .from(categories)
       .orderBy(desc(categories.merchantCount));
 
     // Top-3 merchants for every category in a single windowed query instead of
     // one query per category.
-    const rankedRows = await db
+    const rankedRows = await getDb()
       .select({
         categoryId: merchants.categoryId,
         payeeAddress: merchants.payeeAddress,

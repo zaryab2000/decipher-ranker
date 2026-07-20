@@ -1,11 +1,11 @@
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { merchants, trends } from "@/lib/db/schema";
 import { sql } from "drizzle-orm";
 
 export async function writeDailySnapshot(): Promise<number> {
   const today = new Date().toISOString().split("T")[0];
 
-  const allMerchants = await db
+  const allMerchants = await getDb()
     .select({
       id: merchants.id,
       rankPosition: merchants.rankPosition,
@@ -32,7 +32,7 @@ export async function writeDailySnapshot(): Promise<number> {
   let written = 0;
   for (let i = 0; i < rows.length; i += CHUNK) {
     const batch = rows.slice(i, i + CHUNK);
-    await db
+    await getDb()
       .insert(trends)
       .values(batch)
       .onConflictDoUpdate({

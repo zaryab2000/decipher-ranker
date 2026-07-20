@@ -31,7 +31,7 @@ vi.mock("@/lib/services/trendService", () => ({
   writeDailySnapshot: () => mockWriteDailySnapshot(),
 }));
 
-vi.mock("@/lib/db", () => ({ db: {} }));
+vi.mock("@/lib/db", () => ({ getDb: () => ({}) }));
 
 import { GET } from "@/app/api/cron/refresh-catalog/route";
 

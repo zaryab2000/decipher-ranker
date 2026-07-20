@@ -44,7 +44,7 @@ export interface CategoryItem {
   merchantCount: number;
   medianPriceUsd: number | null;
   avgScore: number | null;
-  topMerchant: { address: string; score: number } | null;
+  topMerchant: { address: string; score: number; serviceName?: string | null } | null;
   growthIndicator: number;
 }
 
@@ -59,6 +59,7 @@ export interface EcosystemStats {
   totalCategories: number;
   totalTransactions: number;
   topCategory: string;
+  totalResources: number;
 }
 
 export interface SearchResult {

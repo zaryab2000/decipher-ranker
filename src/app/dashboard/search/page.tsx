@@ -22,9 +22,14 @@ export default async function SearchPage({
       {query ? (
         <SearchResultsWithData query={query} />
       ) : (
-        <p className="text-center text-gray-600 text-sm py-12">
-          Enter a merchant name, origin URL, or wallet address to search
-        </p>
+        <div className="text-center py-12">
+          <p className="text-gray-500 text-sm">
+            Enter a merchant name, origin URL, or wallet address then press Enter to search
+          </p>
+          <p className="text-xs text-gray-600 mt-2">
+            Try &quot;bitrefill&quot;, &quot;base&quot;, or &quot;0x...&quot;
+          </p>
+        </div>
       )}
     </div>
   );

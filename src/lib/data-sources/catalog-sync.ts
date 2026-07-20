@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { merchants, resources, categories } from "@/lib/db/schema";
 import { sql } from "drizzle-orm";
 import type { BazaarResource } from "@/lib/types";
@@ -67,7 +67,7 @@ export async function upsertCatalog(
   const resourcesUpserted = await upsertResources(indexable);
 
   // Update category merchant counts (set-based, single statement)
-  await db.execute(sql`
+  await getDb().execute(sql`
     UPDATE categories c
     SET merchant_count = (
       SELECT COUNT(DISTINCT m.id)
@@ -85,7 +85,7 @@ async function upsertCategories(tags: string[]): Promise<number> {
 
   let inserted = 0;
   for (const batch of chunk(tags, INSERT_CHUNK_SIZE)) {
-    const rows = await db
+    const rows = await getDb()
       .insert(categories)
       .values(batch.map((name) => ({ name: sanitizeText(name) ?? name })))
       .onConflictDoNothing({ target: categories.name })
@@ -127,7 +127,7 @@ async function upsertMerchants(
 
   let upserted = 0;
   for (const batch of chunk(rows, INSERT_CHUNK_SIZE)) {
-    await db
+    await getDb()
       .insert(merchants)
       .values(batch)
       .onConflictDoUpdate({
@@ -150,7 +150,7 @@ async function upsertResources(
 ): Promise<number> {
   // Resolve every payee → merchant id in one query instead of one per resource.
   const merchantIdByPayee = new Map<string, string>();
-  const merchantRows = await db
+  const merchantRows = await getDb()
     .select({ id: merchants.id, payeeAddress: merchants.payeeAddress })
     .from(merchants);
   for (const m of merchantRows) {
@@ -194,7 +194,7 @@ async function upsertResources(
   const rows = [...rowByUrl.values()];
   let upserted = 0;
   for (const batch of chunk(rows, INSERT_CHUNK_SIZE)) {
-    await db
+    await getDb()
       .insert(resources)
       .values(batch)
       .onConflictDoUpdate({

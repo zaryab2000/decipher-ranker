@@ -6,6 +6,8 @@ import { scoreAllMerchants } from "@/lib/analytics/ranker";
 import { refreshCategoryCache } from "@/lib/services/categoryService";
 import { writeDailySnapshot } from "@/lib/services/trendService";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: Request) {
   const auth = request.headers.get("authorization");
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {

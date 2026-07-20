@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { merchants, resources, categories } from "@/lib/db/schema";
 import { inArray, sql } from "drizzle-orm";
 import type { Category } from "@/lib/types";
@@ -30,9 +30,9 @@ export function assignCategory(
 }
 
 export async function assignAllMerchantCategories(): Promise<number> {
-  const allCategories = await db.select().from(categories);
-  const allMerchants = await db.select({ id: merchants.id }).from(merchants);
-  const allResources = await db
+  const allCategories = await getDb().select().from(categories);
+  const allMerchants = await getDb().select({ id: merchants.id }).from(merchants);
+  const allResources = await getDb()
     .select({ merchantId: resources.merchantId, tags: resources.tags })
     .from(resources);
 
@@ -62,14 +62,14 @@ export async function assignAllMerchantCategories(): Promise<number> {
 
   for (const [categoryId, merchantIds] of merchantIdsByCategory) {
     for (const batch of chunk(merchantIds, UPDATE_CHUNK_SIZE)) {
-      await db
+      await getDb()
         .update(merchants)
         .set({ categoryId })
         .where(inArray(merchants.id, batch));
     }
   }
 
-  await db.execute(sql`
+  await getDb().execute(sql`
     UPDATE categories c
     SET merchant_count = (
       SELECT COUNT(*)
@@ -78,7 +78,7 @@ export async function assignAllMerchantCategories(): Promise<number> {
     )
   `);
 
-  await db.execute(sql`
+  await getDb().execute(sql`
     UPDATE categories c
     SET median_price = (
       SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY r.price_usd::numeric)

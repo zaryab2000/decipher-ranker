@@ -7,11 +7,11 @@ const mockInsert = vi.fn();
 const mockExecute = vi.fn();
 
 vi.mock("@/lib/db", () => ({
-  db: {
+  getDb: () => ({
     select: (...args: unknown[]) => mockSelect(...args),
     insert: (...args: unknown[]) => mockInsert(...args),
     execute: (...args: unknown[]) => mockExecute(...args),
-  },
+  }),
 }));
 
 import { upsertCatalog } from "@/lib/data-sources/catalog-sync";
