@@ -1,7 +1,3 @@
-// Data changes at most once/day via the refresh pipeline; regenerate hourly
-// instead of per-request to keep Neon egress off the hot path.
-export const revalidate = 3600;
-
 import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -11,6 +7,10 @@ import { ScoreBar } from "@/dashboard/components/shared/ScoreBar";
 import { LeaderboardTable } from "@/dashboard/components/leaderboard/LeaderboardTable";
 import { ScoreDistributionChart } from "@/dashboard/components/categories/ScoreDistributionChart";
 import { formatNumber, formatPrice } from "@/dashboard/lib/formatters";
+
+// Data changes at most once/day via the refresh pipeline; regenerate hourly
+// instead of per-request to keep Neon egress off the hot path.
+export const revalidate = 3600;
 
 const getCachedCategory = cache(getCategoryBySlug);
 
