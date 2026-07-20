@@ -10,6 +10,13 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+// The dashboard read functions wrap their DB queries in cached(); bypass KV so
+// tests exercise the query path (the fetcher) deterministically.
+vi.mock("@/lib/cache", () => ({
+  cached: <T,>(_key: string, _ttl: number, fetcher: () => Promise<T>) =>
+    fetcher(),
+}));
+
 vi.mock("drizzle-orm", async () => {
   const actual = await vi.importActual("drizzle-orm");
   return {
