@@ -4,6 +4,10 @@ import { LeaderboardTable } from "@/dashboard/components/leaderboard/Leaderboard
 import { Pagination } from "@/dashboard/components/shared/Pagination";
 import type { PaginationMeta } from "@/dashboard/types";
 
+// Data changes at most once/day via the refresh pipeline; regenerate hourly
+// instead of per-request to keep Neon egress off the hot path.
+export const revalidate = 3600;
+
 export default async function LeaderboardPage({
   searchParams,
 }: {

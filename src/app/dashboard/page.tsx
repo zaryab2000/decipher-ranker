@@ -3,6 +3,10 @@ import { HeroStats } from "@/dashboard/components/homepage/HeroStats";
 import { TopGainersTable } from "@/dashboard/components/homepage/TopGainersTable";
 import { RecentUpdates } from "@/dashboard/components/homepage/RecentUpdates";
 
+// Data changes at most once/day via the refresh pipeline; regenerate hourly
+// instead of per-request to keep Neon egress off the hot path.
+export const revalidate = 3600;
+
 export default async function DashboardHomePage() {
   const [stats, topMerchants, recentUpdates] = await Promise.all([
     getEcosystemStats(),

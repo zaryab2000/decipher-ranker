@@ -11,6 +11,10 @@ import { Badge } from "@/dashboard/components/shared/Badge";
 import { Card } from "@/dashboard/components/shared/Card";
 import { formatNumber, formatPrice } from "@/dashboard/lib/formatters";
 
+// Data changes at most once/day via the refresh pipeline; regenerate hourly
+// instead of per-request to keep Neon egress off the hot path.
+export const revalidate = 3600;
+
 const getCachedMerchant = cache(getMerchantByOrigin);
 
 export async function generateMetadata(
