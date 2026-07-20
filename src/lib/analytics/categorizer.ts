@@ -33,11 +33,17 @@ export function assignCategory(tags: string[]): string {
 
   for (const cat of TAXONOMY) {
     for (const pattern of cat.tagPatterns) {
-      const patternTokens = tokens(pattern);
-      const hit = normTags.some((normTag, i) => {
-        if (normTag === pattern) return true;
+      // Normalize the pattern here too, so matching is correct even if a future
+      // pattern carries punctuation — rather than relying solely on the taxonomy
+      // test's "patterns are pre-normalized" invariant.
+      const patternTokens = tokens(normalizeTag(pattern));
+      // An empty pattern would vacuously match every tag; skip it.
+      if (patternTokens.size === 0) continue;
+      // A tag matches when every pattern token is present in the tag's token set
+      // (exact equality is just the case where the sets are identical).
+      const hit = tagTokenSets.some((tagTokens) => {
         for (const pt of patternTokens) {
-          if (!tagTokenSets[i]!.has(pt)) return false;
+          if (!tagTokens.has(pt)) return false;
         }
         return true;
       });

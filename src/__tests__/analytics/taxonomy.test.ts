@@ -41,6 +41,22 @@ describe("taxonomy integrity", () => {
       }
     }
   });
+
+  it("has no tagPattern shared across categories (would be dead code)", () => {
+    // A pattern listed in two categories can only ever fire for the earlier one
+    // (TAXONOMY order wins), so the later copy is unreachable. Keep patterns
+    // unique across the whole taxonomy so edits are never silently no-ops.
+    const owner = new Map<string, string>();
+    const dupes: string[] = [];
+    for (const c of TAXONOMY) {
+      for (const p of c.tagPatterns) {
+        const prev = owner.get(p);
+        if (prev) dupes.push(`"${p}" in both ${prev} and ${c.slug}`);
+        else owner.set(p, c.slug);
+      }
+    }
+    expect(dupes).toEqual([]);
+  });
 });
 
 describe("normalizeTag", () => {

@@ -145,10 +145,14 @@ export const TAXONOMY: TaxonomyCategory[] = [
     name: "Security & Compliance",
     description: "KYC/AML, sanctions, verification, legal, and compliance data.",
     color: "#ef4444",
+    // "cot", "agent identity", "x402 passport" are intentionally NOT listed here —
+    // earlier categories (finance-markets, ai-agents, crypto-defi) claim them, so
+    // a copy here would be unreachable. Add them here only if this category is
+    // moved earlier in TAXONOMY.
     tagPatterns: [
       "security", "compliance", "aml", "kyb", "sanctions", "verification",
-      "attested", "notary", "legal services", "cve", "cot", "proof of human",
-      "agent identity", "identity", "x402 passport", "osha", "govfiles",
+      "attested", "notary", "legal services", "cve", "proof of human",
+      "identity", "osha", "govfiles",
     ],
   },
   {
@@ -161,8 +165,9 @@ export const TAXONOMY: TaxonomyCategory[] = [
       "travel", "google flights", "restaurants", "restaurant reservations",
       "local business", "sports", "nfl", "cricket", "health", "healthcare",
       "science", "time", "property", "real estate", "properties", "zoning",
-      "country data", "france", "japan", "brazil", "carnival",
+      "france", "japan", "brazil", "carnival",
     ],
+    // "country data" omitted — data-enrichment claims it first (unreachable here).
   },
   {
     slug: "fun-games",
@@ -172,8 +177,9 @@ export const TAXONOMY: TaxonomyCategory[] = [
     tagPatterns: [
       "game", "dice", "jokes", "riddle", "horror", "roast", "dogs",
       "dream interpretation", "taste", "words", "ideas", "advice",
-      "fortune", "honey", "entropy",
+      "honey", "entropy",
     ],
+    // "fortune" omitted — finance-markets claims it first (unreachable here).
   },
 ];
 
