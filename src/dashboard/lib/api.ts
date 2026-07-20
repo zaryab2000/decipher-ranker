@@ -97,19 +97,17 @@ function merchantSelect(resourceCols: ResourceColumns) {
 }
 
 async function fetchEcosystemStats(): Promise<EcosystemStats> {
-  const [[merchantCountRow], [categoryCountRow], [txSumRow]] = await Promise.all([
-    db.select({ value: count() }).from(merchants),
-    db.select({ value: count() }).from(categories),
-    db
-      .select({ value: sum(merchants.txCount) })
-      .from(merchants),
-  ]);
-
-  const topCategoryRows = await db
-    .select({ name: categories.name })
-    .from(categories)
-    .orderBy(desc(categories.merchantCount))
-    .limit(1);
+  const [[merchantCountRow], [categoryCountRow], [txSumRow], topCategoryRows] =
+    await Promise.all([
+      db.select({ value: count() }).from(merchants),
+      db.select({ value: count() }).from(categories),
+      db.select({ value: sum(merchants.txCount) }).from(merchants),
+      db
+        .select({ name: categories.name })
+        .from(categories)
+        .orderBy(desc(categories.merchantCount))
+        .limit(1),
+    ]);
 
   return {
     totalMerchants: merchantCountRow?.value ?? 0,
@@ -256,35 +254,34 @@ export function getCategoryNames(): Promise<string[]> {
 }
 
 async function fetchAllCategories(): Promise<CategoryItem[]> {
-  const rows = await db
-    .select()
-    .from(categories)
-    .orderBy(desc(categories.merchantCount));
+  // Three independent set-based queries — category rows, per-category average
+  // score, and per-category ranking — run in parallel to cut Neon round-trips.
+  const [rows, aggRows, topRows] = await Promise.all([
+    db.select().from(categories).orderBy(desc(categories.merchantCount)),
+    db
+      .select({
+        categoryId: merchants.categoryId,
+        avg: sql<number>`AVG(${merchants.rankerScore})`.mapWith(Number),
+      })
+      .from(merchants)
+      .where(sql`${merchants.categoryId} IS NOT NULL`)
+      .groupBy(merchants.categoryId),
+    db
+      .select({
+        categoryId: merchants.categoryId,
+        address: merchants.payeeAddress,
+        score: merchants.rankerScore,
+        rn: sql<number>`row_number() over (partition by ${merchants.categoryId} order by ${merchants.rankerScore} desc)`,
+      })
+      .from(merchants)
+      .where(sql`${merchants.categoryId} IS NOT NULL`),
+  ]);
 
-  // Per-category average score and top merchant in two set-based queries
-  // instead of two queries per category.
-  const aggRows = await db
-    .select({
-      categoryId: merchants.categoryId,
-      avg: sql<number>`AVG(${merchants.rankerScore})`.mapWith(Number),
-    })
-    .from(merchants)
-    .where(sql`${merchants.categoryId} IS NOT NULL`)
-    .groupBy(merchants.categoryId);
   const avgByCategory = new Map<string, number>();
   for (const a of aggRows) {
     if (a.categoryId) avgByCategory.set(a.categoryId, a.avg);
   }
 
-  const topRows = await db
-    .select({
-      categoryId: merchants.categoryId,
-      address: merchants.payeeAddress,
-      score: merchants.rankerScore,
-      rn: sql<number>`row_number() over (partition by ${merchants.categoryId} order by ${merchants.rankerScore} desc)`,
-    })
-    .from(merchants)
-    .where(sql`${merchants.categoryId} IS NOT NULL`);
   const topByCategory = new Map<string, { address: string; score: number }>();
   for (const t of topRows) {
     if (!t.categoryId || Number(t.rn) !== 1) continue;
