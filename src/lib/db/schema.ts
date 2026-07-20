@@ -16,6 +16,7 @@ import { relations } from "drizzle-orm";
 
 export const categories = pgTable("categories", {
   id: uuid("id").primaryKey().defaultRandom(),
+  slug: text("slug").notNull().unique(),
   name: text("name").notNull().unique(),
   color: text("color"),
   description: text("description"),

@@ -19,10 +19,6 @@ import type {
 // namespaced under `dash:` and include every argument that changes the result.
 const DASH_TTL_SECONDS = 3600;
 
-function toSlug(name: string): string {
-  return name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-}
-
 function buildResourceSubquery() {
   return getDb()
     .selectDistinctOn([resources.merchantId], {
@@ -100,10 +96,12 @@ async function fetchEcosystemStats(): Promise<EcosystemStats> {
   const [[merchantCountRow], [categoryCountRow], [txSumRow], [resourceCountRow], topCategoryRows] =
     await Promise.all([
       getDb().select({ value: count() }).from(merchants),
+      // Count curated categories that have at least one merchant — matches the
+      // categories-page card count exactly (empty categories are hidden there).
       getDb()
-        .select({ value: sql<number>`COUNT(DISTINCT ${merchants.categoryId})` })
-        .from(merchants)
-        .where(sql`${merchants.categoryId} IS NOT NULL`),
+        .select({ value: count() })
+        .from(categories)
+        .where(sql`${categories.merchantCount} > 0`),
       getDb().select({ value: sum(merchants.txCount30d) }).from(merchants),
       getDb().select({ value: count() }).from(resources),
       getDb()
@@ -261,9 +259,8 @@ export function getCategoryNames(): Promise<string[]> {
 async function fetchAllCategories(): Promise<CategoryItem[]> {
   // Three independent set-based queries — category rows, per-category average
   // score, and per-category ranking — run in parallel to cut Neon round-trips.
-  // Only categories with at least one merchant are shown: the `categories` table
-  // holds one row per distinct catalog tag (~6.8k rows, most orphaned), but the
-  // page is a merchant browser, so empty tags are noise.
+  // Only categories with at least one merchant are shown (empty curated
+  // categories are hidden).
   const [rows, aggRows, topRows] = await Promise.all([
     getDb()
       .select()
@@ -320,22 +317,13 @@ async function fetchAllCategories(): Promise<CategoryItem[]> {
     : [];
   const topResources = new Map(resourceRows.map((r) => [r.merchantId, r.serviceName]));
 
-  // Collapse rows that slugify to the same value into one card, keeping the
-  // highest-merchant-count row's identity (rows are pre-sorted by count desc).
-  // Slug is the route key, so the list must be slug-unique or React keys and
-  // navigation both break.
-  const bySlug = new Map<string, CategoryItem>();
-  for (const cat of rows) {
-    const slug = toSlug(cat.name);
-    const existing = bySlug.get(slug);
-    if (existing) {
-      existing.merchantCount += cat.merchantCount ?? 0;
-      continue;
-    }
+  // `slug` is a curated, unique DB column (the taxonomy), so one row per card —
+  // no dedup/merge needed.
+  return rows.map((cat) => {
     const tm = topByCategory.get(cat.id);
-    bySlug.set(slug, {
+    return {
       name: cat.name,
-      slug,
+      slug: cat.slug,
       merchantCount: cat.merchantCount ?? 0,
       medianPriceUsd: cat.medianPrice != null ? Number(cat.medianPrice) : null,
       avgScore: avgByCategory.get(cat.id) ?? null,
@@ -347,10 +335,8 @@ async function fetchAllCategories(): Promise<CategoryItem[]> {
           }
         : null,
       growthIndicator: 0,
-    });
-  }
-
-  return [...bySlug.values()];
+    };
+  });
 }
 
 export function getAllCategories(): Promise<CategoryItem[]> {
@@ -360,15 +346,14 @@ export function getAllCategories(): Promise<CategoryItem[]> {
 async function fetchCategoryBySlug(
   slug: string,
 ): Promise<CategoryDetail | null> {
-  const allCategories = await getDb().select().from(categories);
-  // A slug can map to more than one category row (the `categories` table splits
-  // the same concept across casing/spacing, e.g. "real estate" vs "real-estate").
-  // Treat every row sharing the slug as one category so the detail page and the
-  // list agree and no merchants are dropped.
-  const matches = allCategories.filter((c) => toSlug(c.name) === slug);
-  if (matches.length === 0) return null;
-  const cat = matches[0]!;
-  const matchIds = matches.map((c) => c.id);
+  // slug is a unique DB column — one indexed lookup, no JS-side slugify/find.
+  const cat = await getDb()
+    .select()
+    .from(categories)
+    .where(eq(categories.slug, slug))
+    .limit(1)
+    .then((r) => r[0] ?? null);
+  if (!cat) return null;
 
   const resourceSubquery = buildResourceSubquery();
 
@@ -377,7 +362,7 @@ async function fetchCategoryBySlug(
     .from(merchants)
     .leftJoin(resourceSubquery, eq(merchants.id, resourceSubquery.merchantId))
     .leftJoin(categories, eq(merchants.categoryId, categories.id))
-    .where(inArray(merchants.categoryId, matchIds))
+    .where(eq(merchants.categoryId, cat.id))
     .orderBy(desc(merchants.rankerScore));
 
   const merchants_list = merchantRows.map((row, i) =>
@@ -400,17 +385,12 @@ async function fetchCategoryBySlug(
   const avgScoreRows = await getDb()
     .select({ avg: sql<number>`AVG(${merchants.rankerScore})`.mapWith(Number) })
     .from(merchants)
-    .where(inArray(merchants.categoryId, matchIds));
-
-  const mergedMerchantCount = matches.reduce(
-    (sum, c) => sum + (c.merchantCount ?? 0),
-    0,
-  );
+    .where(eq(merchants.categoryId, cat.id));
 
   return {
     name: cat.name,
-    slug,
-    merchantCount: mergedMerchantCount,
+    slug: cat.slug,
+    merchantCount: cat.merchantCount ?? 0,
     medianPriceUsd: cat.medianPrice != null ? Number(cat.medianPrice) : null,
     avgScore: avgScoreRows[0]?.avg ?? null,
     topMerchant: merchants_list[0]

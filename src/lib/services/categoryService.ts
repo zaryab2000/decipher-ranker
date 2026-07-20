@@ -27,10 +27,7 @@ export async function getAllCategories() {
     result.push({
       id: cat.id,
       name: cat.name,
-      slug: cat.name
-        .toLowerCase()
-        .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9-]/g, ""),
+      slug: cat.slug,
       merchantCount: cat.merchantCount ?? 0,
       medianPriceUsd: cat.medianPrice ? Number(cat.medianPrice) : null,
       avgScore: avgResult?.avg ? Number(avgResult.avg) : null,
@@ -48,14 +45,11 @@ export async function getAllCategories() {
 }
 
 export async function getCategoryBySlug(slug: string) {
-  const allCats = await getDb().select().from(categories);
-  const cat = allCats.find(
-    (c) =>
-      c.name
-        .toLowerCase()
-        .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9-]/g, "") === slug,
-  );
+  const [cat] = await getDb()
+    .select()
+    .from(categories)
+    .where(eq(categories.slug, slug))
+    .limit(1);
 
   if (!cat) return null;
 
