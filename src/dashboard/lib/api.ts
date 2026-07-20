@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { cached } from "@/lib/cache";
 import { merchants, resources, categories, categoryCache } from "@/lib/db/schema";
 import { desc, asc, eq, sql, ilike, or, and, count, sum } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
@@ -12,6 +13,11 @@ import type {
   SearchResult,
   ScoreBreakdown,
 } from "@/dashboard/types";
+
+// Dashboard reads are cached for an hour — the same window as page ISR — so
+// repeated views and cache-miss regenerations don't re-query Neon. Keys are
+// namespaced under `dash:` and include every argument that changes the result.
+const DASH_TTL_SECONDS = 3600;
 
 function toSlug(name: string): string {
   return name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
@@ -90,7 +96,7 @@ function merchantSelect(resourceCols: ResourceColumns) {
   };
 }
 
-export async function getEcosystemStats(): Promise<EcosystemStats> {
+async function fetchEcosystemStats(): Promise<EcosystemStats> {
   const [[merchantCountRow], [categoryCountRow], [txSumRow]] = await Promise.all([
     db.select({ value: count() }).from(merchants),
     db.select({ value: count() }).from(categories),
@@ -113,7 +119,11 @@ export async function getEcosystemStats(): Promise<EcosystemStats> {
   };
 }
 
-export async function getTopMerchants(limit = 10): Promise<MerchantListItem[]> {
+export function getEcosystemStats(): Promise<EcosystemStats> {
+  return cached("dash:ecosystem-stats", DASH_TTL_SECONDS, fetchEcosystemStats);
+}
+
+async function fetchTopMerchants(limit: number): Promise<MerchantListItem[]> {
   const resourceSubquery = buildResourceSubquery();
 
   const rows = await db
@@ -127,7 +137,13 @@ export async function getTopMerchants(limit = 10): Promise<MerchantListItem[]> {
   return rows.map((row, i) => toMerchantListItem(row, i + 1));
 }
 
-export async function getRecentlyUpdated(limit = 5): Promise<MerchantListItem[]> {
+export function getTopMerchants(limit = 10): Promise<MerchantListItem[]> {
+  return cached(`dash:top-merchants:${limit}`, DASH_TTL_SECONDS, () =>
+    fetchTopMerchants(limit),
+  );
+}
+
+async function fetchRecentlyUpdated(limit: number): Promise<MerchantListItem[]> {
   const resourceSubquery = buildResourceSubquery();
 
   const rows = await db
@@ -141,13 +157,23 @@ export async function getRecentlyUpdated(limit = 5): Promise<MerchantListItem[]>
   return rows.map((row) => toMerchantListItem(row));
 }
 
-export async function getLeaderboard(params: {
+export function getRecentlyUpdated(limit = 5): Promise<MerchantListItem[]> {
+  return cached(`dash:recently-updated:${limit}`, DASH_TTL_SECONDS, () =>
+    fetchRecentlyUpdated(limit),
+  );
+}
+
+interface LeaderboardParams {
   category?: string;
   page?: number;
   perPage?: number;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
-}): Promise<LeaderboardData> {
+}
+
+async function fetchLeaderboard(
+  params: LeaderboardParams,
+): Promise<LeaderboardData> {
   const page = params.page ?? 1;
   const perPage = params.perPage ?? 50;
   const sortBy = params.sortBy ?? "score";
@@ -209,7 +235,14 @@ export async function getLeaderboard(params: {
   };
 }
 
-export async function getCategoryNames(): Promise<string[]> {
+export function getLeaderboard(
+  params: LeaderboardParams,
+): Promise<LeaderboardData> {
+  const key = `dash:leaderboard:${params.category ?? "all"}:${params.page ?? 1}:${params.perPage ?? 50}:${params.sortBy ?? "score"}:${params.sortOrder ?? "desc"}`;
+  return cached(key, DASH_TTL_SECONDS, () => fetchLeaderboard(params));
+}
+
+async function fetchCategoryNames(): Promise<string[]> {
   const rows = await db
     .select({ name: categories.name })
     .from(categories)
@@ -218,7 +251,11 @@ export async function getCategoryNames(): Promise<string[]> {
   return rows.map((r) => r.name);
 }
 
-export async function getAllCategories(): Promise<CategoryItem[]> {
+export function getCategoryNames(): Promise<string[]> {
+  return cached("dash:category-names", DASH_TTL_SECONDS, fetchCategoryNames);
+}
+
+async function fetchAllCategories(): Promise<CategoryItem[]> {
   const rows = await db
     .select()
     .from(categories)
@@ -268,7 +305,13 @@ export async function getAllCategories(): Promise<CategoryItem[]> {
   }));
 }
 
-export async function getCategoryBySlug(slug: string): Promise<CategoryDetail | null> {
+export function getAllCategories(): Promise<CategoryItem[]> {
+  return cached("dash:all-categories", DASH_TTL_SECONDS, fetchAllCategories);
+}
+
+async function fetchCategoryBySlug(
+  slug: string,
+): Promise<CategoryDetail | null> {
   const allCategories = await db.select().from(categories);
   const cat = allCategories.find((c) => toSlug(c.name) === slug);
   if (!cat) return null;
@@ -323,6 +366,14 @@ export async function getCategoryBySlug(slug: string): Promise<CategoryDetail | 
   };
 }
 
+export function getCategoryBySlug(
+  slug: string,
+): Promise<CategoryDetail | null> {
+  return cached(`dash:category:${slug}`, DASH_TTL_SECONDS, () =>
+    fetchCategoryBySlug(slug),
+  );
+}
+
 function buildScoreDistribution(scores: number[]): { range: string; count: number }[] {
   const buckets: Record<string, number> = {};
   for (let i = 0; i < 10; i++) {
@@ -340,7 +391,9 @@ function buildScoreDistribution(scores: number[]): { range: string; count: numbe
   return Object.entries(buckets).map(([range, count]) => ({ range, count }));
 }
 
-export async function getMerchantByOrigin(origin: string): Promise<MerchantProfile | null> {
+async function fetchMerchantByOrigin(
+  origin: string,
+): Promise<MerchantProfile | null> {
   const safeOrigin = origin.replace(/[%_]/g, "\\$&");
 
   const resourceRows = await db
@@ -457,6 +510,14 @@ export async function getMerchantByOrigin(origin: string): Promise<MerchantProfi
   };
 }
 
+export function getMerchantByOrigin(
+  origin: string,
+): Promise<MerchantProfile | null> {
+  return cached(`dash:merchant:${origin}`, DASH_TTL_SECONDS, () =>
+    fetchMerchantByOrigin(origin),
+  );
+}
+
 function buildImprovements(metrics: {
   hasDescription: boolean;
   hasTags: boolean;
@@ -497,7 +558,7 @@ function buildImprovements(metrics: {
   return improvements;
 }
 
-export async function searchMerchants(query: string): Promise<SearchResult> {
+async function fetchSearchMerchants(query: string): Promise<SearchResult> {
   const rows = await db
     .select(merchantSelect(resources))
     .from(merchants)
@@ -530,4 +591,12 @@ export async function searchMerchants(query: string): Promise<SearchResult> {
     total: result.length,
     query,
   };
+}
+
+export function searchMerchants(query: string): Promise<SearchResult> {
+  return cached(
+    `dash:search:${query.trim().toLowerCase()}`,
+    DASH_TTL_SECONDS,
+    () => fetchSearchMerchants(query),
+  );
 }

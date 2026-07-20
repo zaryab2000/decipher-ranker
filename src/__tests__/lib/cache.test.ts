@@ -10,7 +10,7 @@ vi.mock("@vercel/kv", () => ({
   },
 }));
 
-import { checkCache, setCache } from "@/lib/cache";
+import { checkCache, setCache, cached } from "@/lib/cache";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -47,5 +47,39 @@ describe("setCache", () => {
   it("swallows KV errors without throwing", async () => {
     mockSet.mockRejectedValueOnce(new Error("KV write failed"));
     await expect(setCache("key", "value", 60)).resolves.toBeUndefined();
+  });
+});
+
+describe("cached", () => {
+  it("returns the cached value without calling the fetcher on a hit", async () => {
+    mockGet.mockResolvedValueOnce({ n: 1 });
+    const fetcher = vi.fn().mockResolvedValue({ n: 2 });
+
+    const result = await cached("k", 3600, fetcher);
+
+    expect(result).toEqual({ n: 1 });
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(mockSet).not.toHaveBeenCalled();
+  });
+
+  it("runs the fetcher and stores its result on a miss", async () => {
+    mockGet.mockResolvedValueOnce(null);
+    mockSet.mockResolvedValueOnce("OK");
+    const fetcher = vi.fn().mockResolvedValue({ n: 2 });
+
+    const result = await cached("k", 60, fetcher);
+
+    expect(result).toEqual({ n: 2 });
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(mockSet).toHaveBeenCalledWith("k", { n: 2 }, { ex: 60 });
+  });
+
+  it("falls through to the fetcher when KV read errors", async () => {
+    mockGet.mockRejectedValueOnce(new Error("KV down"));
+    mockSet.mockResolvedValueOnce("OK");
+    const fetcher = vi.fn().mockResolvedValue("fresh");
+
+    await expect(cached("k", 60, fetcher)).resolves.toBe("fresh");
+    expect(fetcher).toHaveBeenCalledOnce();
   });
 });

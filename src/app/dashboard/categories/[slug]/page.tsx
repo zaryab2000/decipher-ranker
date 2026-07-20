@@ -1,3 +1,7 @@
+// Data changes at most once/day via the refresh pipeline; regenerate hourly
+// instead of per-request to keep Neon egress off the hot path.
+export const revalidate = 3600;
+
 import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";

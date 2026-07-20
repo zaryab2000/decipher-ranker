@@ -2,6 +2,8 @@ import { searchMerchants } from "@/dashboard/lib/api";
 import { SearchBar } from "@/dashboard/components/search/SearchBar";
 import { SearchResults } from "@/dashboard/components/search/SearchResults";
 
+export const dynamic = "force-dynamic";
+
 export default async function SearchPage({
   searchParams,
 }: {
