@@ -11,6 +11,15 @@ const breadcrumbLabels: Record<string, string> = {
   categories: "Categories",
   search: "Search",
   merchant: "Merchant",
+  "crypto-defi": "Crypto & DeFi",
+  "real-world-data": "Real-World Data",
+  "climate-apis": "Climate APIs",
+  "on-chain-data": "On-Chain Data",
+  "ai-ml": "AI & ML",
+  "identity-kyc": "Identity & KYC",
+  "gaming-nfts": "Gaming & NFTs",
+  "defi-yield": "DeFi & Yield",
+  "social-graph": "Social Graph",
 };
 
 // A dynamic route segment is either a category slug ("climate-apis") or an

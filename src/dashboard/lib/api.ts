@@ -401,12 +401,18 @@ async function fetchCategoryBySlug(
     ? Number(cacheRow.totalVolume30d)
     : null;
 
-  const scoreDistribution = buildScoreDistribution(merchants_list.map((m) => m.rankerScore * 100));
+  const [scoreRows, avgScoreRows] = await Promise.all([
+    getDb()
+      .select({ rankerScore: merchants.rankerScore })
+      .from(merchants)
+      .where(eq(merchants.categoryId, cat.id)),
+    getDb()
+      .select({ avg: sql<number>`AVG(${merchants.rankerScore})`.mapWith(Number) })
+      .from(merchants)
+      .where(eq(merchants.categoryId, cat.id)),
+  ]);
 
-  const avgScoreRows = await getDb()
-    .select({ avg: sql<number>`AVG(${merchants.rankerScore})`.mapWith(Number) })
-    .from(merchants)
-    .where(eq(merchants.categoryId, cat.id));
+  const scoreDistribution = buildScoreDistribution(scoreRows.map((r) => Number(r.rankerScore ?? 0) * 100));
 
   return {
     name: cat.name,
@@ -460,15 +466,15 @@ async function fetchMerchantByOrigin(
   origin: string,
 ): Promise<MerchantProfile | null> {
   const hostname = extractHostname(origin);
-  const safeOrigin = origin.replace(/[%_\\]/g, "\\$&");
+  const likeSafe = (s: string) => s.replace(/[%_\\]/g, "\\$&");
 
   const resourceRows = await getDb()
     .select()
     .from(resources)
     .where(
       hostname
-        ? ilike(resources.resourceUrl, `%${hostname}%`)
-        : ilike(resources.resourceUrl, `%${safeOrigin}%`),
+        ? ilike(resources.resourceUrl, `%${likeSafe(hostname)}%`)
+        : ilike(resources.resourceUrl, `%${likeSafe(origin)}%`),
     )
     .limit(1);
 

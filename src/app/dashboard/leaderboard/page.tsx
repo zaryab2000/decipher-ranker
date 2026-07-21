@@ -49,7 +49,7 @@ export default async function LeaderboardPage({ searchParams }: Props) {
         <h1 className="text-2xl font-bold text-gray-50">Leaderboard</h1>
         <p className="text-gray-400 mt-1">
           {category
-            ? `Top-ranked x402 merchants in ${category.replace(/-/g, " ")}`
+            ? `Top-ranked x402 merchants in ${category}`
             : "Top-ranked x402 merchants across all categories"}
         </p>
       </div>
@@ -66,6 +66,7 @@ export default async function LeaderboardPage({ searchParams }: Props) {
         page={page}
         perPage={DEFAULT_PAGE_SIZE}
         sortBy={sortBy}
+        sortOrder={sortOrder}
       />
       <Pagination
         page={page}

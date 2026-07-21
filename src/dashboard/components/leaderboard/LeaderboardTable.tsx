@@ -32,6 +32,7 @@ export function LeaderboardTable({
   page,
   perPage,
   sortBy,
+  sortOrder,
 }: {
   merchants: MerchantListItem[];
   startRank?: number;
@@ -39,6 +40,7 @@ export function LeaderboardTable({
   page?: number;
   perPage?: number;
   sortBy?: string;
+  sortOrder?: string;
 }) {
   if (merchants.length === 0) {
     return (
@@ -71,7 +73,7 @@ export function LeaderboardTable({
       {merchants.map((merchant, i) => (
         <TableRow key={merchant.payeeAddress}>
           <TableCell>
-            <RankBadge rank={startRank + i + 1} muted={sortBy != null && sortBy !== "score"} />
+            <RankBadge rank={startRank + i + 1} muted={sortBy !== "score" || sortOrder === "asc"} />
           </TableCell>
           <TableCell>
             <Link
