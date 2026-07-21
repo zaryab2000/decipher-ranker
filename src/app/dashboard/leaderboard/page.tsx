@@ -48,7 +48,9 @@ export default async function LeaderboardPage({ searchParams }: Props) {
       <div>
         <h1 className="text-2xl font-bold text-gray-50">Leaderboard</h1>
         <p className="text-gray-400 mt-1">
-          Top-ranked x402 merchants across all categories
+          {category
+            ? `Top-ranked x402 merchants in ${category}`
+            : "Top-ranked x402 merchants across all categories"}
         </p>
       </div>
       <FilterBar
@@ -63,6 +65,8 @@ export default async function LeaderboardPage({ searchParams }: Props) {
         total={total}
         page={page}
         perPage={DEFAULT_PAGE_SIZE}
+        sortBy={sortBy}
+        sortOrder={sortOrder}
       />
       <Pagination
         page={page}

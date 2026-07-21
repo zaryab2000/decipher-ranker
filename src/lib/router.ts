@@ -18,13 +18,14 @@ export const router = createRouterFromEnv({
 FREE ENDPOINTS (no payment):
 - GET /categories — Browse all API categories with counts
 - GET /leaderboard — Top APIs by category
-- POST /report/origin — Basic rank report for your origin (SIWX wallet identity required)
+- GET /preview — Quick merchant lookup by domain/URL (instant-win, no auth)
+- POST /report/origin — Full rank report for your origin (SIWX wallet identity required)
 
 PAID ENDPOINTS ($0.03 each):
 - POST /report/competitive — Deep competitive analysis with gap analysis
 - POST /report/merchant — Deep-dive on any merchant by address
 
-The free /report/origin endpoint requires wallet identity (SIWX) but no payment. Paid endpoints accept x402 (USDC on Base) or MPP (USDC on Tempo).`,
+Start with GET /preview for a quick check, then use POST /report/origin (free, SIWX) for detailed tips, or the paid endpoints for competitive intelligence.`,
   strictRoutes: true,
   // Paid routes accept both rails: x402 (Base/USDC) and MPP (Tempo/USDC).
   // MPP config is read from env (MPP_SECRET_KEY + MPP_CURRENCY; recipient reuses

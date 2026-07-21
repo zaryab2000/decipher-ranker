@@ -31,12 +31,16 @@ export function LeaderboardTable({
   total,
   page,
   perPage,
+  sortBy,
+  sortOrder,
 }: {
   merchants: MerchantListItem[];
   startRank?: number;
   total?: number;
   page?: number;
   perPage?: number;
+  sortBy?: string;
+  sortOrder?: string;
 }) {
   if (merchants.length === 0) {
     return (
@@ -67,9 +71,9 @@ export function LeaderboardTable({
       ]}
     >
       {merchants.map((merchant, i) => (
-        <TableRow key={merchant.payeeAddress} className="cursor-pointer">
+        <TableRow key={merchant.payeeAddress}>
           <TableCell>
-            <RankBadge rank={startRank + i + 1} />
+            <RankBadge rank={startRank + i + 1} muted={sortBy !== "score" || sortOrder === "asc"} />
           </TableCell>
           <TableCell>
             <Link
@@ -95,7 +99,7 @@ export function LeaderboardTable({
             <ScoreBar score={merchant.rankerScore * 100} showLabel />
           </TableCell>
           <TableCell className="text-gray-400 font-mono">
-            {merchant.priceUsd != null ? formatPrice(merchant.priceUsd) : "N/A"}
+            {merchant.priceUsd != null ? formatPrice(merchant.priceUsd) : "—"}
           </TableCell>
           <TableCell className="text-gray-400 font-mono">
             {formatNumber(merchant.txCount30d)} txns

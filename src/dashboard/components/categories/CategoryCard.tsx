@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Card } from "@/dashboard/components/shared/Card";
 import { ScoreBar } from "@/dashboard/components/shared/ScoreBar";
-import { truncate } from "@/dashboard/lib/formatters";
+import { truncate, displayName } from "@/dashboard/lib/formatters";
 import type { CategoryItem } from "@/dashboard/types";
 
 export function CategoryCard({ category }: { category: CategoryItem }) {
@@ -26,7 +26,9 @@ export function CategoryCard({ category }: { category: CategoryItem }) {
               <span className="text-xs text-gray-400 truncate max-w-[140px] text-right">
                 {category.topMerchant.serviceName
                   ? truncate(category.topMerchant.serviceName, 20)
-                  : truncate(category.topMerchant.address, 12)}
+                  : category.topMerchant.resourceUrl
+                    ? truncate(displayName(category.topMerchant.resourceUrl), 20)
+                    : truncate(category.topMerchant.address, 12)}
               </span>
             </div>
           )}

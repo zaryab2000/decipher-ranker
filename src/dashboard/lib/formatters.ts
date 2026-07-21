@@ -73,12 +73,21 @@ export function truncate(str: string, maxLength: number): string {
 export function displayName(merchant: {
   serviceName: string | null;
   origin: string;
-}): string {
-  if (merchant.serviceName) return merchant.serviceName;
+}): string;
+export function displayName(url: string): string;
+export function displayName(merchantOrUrl: { serviceName: string | null; origin: string } | string): string {
+  if (typeof merchantOrUrl === "string") {
+    try {
+      return new URL(merchantOrUrl).hostname;
+    } catch {
+      return merchantOrUrl;
+    }
+  }
+  if (merchantOrUrl.serviceName) return merchantOrUrl.serviceName;
   try {
-    return new URL(merchant.origin).hostname;
+    return new URL(merchantOrUrl.origin).hostname;
   } catch {
-    return merchant.origin;
+    return merchantOrUrl.origin;
   }
 }
 

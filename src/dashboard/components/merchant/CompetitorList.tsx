@@ -8,14 +8,18 @@ import type { MerchantListItem } from "@/dashboard/types";
 export function CompetitorList({
   competitors,
   currentScore,
+  categoryName,
 }: {
   competitors: MerchantListItem[];
   currentScore: number;
+  categoryName?: string | null;
 }) {
+  const heading = `Competitors${categoryName ? ` in ${categoryName}` : ""}`;
+
   if (competitors.length === 0) {
     return (
       <div>
-        <h2 className="text-lg font-semibold text-gray-50 mb-3">Competitors</h2>
+        <h2 className="text-lg font-semibold text-gray-50 mb-3">{heading}</h2>
         <p className="text-gray-500 text-sm py-4">No competitors in this category</p>
       </div>
     );
@@ -25,7 +29,7 @@ export function CompetitorList({
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-gray-50 mb-3">Competitors</h2>
+      <h2 className="text-lg font-semibold text-gray-50 mb-3">{heading}</h2>
       <Table
         headers={[
           { key: "rank", label: "Rank" },
@@ -39,7 +43,7 @@ export function CompetitorList({
           const compScaled = comp.rankerScore * 100;
           const scoreDiff = currentScaled - compScaled;
           return (
-            <TableRow key={comp.payeeAddress} className="cursor-pointer">
+            <TableRow key={comp.payeeAddress}>
               <TableCell>
                 <RankBadge rank={i + 1} />
               </TableCell>
@@ -66,7 +70,7 @@ export function CompetitorList({
                 {formatNumber(comp.txCount30d)} txns
               </TableCell>
               <TableCell className="text-gray-400 font-mono text-xs">
-                {comp.priceUsd != null ? formatPrice(comp.priceUsd) : "N/A"}
+                {comp.priceUsd != null ? formatPrice(comp.priceUsd) : "—"}
               </TableCell>
             </TableRow>
           );

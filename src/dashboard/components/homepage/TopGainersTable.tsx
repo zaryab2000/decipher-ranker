@@ -42,7 +42,7 @@ export function TopGainersTable({ merchants }: { merchants: MerchantListItem[] }
             ]}
           >
             {merchants.map((merchant) => (
-              <TableRow key={merchant.payeeAddress} className="cursor-pointer">
+              <TableRow key={merchant.payeeAddress}>
                 <TableCell>
                   <RankBadge rank={merchant.rankPosition ?? 0} />
                 </TableCell>
