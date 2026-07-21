@@ -9,6 +9,10 @@ const mockComputeDescriptionQuality = vi.fn<(...args: unknown[]) => unknown>();
 const mockComputeListingCompleteness = vi.fn<(...args: unknown[]) => unknown>();
 const mockGenerateTips = vi.fn<(...args: unknown[]) => unknown>();
 
+const mockWithRateLimit = vi.hoisted(() =>
+  vi.fn(<T>(handler: T, _opts?: unknown) => handler),
+);
+
 vi.mock("@/lib/analytics/ranker", () => ({
   getMerchantByOrigin: (...args: unknown[]) => mockGetMerchantByOrigin(...args),
   computeDescriptionQuality: (...args: unknown[]) =>
@@ -19,14 +23,22 @@ vi.mock("@/lib/analytics/ranker", () => ({
 }));
 
 vi.mock("@/lib/rate-limit", () => ({
-  withRateLimit: (handler: unknown) => handler,
+  withRateLimit: <T>(handler: T, opts?: unknown) =>
+    mockWithRateLimit(handler, opts),
 }));
 
 installRouterMock();
 
 import { GET } from "@/app/api/preview/route";
 
+// Capture the withRateLimit call made at module import time, before beforeEach
+// clears all mocks before each test.
+let rateLimitArgs: [unknown, unknown] | null = null;
+
 beforeEach(() => {
+  if (mockWithRateLimit.mock.calls.length > 0) {
+    rateLimitArgs = mockWithRateLimit.mock.calls[0] as [unknown, unknown];
+  }
   resetIdCounter();
   vi.clearAllMocks();
 });
@@ -247,8 +259,9 @@ describe("GET /api/preview", () => {
     expect(body.merchant.total_in_category).toBe(0);
   });
 
-  it("10: rate limiting wrapper is present", async () => {
-    const { withRateLimit } = await import("@/lib/rate-limit");
-    expect(withRateLimit).toBeDefined();
+  it("10: route is wrapped with rate limit (limit: 20)", async () => {
+    expect(rateLimitArgs).not.toBeNull();
+    expect(typeof rateLimitArgs![0]).toBe("function");
+    expect(rateLimitArgs![1]).toEqual({ limit: 20 });
   });
 });
