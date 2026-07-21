@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Search, Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useSearchSubmit } from "@/dashboard/lib/useSearchSubmit";
+import { TAXONOMY } from "@/lib/analytics/taxonomy";
 
 const breadcrumbLabels: Record<string, string> = {
   dashboard: "Dashboard",
@@ -11,6 +12,7 @@ const breadcrumbLabels: Record<string, string> = {
   categories: "Categories",
   search: "Search",
   merchant: "Merchant",
+  ...Object.fromEntries(TAXONOMY.map((c) => [c.slug, c.name])),
 };
 
 // A dynamic route segment is either a category slug ("climate-apis") or an
@@ -28,7 +30,11 @@ function labelForSegment(seg: string): string {
     }
   }
 
-  return seg.charAt(0).toUpperCase() + seg.slice(1).replace(/-/g, " ");
+  return seg
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .replace(/\b(And|Or|Of|The|In)\b/g, (c) => c.toLowerCase())
+    .replace(/^[a-z]/, (c) => c.toUpperCase());
 }
 
 function buildBreadcrumbs(pathname: string): { href: string; label: string }[] {
@@ -87,7 +93,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
             name="q"
             type="text"
             placeholder="Search..."
-            className="hidden sm:block w-48 md:w-64 pl-9 pr-3 py-1.5 text-sm bg-gray-900 border border-gray-800 rounded-lg text-gray-300 placeholder:text-gray-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-colors"
+            className="w-36 sm:w-48 md:w-64 pl-9 pr-3 py-1.5 text-sm bg-gray-900 border border-gray-800 rounded-lg text-gray-300 placeholder:text-gray-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-colors"
           />
         </div>
       </form>

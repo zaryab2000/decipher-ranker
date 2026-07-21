@@ -6,11 +6,14 @@ import { Card } from "@/dashboard/components/shared/Card";
 import { ScoreBar } from "@/dashboard/components/shared/ScoreBar";
 import { LeaderboardTable } from "@/dashboard/components/leaderboard/LeaderboardTable";
 import { ScoreDistributionChart } from "@/dashboard/components/categories/ScoreDistributionChart";
+import { Pagination } from "@/dashboard/components/shared/Pagination";
 import { formatNumber, formatPrice } from "@/dashboard/lib/formatters";
 
 // Data changes at most once/day via the refresh pipeline; regenerate hourly
 // instead of per-request to keep Neon egress off the hot path.
 export const revalidate = 3600;
+
+const CATEGORY_PAGE_SIZE = 20;
 
 const getCachedCategory = cache(getCategoryBySlug);
 
@@ -19,15 +22,12 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { slug } = await props.params;
   const category = await getCachedCategory(slug);
-  if (!category) return { title: "Category not found — decipher-ranker" };
-  const priceStr = category.medianPriceUsd != null
-    ? `Median price: $${category.medianPriceUsd.toFixed(2)}`
-    : "";
+  if (!category) return { title: "Category not found" };
   return {
-    title: `${category.name} — decipher-ranker`,
-    description: `Top ${category.merchantCount} merchants in ${category.name}. ${priceStr}`.trim(),
+    title: category.name,
+    description: `Top ${category.merchantCount} merchants in ${category.name}.`.trim(),
     openGraph: {
-      title: `${category.name} — decipher-ranker`,
+      title: category.name,
       description: `Merchant rankings for the ${category.name} category.`,
     },
   };
@@ -35,11 +35,15 @@ export async function generateMetadata(
 
 export default async function CategoryDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ page?: string }>;
 }) {
   const { slug } = await params;
-  const category = await getCachedCategory(slug);
+  const { page: pageStr } = await searchParams;
+  const page = Math.max(1, Number(pageStr ?? 1));
+  const category = await getCachedCategory(slug, { page, perPage: CATEGORY_PAGE_SIZE });
 
   if (!category) {
     notFound();
@@ -72,12 +76,14 @@ export default async function CategoryDetailPage({
         <Card>
           <p className="text-xs text-gray-500 uppercase tracking-wider">Median Price</p>
           <p className="text-2xl font-semibold text-gray-50">
-            {category.medianPriceUsd != null ? formatPrice(category.medianPriceUsd) : "N/A"}
+            {category.medianPriceUsd != null ? formatPrice(category.medianPriceUsd) : "—"}
           </p>
         </Card>
         <Card>
           <p className="text-xs text-gray-500 uppercase tracking-wider">30d Volume</p>
-          <p className="text-2xl font-semibold text-gray-50">{formatNumber(category.totalVolume30d)}</p>
+          <p className="text-2xl font-semibold text-gray-50">
+            {category.totalVolume30d != null ? formatNumber(category.totalVolume30d) : "—"}
+          </p>
         </Card>
       </div>
 
@@ -91,6 +97,11 @@ export default async function CategoryDetailPage({
       <div>
         <h2 className="text-lg font-semibold text-gray-50 mb-3">Merchants in {category.name}</h2>
         <LeaderboardTable merchants={category.merchants} startRank={0} total={category.merchantCount} />
+        <Pagination
+          page={page}
+          totalPages={Math.ceil(category.merchantCount / CATEGORY_PAGE_SIZE)}
+          basePath={`/dashboard/categories/${category.slug}`}
+        />
       </div>
     </div>
   );
