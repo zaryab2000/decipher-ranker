@@ -1,15 +1,15 @@
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { categories, merchants, resources, categoryCache } from "@/lib/db/schema";
 import { desc, eq, sql, asc } from "drizzle-orm";
 
 export async function getAllCategories() {
-  const cats = await db.query.categories.findMany({
+  const cats = await getDb().query.categories.findMany({
     orderBy: [desc(categories.merchantCount)],
   });
 
   const result = [];
   for (const cat of cats) {
-    const [topMerchant] = await db
+    const [topMerchant] = await getDb()
       .select({
         payeeAddress: merchants.payeeAddress,
         rankerScore: merchants.rankerScore,
@@ -19,7 +19,7 @@ export async function getAllCategories() {
       .orderBy(desc(merchants.rankerScore))
       .limit(1);
 
-    const [avgResult] = await db
+    const [avgResult] = await getDb()
       .select({ avg: sql<number>`avg(${merchants.rankerScore}::numeric)` })
       .from(merchants)
       .where(eq(merchants.categoryId, cat.id));
@@ -27,10 +27,7 @@ export async function getAllCategories() {
     result.push({
       id: cat.id,
       name: cat.name,
-      slug: cat.name
-        .toLowerCase()
-        .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9-]/g, ""),
+      slug: cat.slug,
       merchantCount: cat.merchantCount ?? 0,
       medianPriceUsd: cat.medianPrice ? Number(cat.medianPrice) : null,
       avgScore: avgResult?.avg ? Number(avgResult.avg) : null,
@@ -48,18 +45,15 @@ export async function getAllCategories() {
 }
 
 export async function getCategoryBySlug(slug: string) {
-  const allCats = await db.select().from(categories);
-  const cat = allCats.find(
-    (c) =>
-      c.name
-        .toLowerCase()
-        .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9-]/g, "") === slug,
-  );
+  const [cat] = await getDb()
+    .select()
+    .from(categories)
+    .where(eq(categories.slug, slug))
+    .limit(1);
 
   if (!cat) return null;
 
-  const categoryMerchants = await db
+  const categoryMerchants = await getDb()
     .select()
     .from(merchants)
     .where(eq(merchants.categoryId, cat.id))
@@ -67,7 +61,7 @@ export async function getCategoryBySlug(slug: string) {
 
   const merchantItems = [];
   for (const m of categoryMerchants) {
-    const [firstResource] = await db
+    const [firstResource] = await getDb()
       .select()
       .from(resources)
       .where(eq(resources.merchantId, m.id))
@@ -93,7 +87,7 @@ export async function getCategoryBySlug(slug: string) {
 
   const scoreDistribution = buildScoreDistribution(scores);
 
-  const [volumeResult] = await db
+  const [volumeResult] = await getDb()
     .select({ total: sql<number>`sum(${merchants.volume30d}::numeric)` })
     .from(merchants)
     .where(eq(merchants.categoryId, cat.id));
@@ -136,10 +130,10 @@ function buildScoreDistribution(
 }
 
 export async function refreshCategoryCache(): Promise<number> {
-  const allCats = await db.select().from(categories);
+  const allCats = await getDb().select().from(categories);
 
   // Aggregate per-category stats in one pass instead of a query per category.
-  const statRows = await db
+  const statRows = await getDb()
     .select({
       categoryId: merchants.categoryId,
       merchantCount: sql<number>`count(*)`,
@@ -156,7 +150,7 @@ export async function refreshCategoryCache(): Promise<number> {
   }
 
   // Top-5 merchants per non-empty category in a single windowed query.
-  const rankedRows = await db
+  const rankedRows = await getDb()
     .select({
       categoryId: merchants.categoryId,
       payeeAddress: merchants.payeeAddress,
@@ -200,7 +194,7 @@ export async function refreshCategoryCache(): Promise<number> {
   const CHUNK = 500;
   for (let i = 0; i < cacheRows.length; i += CHUNK) {
     const batch = cacheRows.slice(i, i + CHUNK);
-    await db
+    await getDb()
       .insert(categoryCache)
       .values(batch)
       .onConflictDoUpdate({

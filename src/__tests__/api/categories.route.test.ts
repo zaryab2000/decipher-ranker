@@ -6,9 +6,9 @@ import { installRouterMock } from "../fixtures/mock-router";
 const mockSelect = vi.fn();
 
 vi.mock("@/lib/db", () => ({
-  db: {
+  getDb: () => ({
     select: (...args: unknown[]) => mockSelect(...args),
-  },
+  }),
 }));
 
 // Rate limiting is exercised in rate-limit.test.ts; here it's a passthrough so

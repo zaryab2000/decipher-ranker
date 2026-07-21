@@ -18,7 +18,14 @@ export function ScoreBar({
   const clampedScore = Math.max(0, Math.min(100, score));
 
   return (
-    <div className={`flex items-center gap-2 ${className ?? ""}`}>
+    <div
+      className={`flex items-center gap-2 ${className ?? ""}`}
+      role="progressbar"
+      aria-valuenow={clampedScore}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label={`Score: ${clampedScore.toFixed(0)}`}
+    >
       <div className="h-2 rounded-full bg-gray-800 w-full">
         <div
           className={`h-2 rounded-full ${getColor(clampedScore)}`}

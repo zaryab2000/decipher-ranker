@@ -63,7 +63,7 @@ export default async function CategoryDetailPage({
           <p className="text-xs text-gray-500 uppercase tracking-wider">Avg Score</p>
           {category.avgScore != null ? (
             <div className="mt-1">
-              <ScoreBar score={category.avgScore} showLabel />
+              <ScoreBar score={category.avgScore * 100} showLabel />
             </div>
           ) : (
             <p className="text-2xl font-semibold text-gray-50">—</p>
@@ -90,7 +90,7 @@ export default async function CategoryDetailPage({
 
       <div>
         <h2 className="text-lg font-semibold text-gray-50 mb-3">Merchants in {category.name}</h2>
-        <LeaderboardTable merchants={category.merchants} startRank={0} />
+        <LeaderboardTable merchants={category.merchants} startRank={0} total={category.merchantCount} />
       </div>
     </div>
   );

@@ -58,7 +58,7 @@ export function Pagination({
             1
           </Link>
           {start > 2 && (
-            <span className="px-1 text-gray-600">...</span>
+            <span className="px-1 text-gray-500">...</span>
           )}
         </>
       )}
@@ -80,7 +80,7 @@ export function Pagination({
       {end < totalPages && (
         <>
           {end < totalPages - 1 && (
-            <span className="px-1 text-gray-600">...</span>
+            <span className="px-1 text-gray-500">...</span>
           )}
           <Link
             href={buildHref(basePath, totalPages, searchParams)}

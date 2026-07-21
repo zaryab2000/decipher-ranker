@@ -7,7 +7,7 @@ const mockSelect = vi.fn();
 const mockFindMany = vi.fn();
 
 vi.mock("@/lib/db", () => ({
-  db: {
+  getDb: () => ({
     select: (...args: unknown[]) => mockSelect(...args),
     query: new Proxy({}, {
       get() {
@@ -16,7 +16,7 @@ vi.mock("@/lib/db", () => ({
         };
       },
     }),
-  },
+  }),
 }));
 
 // Rate limiting is exercised in rate-limit.test.ts; here it's a passthrough so

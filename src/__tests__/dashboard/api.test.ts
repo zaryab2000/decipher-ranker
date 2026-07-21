@@ -3,11 +3,13 @@ import { makeMerchant, resetIdCounter } from "../fixtures/factories";
 import { makeSelectChain } from "../fixtures/mock-chains";
 
 const mockSelect = vi.fn();
+const mockSelectDistinctOn = vi.fn();
 
 vi.mock("@/lib/db", () => ({
-  db: {
+  getDb: () => ({
     select: (...args: unknown[]) => mockSelect(...args),
-  },
+    selectDistinctOn: (...args: unknown[]) => mockSelectDistinctOn(...args),
+  }),
 }));
 
 // The dashboard read functions wrap their DB queries in cached(); bypass KV so
@@ -25,7 +27,12 @@ vi.mock("drizzle-orm", async () => {
   };
 });
 
-import { getEcosystemStats, getCategoryNames, searchMerchants } from "@/dashboard/lib/api";
+import {
+  getEcosystemStats,
+  getCategoryNames,
+  searchMerchants,
+  getAllCategories,
+} from "@/dashboard/lib/api";
 
 let selectResults: unknown[][] = [];
 let selectIndex = 0;
@@ -41,6 +48,8 @@ beforeEach(() => {
     selectIndex++;
     return makeSelectChain(result);
   });
+
+  mockSelectDistinctOn.mockImplementation(() => makeSelectChain([]));
 });
 
 describe("getEcosystemStats", () => {
@@ -129,5 +138,26 @@ describe("searchMerchants", () => {
     const result = await searchMerchants("nonexistent");
     expect(result.merchants).toEqual([]);
     expect(result.total).toBe(0);
+  });
+});
+
+describe("getAllCategories", () => {
+  it("uses the DB slug column verbatim with no dedup/merge", async () => {
+    // Parallel selects: [0] category rows, [1] avg agg, [2] top-merchant window.
+    selectResults = [
+      [
+        { id: "c-1", slug: "ai-agents", name: "AI & Agents", merchantCount: 10, medianPrice: "0.02" },
+        { id: "c-2", slug: "crypto-defi", name: "Crypto & DeFi", merchantCount: 5, medianPrice: "0.03" },
+      ],
+      [],
+      [],
+    ];
+
+    const result = await getAllCategories();
+
+    expect(result).toHaveLength(2);
+    expect(result.map((c) => c.slug)).toEqual(["ai-agents", "crypto-defi"]);
+    // No duplicate slugs in the output.
+    expect(new Set(result.map((c) => c.slug)).size).toBe(result.length);
   });
 });

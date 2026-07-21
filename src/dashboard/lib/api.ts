@@ -1,7 +1,7 @@
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { cached } from "@/lib/cache";
 import { merchants, resources, categories, categoryCache } from "@/lib/db/schema";
-import { desc, asc, eq, sql, ilike, or, and, count, sum } from "drizzle-orm";
+import { desc, asc, eq, sql, ilike, or, and, count, sum, inArray } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import type {
   MerchantListItem,
@@ -19,12 +19,8 @@ import type {
 // namespaced under `dash:` and include every argument that changes the result.
 const DASH_TTL_SECONDS = 3600;
 
-function toSlug(name: string): string {
-  return name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-}
-
 function buildResourceSubquery() {
-  return db
+  return getDb()
     .selectDistinctOn([resources.merchantId], {
       merchantId: resources.merchantId,
       resourceUrl: resources.resourceUrl,
@@ -97,12 +93,18 @@ function merchantSelect(resourceCols: ResourceColumns) {
 }
 
 async function fetchEcosystemStats(): Promise<EcosystemStats> {
-  const [[merchantCountRow], [categoryCountRow], [txSumRow], topCategoryRows] =
+  const [[merchantCountRow], [categoryCountRow], [txSumRow], [resourceCountRow], topCategoryRows] =
     await Promise.all([
-      db.select({ value: count() }).from(merchants),
-      db.select({ value: count() }).from(categories),
-      db.select({ value: sum(merchants.txCount) }).from(merchants),
-      db
+      getDb().select({ value: count() }).from(merchants),
+      // Count curated categories that have at least one merchant — matches the
+      // categories-page card count exactly (empty categories are hidden there).
+      getDb()
+        .select({ value: count() })
+        .from(categories)
+        .where(sql`${categories.merchantCount} > 0`),
+      getDb().select({ value: sum(merchants.txCount30d) }).from(merchants),
+      getDb().select({ value: count() }).from(resources),
+      getDb()
         .select({ name: categories.name })
         .from(categories)
         .orderBy(desc(categories.merchantCount))
@@ -114,6 +116,7 @@ async function fetchEcosystemStats(): Promise<EcosystemStats> {
     totalCategories: categoryCountRow?.value ?? 0,
     totalTransactions: Number(txSumRow?.value ?? 0),
     topCategory: topCategoryRows[0]?.name ?? "N/A",
+    totalResources: resourceCountRow?.value ?? 0,
   };
 }
 
@@ -124,7 +127,7 @@ export function getEcosystemStats(): Promise<EcosystemStats> {
 async function fetchTopMerchants(limit: number): Promise<MerchantListItem[]> {
   const resourceSubquery = buildResourceSubquery();
 
-  const rows = await db
+  const rows = await getDb()
     .select(merchantSelect(resourceSubquery))
     .from(merchants)
     .leftJoin(resourceSubquery, eq(merchants.id, resourceSubquery.merchantId))
@@ -144,7 +147,7 @@ export function getTopMerchants(limit = 10): Promise<MerchantListItem[]> {
 async function fetchRecentlyUpdated(limit: number): Promise<MerchantListItem[]> {
   const resourceSubquery = buildResourceSubquery();
 
-  const rows = await db
+  const rows = await getDb()
     .select(merchantSelect(resourceSubquery))
     .from(merchants)
     .leftJoin(resourceSubquery, eq(merchants.id, resourceSubquery.merchantId))
@@ -180,14 +183,14 @@ async function fetchLeaderboard(
 
   const resourceSubquery = buildResourceSubquery();
 
-  const baseQuery = db
+  const baseQuery = getDb()
     .select(merchantSelect(resourceSubquery))
     .from(merchants)
     .leftJoin(resourceSubquery, eq(merchants.id, resourceSubquery.merchantId))
     .leftJoin(categories, eq(merchants.categoryId, categories.id))
     .$dynamic();
 
-  const countQuery = db
+  const countQuery = getDb()
     .select({ cnt: count() })
     .from(merchants)
     .leftJoin(categories, eq(merchants.categoryId, categories.id))
@@ -210,7 +213,7 @@ async function fetchLeaderboard(
   const orderFn = sortOrder === "asc" ? asc : desc;
   const offset = (page - 1) * perPage;
 
-  const [{ cnt }] = await countQuery;
+  const [{ cnt } = { cnt: 0 }] = await countQuery;
   const total = cnt ?? 0;
 
   const rows = await baseQuery
@@ -241,7 +244,7 @@ export function getLeaderboard(
 }
 
 async function fetchCategoryNames(): Promise<string[]> {
-  const rows = await db
+  const rows = await getDb()
     .select({ name: categories.name })
     .from(categories)
     .orderBy(categories.name);
@@ -256,9 +259,15 @@ export function getCategoryNames(): Promise<string[]> {
 async function fetchAllCategories(): Promise<CategoryItem[]> {
   // Three independent set-based queries — category rows, per-category average
   // score, and per-category ranking — run in parallel to cut Neon round-trips.
+  // Only categories with at least one merchant are shown (empty curated
+  // categories are hidden).
   const [rows, aggRows, topRows] = await Promise.all([
-    db.select().from(categories).orderBy(desc(categories.merchantCount)),
-    db
+    getDb()
+      .select()
+      .from(categories)
+      .where(sql`${categories.merchantCount} > 0`)
+      .orderBy(desc(categories.merchantCount)),
+    getDb()
       .select({
         categoryId: merchants.categoryId,
         avg: sql<number>`AVG(${merchants.rankerScore})`.mapWith(Number),
@@ -266,11 +275,12 @@ async function fetchAllCategories(): Promise<CategoryItem[]> {
       .from(merchants)
       .where(sql`${merchants.categoryId} IS NOT NULL`)
       .groupBy(merchants.categoryId),
-    db
+    getDb()
       .select({
         categoryId: merchants.categoryId,
         address: merchants.payeeAddress,
         score: merchants.rankerScore,
+        merchantId: merchants.id,
         rn: sql<number>`row_number() over (partition by ${merchants.categoryId} order by ${merchants.rankerScore} desc)`,
       })
       .from(merchants)
@@ -282,24 +292,51 @@ async function fetchAllCategories(): Promise<CategoryItem[]> {
     if (a.categoryId) avgByCategory.set(a.categoryId, a.avg);
   }
 
-  const topByCategory = new Map<string, { address: string; score: number }>();
+  const topByCategory = new Map<string, { address: string; score: number; merchantId: string }>();
   for (const t of topRows) {
     if (!t.categoryId || Number(t.rn) !== 1) continue;
     topByCategory.set(t.categoryId, {
       address: t.address,
       score: Number(t.score ?? 0),
+      merchantId: t.merchantId,
     });
   }
 
-  return rows.map((cat) => ({
-    name: cat.name,
-    slug: toSlug(cat.name),
-    merchantCount: cat.merchantCount ?? 0,
-    medianPriceUsd: cat.medianPrice != null ? Number(cat.medianPrice) : null,
-    avgScore: avgByCategory.get(cat.id) ?? null,
-    topMerchant: topByCategory.get(cat.id) ?? null,
-    growthIndicator: 0,
-  }));
+  const topMerchantIds = [...topByCategory.values()]
+    .map((t) => t.merchantId)
+    .filter((id): id is string => !!id);
+  const resourceRows = topMerchantIds.length > 0
+    ? await getDb()
+        .selectDistinctOn([resources.merchantId], {
+          merchantId: resources.merchantId,
+          serviceName: resources.serviceName,
+        })
+        .from(resources)
+        .where(inArray(resources.merchantId, topMerchantIds))
+        .orderBy(resources.merchantId)
+    : [];
+  const topResources = new Map(resourceRows.map((r) => [r.merchantId, r.serviceName]));
+
+  // `slug` is a curated, unique DB column (the taxonomy), so one row per card —
+  // no dedup/merge needed.
+  return rows.map((cat) => {
+    const tm = topByCategory.get(cat.id);
+    return {
+      name: cat.name,
+      slug: cat.slug,
+      merchantCount: cat.merchantCount ?? 0,
+      medianPriceUsd: cat.medianPrice != null ? Number(cat.medianPrice) : null,
+      avgScore: avgByCategory.get(cat.id) ?? null,
+      topMerchant: tm
+        ? {
+            address: tm.address,
+            score: tm.score,
+            serviceName: topResources.get(tm.merchantId) ?? null,
+          }
+        : null,
+      growthIndicator: 0,
+    };
+  });
 }
 
 export function getAllCategories(): Promise<CategoryItem[]> {
@@ -309,13 +346,18 @@ export function getAllCategories(): Promise<CategoryItem[]> {
 async function fetchCategoryBySlug(
   slug: string,
 ): Promise<CategoryDetail | null> {
-  const allCategories = await db.select().from(categories);
-  const cat = allCategories.find((c) => toSlug(c.name) === slug);
+  // slug is a unique DB column — one indexed lookup, no JS-side slugify/find.
+  const cat = await getDb()
+    .select()
+    .from(categories)
+    .where(eq(categories.slug, slug))
+    .limit(1)
+    .then((r) => r[0] ?? null);
   if (!cat) return null;
 
   const resourceSubquery = buildResourceSubquery();
 
-  const merchantRows = await db
+  const merchantRows = await getDb()
     .select(merchantSelect(resourceSubquery))
     .from(merchants)
     .leftJoin(resourceSubquery, eq(merchants.id, resourceSubquery.merchantId))
@@ -327,26 +369,27 @@ async function fetchCategoryBySlug(
     toMerchantListItem(row, i + 1),
   );
 
-  const cacheRows = await db
+  const cacheRow = await getDb()
     .select()
     .from(categoryCache)
     .where(eq(categoryCache.categoryName, cat.name))
-    .limit(1);
+    .limit(1)
+    .then((rows) => rows[0] ?? null);
 
-  const totalVolume30d = cacheRows[0]?.totalVolume30d != null
-    ? Number(cacheRows[0].totalVolume30d)
+  const totalVolume30d = cacheRow?.totalVolume30d != null
+    ? Number(cacheRow.totalVolume30d)
     : 0;
 
   const scoreDistribution = buildScoreDistribution(merchants_list.map((m) => m.rankerScore));
 
-  const avgScoreRows = await db
+  const avgScoreRows = await getDb()
     .select({ avg: sql<number>`AVG(${merchants.rankerScore})`.mapWith(Number) })
     .from(merchants)
     .where(eq(merchants.categoryId, cat.id));
 
   return {
     name: cat.name,
-    slug: toSlug(cat.name),
+    slug: cat.slug,
     merchantCount: cat.merchantCount ?? 0,
     medianPriceUsd: cat.medianPrice != null ? Number(cat.medianPrice) : null,
     avgScore: avgScoreRows[0]?.avg ?? null,
@@ -354,6 +397,7 @@ async function fetchCategoryBySlug(
       ? {
           address: merchants_list[0].payeeAddress,
           score: merchants_list[0].rankerScore,
+          serviceName: merchants_list[0].serviceName,
         }
       : null,
     growthIndicator: 0,
@@ -393,7 +437,7 @@ async function fetchMerchantByOrigin(
 ): Promise<MerchantProfile | null> {
   const safeOrigin = origin.replace(/[%_]/g, "\\$&");
 
-  const resourceRows = await db
+  const resourceRows = await getDb()
     .select()
     .from(resources)
     .where(ilike(resources.resourceUrl, `%${safeOrigin}%`))
@@ -402,7 +446,7 @@ async function fetchMerchantByOrigin(
   const resource = resourceRows[0];
   if (!resource) return null;
 
-  const merchantRows = await db
+  const merchantRows = await getDb()
     .select()
     .from(merchants)
     .where(eq(merchants.id, resource.merchantId))
@@ -411,7 +455,7 @@ async function fetchMerchantByOrigin(
   const merchant = merchantRows[0];
   if (!merchant) return null;
 
-  const allResources = await db
+  const allResources = await getDb()
     .select()
     .from(resources)
     .where(eq(resources.merchantId, merchant.id));
@@ -423,7 +467,7 @@ async function fetchMerchantByOrigin(
   const resourceDescription = firstResource?.description ?? null;
   const allTags = allResources.flatMap((r) => r.tags ?? []);
 
-  const categoryRows = await db
+  const categoryRows = await getDb()
     .select()
     .from(categories)
     .where(eq(categories.id, merchant.categoryId ?? ""))
@@ -439,7 +483,7 @@ async function fetchMerchantByOrigin(
     recency: Number(firstResource?.recencyScore ?? 0) * 100,
   };
 
-  const competitors = await db
+  const competitors = await getDb()
     .select({
       merchants_payeeAddress: merchants.payeeAddress,
       merchants_rankerScore: merchants.rankerScore,
@@ -556,17 +600,19 @@ function buildImprovements(metrics: {
 }
 
 async function fetchSearchMerchants(query: string): Promise<SearchResult> {
-  const rows = await db
-    .select(merchantSelect(resources))
+  const safeQuery = query.replace(/[%_\\]/g, "\\$&");
+  const resourceSubquery = buildResourceSubquery();
+
+  const rows = await getDb()
+    .select(merchantSelect(resourceSubquery))
     .from(merchants)
-    .leftJoin(resources, eq(merchants.id, resources.merchantId))
+    .leftJoin(resourceSubquery, eq(merchants.id, resourceSubquery.merchantId))
     .leftJoin(categories, eq(merchants.categoryId, categories.id))
     .where(
       or(
-        ilike(merchants.payeeAddress, `%${query}%`),
-        ilike(resources.resourceUrl, `%${query}%`),
-        ilike(resources.serviceName, `%${query}%`),
-        ilike(resources.description, `%${query}%`),
+        ilike(merchants.payeeAddress, `%${safeQuery}%`),
+        ilike(resourceSubquery.resourceUrl, `%${safeQuery}%`),
+        ilike(resourceSubquery.serviceName, `%${safeQuery}%`),
       ),
     )
     .orderBy(desc(merchants.rankerScore));

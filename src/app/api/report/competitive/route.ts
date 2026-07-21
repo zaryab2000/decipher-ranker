@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { router } from "@/lib/router";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { reports } from "@/lib/db/schema";
 import {
   getMerchantByOrigin,
@@ -65,7 +65,7 @@ export const POST = router
 
     const report = await computeCompetitiveReport(data, body.origin);
 
-    await db.insert(reports).values({
+    await getDb().insert(reports).values({
       requesterWallet: wallet ?? "anonymous",
       reportType: "competitive",
       inputParams: { origin: body.origin },

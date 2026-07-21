@@ -8,9 +8,9 @@ const mockGetMerchantData = vi.fn();
 const mockComputeScoreBreakdown = vi.fn();
 
 vi.mock("@/lib/db", () => ({
-  db: {
+  getDb: () => ({
     select: (...args: unknown[]) => mockSelect(...args),
-  },
+  }),
 }));
 
 vi.mock("@/lib/analytics/ranker", () => ({

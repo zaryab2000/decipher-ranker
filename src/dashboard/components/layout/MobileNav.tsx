@@ -27,10 +27,11 @@ export function MobileNav({
         <div className="p-4 border-b border-gray-800 flex items-center justify-between">
           <Link
             href="/dashboard"
-            className="text-lg font-semibold text-gray-50"
+            className="flex items-center gap-2"
             onClick={onClose}
           >
-            decipher-ranker
+            <img src="/favicon.ico" alt="logo" className="w-5 h-5" />
+            <span className="text-lg font-semibold text-gray-50">Decipher Ranker</span>
           </Link>
           <button
             onClick={onClose}
@@ -45,7 +46,14 @@ export function MobileNav({
         </nav>
 
         <div className="p-4 border-t border-gray-800">
-          <p className="text-xs text-gray-600">Powered by x402</p>
+          <a
+            href="https://x402.org"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+          >
+            Powered by x402
+          </a>
         </div>
       </aside>
     </>

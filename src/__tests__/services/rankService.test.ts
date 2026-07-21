@@ -6,9 +6,9 @@ const mockSelect = vi.fn();
 const mockFindMany = vi.fn();
 
 vi.mock("@/lib/db", () => ({
-  db: {
+  getDb: () => ({
     select: (...args: unknown[]) => mockSelect(...args),
-  },
+  }),
 }));
 
 import { getLeaderboard, getMerchantRank } from "@/lib/services/rankService";

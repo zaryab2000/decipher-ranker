@@ -10,6 +10,7 @@ export function makeSelectChain(result: unknown) {
   chain.orderBy = vi.fn(() => chain);
   chain.limit = vi.fn(() => chain);
   chain.offset = vi.fn(() => chain);
+  chain.as = vi.fn(() => chain);
   chain.then = (onFulfill: (v: unknown) => unknown) =>
     Promise.resolve(result).then(onFulfill);
   return chain;
@@ -43,6 +44,14 @@ export function makeUpdateChain() {
   chain.set = vi.fn(() => chain);
   chain.where = vi.fn(() => chain);
   chain.returning = vi.fn(() => chain);
+  chain.then = (onFulfill: (v: unknown) => unknown) =>
+    Promise.resolve(undefined).then(onFulfill);
+  return chain;
+}
+
+export function makeDeleteChain() {
+  const chain: Record<string, unknown> = {};
+  chain.where = vi.fn(() => chain);
   chain.then = (onFulfill: (v: unknown) => unknown) =>
     Promise.resolve(undefined).then(onFulfill);
   return chain;

@@ -70,6 +70,18 @@ export function truncate(str: string, maxLength: number): string {
   return `${str.slice(0, maxLength - 3)}...`;
 }
 
+export function displayName(merchant: {
+  serviceName: string | null;
+  origin: string;
+}): string {
+  if (merchant.serviceName) return merchant.serviceName;
+  try {
+    return new URL(merchant.origin).hostname;
+  } catch {
+    return merchant.origin;
+  }
+}
+
 export function formatAddress(address: string): string {
   if (address.length <= 10) return address;
   return `${address.slice(0, 6)}...${address.slice(-4)}`;

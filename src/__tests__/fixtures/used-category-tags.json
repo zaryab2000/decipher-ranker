@@ -1,0 +1,918 @@
+[
+  {
+    "name": "ai",
+    "merchantCount": 79
+  },
+  {
+    "name": "crypto",
+    "merchantCount": 20
+  },
+  {
+    "name": "x402",
+    "merchantCount": 14
+  },
+  {
+    "name": "brazil",
+    "merchantCount": 5
+  },
+  {
+    "name": "payments",
+    "merchantCount": 5
+  },
+  {
+    "name": "finance",
+    "merchantCount": 4
+  },
+  {
+    "name": "inference",
+    "merchantCount": 4
+  },
+  {
+    "name": "news",
+    "merchantCount": 4
+  },
+  {
+    "name": "sec",
+    "merchantCount": 4
+  },
+  {
+    "name": "web",
+    "merchantCount": 4
+  },
+  {
+    "name": "bitcoin",
+    "merchantCount": 3
+  },
+  {
+    "name": "defi",
+    "merchantCount": 3
+  },
+  {
+    "name": "honey",
+    "merchantCount": 3
+  },
+  {
+    "name": "security",
+    "merchantCount": 3
+  },
+  {
+    "name": "Upload",
+    "merchantCount": 3
+  },
+  {
+    "name": "weather",
+    "merchantCount": 3
+  },
+  {
+    "name": "ai-visibility",
+    "merchantCount": 2
+  },
+  {
+    "name": "aviation",
+    "merchantCount": 2
+  },
+  {
+    "name": "claude-code",
+    "merchantCount": 2
+  },
+  {
+    "name": "commerce",
+    "merchantCount": 2
+  },
+  {
+    "name": "company-enrichment",
+    "merchantCount": 2
+  },
+  {
+    "name": "data",
+    "merchantCount": 2
+  },
+  {
+    "name": "data-enrichment",
+    "merchantCount": 2
+  },
+  {
+    "name": "Events",
+    "merchantCount": 2
+  },
+  {
+    "name": "facts",
+    "merchantCount": 2
+  },
+  {
+    "name": "fortune",
+    "merchantCount": 2
+  },
+  {
+    "name": "game",
+    "merchantCount": 2
+  },
+  {
+    "name": "health",
+    "merchantCount": 2
+  },
+  {
+    "name": "hyperliquid",
+    "merchantCount": 2
+  },
+  {
+    "name": "knowledge",
+    "merchantCount": 2
+  },
+  {
+    "name": "liquidations",
+    "merchantCount": 2
+  },
+  {
+    "name": "Network",
+    "merchantCount": 2
+  },
+  {
+    "name": "onchain",
+    "merchantCount": 2
+  },
+  {
+    "name": "pdf",
+    "merchantCount": 2
+  },
+  {
+    "name": "polymarket",
+    "merchantCount": 2
+  },
+  {
+    "name": "preflight",
+    "merchantCount": 2
+  },
+  {
+    "name": "research",
+    "merchantCount": 2
+  },
+  {
+    "name": "sanctions",
+    "merchantCount": 2
+  },
+  {
+    "name": "trust",
+    "merchantCount": 2
+  },
+  {
+    "name": "twitter",
+    "merchantCount": 2
+  },
+  {
+    "name": "verification",
+    "merchantCount": 2
+  },
+  {
+    "name": "video",
+    "merchantCount": 2
+  },
+  {
+    "name": "wallet",
+    "merchantCount": 2
+  },
+  {
+    "name": "workflow",
+    "merchantCount": 2
+  },
+  {
+    "name": "10-Q",
+    "merchantCount": 1
+  },
+  {
+    "name": "Actors",
+    "merchantCount": 1
+  },
+  {
+    "name": "acurast",
+    "merchantCount": 1
+  },
+  {
+    "name": "advice",
+    "merchantCount": 1
+  },
+  {
+    "name": "agent",
+    "merchantCount": 1
+  },
+  {
+    "name": "agent-capabilities",
+    "merchantCount": 1
+  },
+  {
+    "name": "agent-commerce",
+    "merchantCount": 1
+  },
+  {
+    "name": "agent-identity",
+    "merchantCount": 1
+  },
+  {
+    "name": "agent-payments",
+    "merchantCount": 1
+  },
+  {
+    "name": "agents",
+    "merchantCount": 1
+  },
+  {
+    "name": "ai-agent",
+    "merchantCount": 1
+  },
+  {
+    "name": "ai-agents",
+    "merchantCount": 1
+  },
+  {
+    "name": "allowances",
+    "merchantCount": 1
+  },
+  {
+    "name": "amazon",
+    "merchantCount": 1
+  },
+  {
+    "name": "aml",
+    "merchantCount": 1
+  },
+  {
+    "name": "analysis",
+    "merchantCount": 1
+  },
+  {
+    "name": "art",
+    "merchantCount": 1
+  },
+  {
+    "name": "attested",
+    "merchantCount": 1
+  },
+  {
+    "name": "automation",
+    "merchantCount": 1
+  },
+  {
+    "name": "b20",
+    "merchantCount": 1
+  },
+  {
+    "name": "base",
+    "merchantCount": 1
+  },
+  {
+    "name": "batch-wallet-snapshot",
+    "merchantCount": 1
+  },
+  {
+    "name": "blockchain",
+    "merchantCount": 1
+  },
+  {
+    "name": "browser",
+    "merchantCount": 1
+  },
+  {
+    "name": "carnival",
+    "merchantCount": 1
+  },
+  {
+    "name": "Channel3",
+    "merchantCount": 1
+  },
+  {
+    "name": "climate",
+    "merchantCount": 1
+  },
+  {
+    "name": "code",
+    "merchantCount": 1
+  },
+  {
+    "name": "code-execution",
+    "merchantCount": 1
+  },
+  {
+    "name": "coingecko",
+    "merchantCount": 1
+  },
+  {
+    "name": "collectible",
+    "merchantCount": 1
+  },
+  {
+    "name": "communications",
+    "merchantCount": 1
+  },
+  {
+    "name": "Company",
+    "merchantCount": 1
+  },
+  {
+    "name": "compliance",
+    "merchantCount": 1
+  },
+  {
+    "name": "compute",
+    "merchantCount": 1
+  },
+  {
+    "name": "contractors",
+    "merchantCount": 1
+  },
+  {
+    "name": "Coresignal",
+    "merchantCount": 1
+  },
+  {
+    "name": "cot",
+    "merchantCount": 1
+  },
+  {
+    "name": "country-data",
+    "merchantCount": 1
+  },
+  {
+    "name": "cricket",
+    "merchantCount": 1
+  },
+  {
+    "name": "crypto news",
+    "merchantCount": 1
+  },
+  {
+    "name": "crypto price",
+    "merchantCount": 1
+  },
+  {
+    "name": "curatoria",
+    "merchantCount": 1
+  },
+  {
+    "name": "currency",
+    "merchantCount": 1
+  },
+  {
+    "name": "cusethejuice",
+    "merchantCount": 1
+  },
+  {
+    "name": "cve",
+    "merchantCount": 1
+  },
+  {
+    "name": "defi yields",
+    "merchantCount": 1
+  },
+  {
+    "name": "dex",
+    "merchantCount": 1
+  },
+  {
+    "name": "dice",
+    "merchantCount": 1
+  },
+  {
+    "name": "diff",
+    "merchantCount": 1
+  },
+  {
+    "name": "dns",
+    "merchantCount": 1
+  },
+  {
+    "name": "documents",
+    "merchantCount": 1
+  },
+  {
+    "name": "dogs",
+    "merchantCount": 1
+  },
+  {
+    "name": "dream-interpretation",
+    "merchantCount": 1
+  },
+  {
+    "name": "email",
+    "merchantCount": 1
+  },
+  {
+    "name": "embeddings",
+    "merchantCount": 1
+  },
+  {
+    "name": "entity-resolution",
+    "merchantCount": 1
+  },
+  {
+    "name": "entropy",
+    "merchantCount": 1
+  },
+  {
+    "name": "Exa",
+    "merchantCount": 1
+  },
+  {
+    "name": "facebook-ads",
+    "merchantCount": 1
+  },
+  {
+    "name": "fact-check",
+    "merchantCount": 1
+  },
+  {
+    "name": "fal",
+    "merchantCount": 1
+  },
+  {
+    "name": "fee-estimate",
+    "merchantCount": 1
+  },
+  {
+    "name": "feed",
+    "merchantCount": 1
+  },
+  {
+    "name": "financial",
+    "merchantCount": 1
+  },
+  {
+    "name": "financial intelligence",
+    "merchantCount": 1
+  },
+  {
+    "name": "Financial Metrics",
+    "merchantCount": 1
+  },
+  {
+    "name": "france",
+    "merchantCount": 1
+  },
+  {
+    "name": "funding",
+    "merchantCount": 1
+  },
+  {
+    "name": "gift-cards",
+    "merchantCount": 1
+  },
+  {
+    "name": "glassnode",
+    "merchantCount": 1
+  },
+  {
+    "name": "Google Flights",
+    "merchantCount": 1
+  },
+  {
+    "name": "Govfiles",
+    "merchantCount": 1
+  },
+  {
+    "name": "h1dr4",
+    "merchantCount": 1
+  },
+  {
+    "name": "hackernews",
+    "merchantCount": 1
+  },
+  {
+    "name": "halfway-point",
+    "merchantCount": 1
+  },
+  {
+    "name": "healthcare",
+    "merchantCount": 1
+  },
+  {
+    "name": "herculis",
+    "merchantCount": 1
+  },
+  {
+    "name": "horror",
+    "merchantCount": 1
+  },
+  {
+    "name": "hyperliquid market",
+    "merchantCount": 1
+  },
+  {
+    "name": "ideas",
+    "merchantCount": 1
+  },
+  {
+    "name": "image",
+    "merchantCount": 1
+  },
+  {
+    "name": "image-crop",
+    "merchantCount": 1
+  },
+  {
+    "name": "image-processing",
+    "merchantCount": 1
+  },
+  {
+    "name": "image_gen",
+    "merchantCount": 1
+  },
+  {
+    "name": "images",
+    "merchantCount": 1
+  },
+  {
+    "name": "insolvency",
+    "merchantCount": 1
+  },
+  {
+    "name": "insurance",
+    "merchantCount": 1
+  },
+  {
+    "name": "intelligence",
+    "merchantCount": 1
+  },
+  {
+    "name": "ip-intelligence",
+    "merchantCount": 1
+  },
+  {
+    "name": "japan",
+    "merchantCount": 1
+  },
+  {
+    "name": "jokes",
+    "merchantCount": 1
+  },
+  {
+    "name": "json",
+    "merchantCount": 1
+  },
+  {
+    "name": "kyb",
+    "merchantCount": 1
+  },
+  {
+    "name": "latest-releases",
+    "merchantCount": 1
+  },
+  {
+    "name": "legal-services",
+    "merchantCount": 1
+  },
+  {
+    "name": "library",
+    "merchantCount": 1
+  },
+  {
+    "name": "linkedin",
+    "merchantCount": 1
+  },
+  {
+    "name": "local business",
+    "merchantCount": 1
+  },
+  {
+    "name": "macro",
+    "merchantCount": 1
+  },
+  {
+    "name": "mail",
+    "merchantCount": 1
+  },
+  {
+    "name": "maritime",
+    "merchantCount": 1
+  },
+  {
+    "name": "market",
+    "merchantCount": 1
+  },
+  {
+    "name": "market-news",
+    "merchantCount": 1
+  },
+  {
+    "name": "marketplace",
+    "merchantCount": 1
+  },
+  {
+    "name": "mcp",
+    "merchantCount": 1
+  },
+  {
+    "name": "meme",
+    "merchantCount": 1
+  },
+  {
+    "name": "mortgage",
+    "merchantCount": 1
+  },
+  {
+    "name": "nfl",
+    "merchantCount": 1
+  },
+  {
+    "name": "notary",
+    "merchantCount": 1
+  },
+  {
+    "name": "npm",
+    "merchantCount": 1
+  },
+  {
+    "name": "osha",
+    "merchantCount": 1
+  },
+  {
+    "name": "payperbyte",
+    "merchantCount": 1
+  },
+  {
+    "name": "Pdl",
+    "merchantCount": 1
+  },
+  {
+    "name": "pearl",
+    "merchantCount": 1
+  },
+  {
+    "name": "prediction-markets",
+    "merchantCount": 1
+  },
+  {
+    "name": "premium",
+    "merchantCount": 1
+  },
+  {
+    "name": "price",
+    "merchantCount": 1
+  },
+  {
+    "name": "price-oracle",
+    "merchantCount": 1
+  },
+  {
+    "name": "proof-of-human",
+    "merchantCount": 1
+  },
+  {
+    "name": "Properties",
+    "merchantCount": 1
+  },
+  {
+    "name": "property",
+    "merchantCount": 1
+  },
+  {
+    "name": "proxy",
+    "merchantCount": 1
+  },
+  {
+    "name": "public-records",
+    "merchantCount": 1
+  },
+  {
+    "name": "read",
+    "merchantCount": 1
+  },
+  {
+    "name": "real estate",
+    "merchantCount": 1
+  },
+  {
+    "name": "real-estate",
+    "merchantCount": 1
+  },
+  {
+    "name": "reddit",
+    "merchantCount": 1
+  },
+  {
+    "name": "reference-data",
+    "merchantCount": 1
+  },
+  {
+    "name": "renders",
+    "merchantCount": 1
+  },
+  {
+    "name": "reputation",
+    "merchantCount": 1
+  },
+  {
+    "name": "restaurant reservations",
+    "merchantCount": 1
+  },
+  {
+    "name": "restaurants",
+    "merchantCount": 1
+  },
+  {
+    "name": "riddle",
+    "merchantCount": 1
+  },
+  {
+    "name": "roast",
+    "merchantCount": 1
+  },
+  {
+    "name": "routing",
+    "merchantCount": 1
+  },
+  {
+    "name": "rwa",
+    "merchantCount": 1
+  },
+  {
+    "name": "satellite",
+    "merchantCount": 1
+  },
+  {
+    "name": "Sc",
+    "merchantCount": 1
+  },
+  {
+    "name": "science",
+    "merchantCount": 1
+  },
+  {
+    "name": "scraping",
+    "merchantCount": 1
+  },
+  {
+    "name": "search",
+    "merchantCount": 1
+  },
+  {
+    "name": "sensor",
+    "merchantCount": 1
+  },
+  {
+    "name": "seo",
+    "merchantCount": 1
+  },
+  {
+    "name": "Sessions",
+    "merchantCount": 1
+  },
+  {
+    "name": "Social",
+    "merchantCount": 1
+  },
+  {
+    "name": "software",
+    "merchantCount": 1
+  },
+  {
+    "name": "solana",
+    "merchantCount": 1
+  },
+  {
+    "name": "solana price",
+    "merchantCount": 1
+  },
+  {
+    "name": "solana-token-safety",
+    "merchantCount": 1
+  },
+  {
+    "name": "sop",
+    "merchantCount": 1
+  },
+  {
+    "name": "source-inspection",
+    "merchantCount": 1
+  },
+  {
+    "name": "sourcestrand",
+    "merchantCount": 1
+  },
+  {
+    "name": "space",
+    "merchantCount": 1
+  },
+  {
+    "name": "sports",
+    "merchantCount": 1
+  },
+  {
+    "name": "Stablebase",
+    "merchantCount": 1
+  },
+  {
+    "name": "stock-news",
+    "merchantCount": 1
+  },
+  {
+    "name": "stocks",
+    "merchantCount": 1
+  },
+  {
+    "name": "substack",
+    "merchantCount": 1
+  },
+  {
+    "name": "suede",
+    "merchantCount": 1
+  },
+  {
+    "name": "summarize",
+    "merchantCount": 1
+  },
+  {
+    "name": "svg",
+    "merchantCount": 1
+  },
+  {
+    "name": "synthforge",
+    "merchantCount": 1
+  },
+  {
+    "name": "Tags",
+    "merchantCount": 1
+  },
+  {
+    "name": "taste",
+    "merchantCount": 1
+  },
+  {
+    "name": "telegram",
+    "merchantCount": 1
+  },
+  {
+    "name": "terraform",
+    "merchantCount": 1
+  },
+  {
+    "name": "test",
+    "merchantCount": 1
+  },
+  {
+    "name": "text",
+    "merchantCount": 1
+  },
+  {
+    "name": "time",
+    "merchantCount": 1
+  },
+  {
+    "name": "tool-call-safety",
+    "merchantCount": 1
+  },
+  {
+    "name": "transcription",
+    "merchantCount": 1
+  },
+  {
+    "name": "translation",
+    "merchantCount": 1
+  },
+  {
+    "name": "travel",
+    "merchantCount": 1
+  },
+  {
+    "name": "trending",
+    "merchantCount": 1
+  },
+  {
+    "name": "Web Content",
+    "merchantCount": 1
+  },
+  {
+    "name": "web-scraping",
+    "merchantCount": 1
+  },
+  {
+    "name": "webhook",
+    "merchantCount": 1
+  },
+  {
+    "name": "website-audit",
+    "merchantCount": 1
+  },
+  {
+    "name": "weight",
+    "merchantCount": 1
+  },
+  {
+    "name": "words",
+    "merchantCount": 1
+  },
+  {
+    "name": "x402-passport",
+    "merchantCount": 1
+  },
+  {
+    "name": "youtube",
+    "merchantCount": 1
+  },
+  {
+    "name": "zk",
+    "merchantCount": 1
+  },
+  {
+    "name": "zoning",
+    "merchantCount": 1
+  }
+]
