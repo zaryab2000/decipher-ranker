@@ -5,9 +5,9 @@ import { makeSelectChain } from "../fixtures/mock-chains";
 const mockSelect = vi.fn();
 
 vi.mock("@/lib/db", () => ({
-  db: {
+  getDb: () => ({
     select: (...args: unknown[]) => mockSelect(...args),
-  },
+  }),
 }));
 
 import { getEcosystemStats, getRecentlyUpdatedMerchants } from "@/lib/services/statsService";

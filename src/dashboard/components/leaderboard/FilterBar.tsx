@@ -38,7 +38,7 @@ export function FilterBar({
         <select
           value={currentCategory ?? ""}
           onChange={(e) => updateParams({ category: e.target.value })}
-          className="bg-gray-900 border border-gray-800 rounded-lg text-sm text-gray-300 px-3 py-1.5 focus:outline-none focus:border-emerald-500/50"
+          className="bg-gray-900 border border-gray-800 rounded-lg text-sm text-gray-300 px-3 py-1.5 focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20"
         >
           <option value="">All Categories</option>
           {categories.map((cat) => (
@@ -53,8 +53,8 @@ export function FilterBar({
         <label className="text-xs text-gray-500 uppercase tracking-wider">Sort</label>
         <select
           value={currentSort ?? "score"}
-          onChange={(e) => updateParams({ sort: e.target.value })}
-          className="bg-gray-900 border border-gray-800 rounded-lg text-sm text-gray-300 px-3 py-1.5 focus:outline-none focus:border-emerald-500/50"
+          onChange={(e) => updateParams({ sortBy: e.target.value })}
+          className="bg-gray-900 border border-gray-800 rounded-lg text-sm text-gray-300 px-3 py-1.5 focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20"
         >
           {SORT_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -65,7 +65,7 @@ export function FilterBar({
       </div>
 
       <button
-        onClick={() => updateParams({ order: order === "desc" ? "asc" : "desc" })}
+        onClick={() => updateParams({ sortOrder: order === "desc" ? "asc" : "desc" })}
         className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg bg-gray-900 border border-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-colors"
       >
         {order === "desc" ? "\u2193 Desc" : "\u2191 Asc"}

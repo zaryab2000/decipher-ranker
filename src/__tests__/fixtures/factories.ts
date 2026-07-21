@@ -74,6 +74,7 @@ export function makeResource(
 export function makeCategory(overrides: Partial<Category> = {}): Category {
   return {
     id: overrides.id ?? nextId(),
+    slug: overrides.slug ?? overrides.name ?? "api",
     name: "api",
     color: null,
     description: null,

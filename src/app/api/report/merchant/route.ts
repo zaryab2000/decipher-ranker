@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { router } from "@/lib/router";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { reports } from "@/lib/db/schema";
 import {
   getMerchantByAddress,
@@ -74,7 +74,7 @@ export const POST = router
 
     const report = await computeMerchantDeepDive(data);
 
-    await db.insert(reports).values({
+    await getDb().insert(reports).values({
       requesterWallet: wallet ?? "anonymous",
       reportType: "merchant",
       inputParams: { address: body.address, chain: body.chain },

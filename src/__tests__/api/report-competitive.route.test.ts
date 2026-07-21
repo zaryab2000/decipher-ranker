@@ -13,9 +13,9 @@ vi.mock("@/lib/analytics/ranker", () => ({
 }));
 
 vi.mock("@/lib/db", () => ({
-  db: {
+  getDb: () => ({
     insert: (...args: unknown[]) => mockInsert(...args),
-  },
+  }),
 }));
 
 vi.mock("@/lib/db/schema", () => ({

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { fetchAllBazaarResources } from "@/lib/data-sources/bazaar";
 import { upsertCatalog } from "@/lib/data-sources/catalog-sync";
 import { assignAllMerchantCategories } from "@/lib/analytics/categorizer";
@@ -19,7 +19,7 @@ let startedAt = Date.now();
  * foreign keys; RESTART IDENTITY is harmless (all PKs are UUIDs).
  */
 async function truncateAll(): Promise<void> {
-  await db.execute(
+  await getDb().execute(
     sql`TRUNCATE trends, category_cache, reports, resources, merchants, categories RESTART IDENTITY CASCADE`,
   );
   log("Truncated all tables (fresh seed).");

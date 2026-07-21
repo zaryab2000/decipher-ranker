@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Card } from "@/dashboard/components/shared/Card";
 import { Badge } from "@/dashboard/components/shared/Badge";
 import { ScoreBar } from "@/dashboard/components/shared/ScoreBar";
-import { formatPrice } from "@/dashboard/lib/formatters";
+import { displayName, formatPrice } from "@/dashboard/lib/formatters";
 import type { MerchantListItem } from "@/dashboard/types";
 
 interface SearchResultsProps {
@@ -18,7 +18,7 @@ export function SearchResults({ results, query, total }: SearchResultsProps) {
         <p className="text-gray-400 text-lg mb-2">
           No results found for &apos;{query}&apos;
         </p>
-        <p className="text-gray-600 text-sm">
+        <p className="text-gray-500 text-sm">
           Try a different search term or browse the leaderboard
         </p>
       </div>
@@ -36,13 +36,13 @@ export function SearchResults({ results, query, total }: SearchResultsProps) {
             key={merchant.payeeAddress}
             href={`/dashboard/merchant/${encodeURIComponent(merchant.origin)}`}
           >
-            <Card className="hover:border-gray-700 transition-colors cursor-pointer">
+            <Card className="hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 transition-all cursor-pointer">
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <p className="text-gray-50 font-medium truncate">
-                    {merchant.serviceName ?? merchant.origin}
+                    {displayName(merchant)}
                   </p>
-                  <p className="text-xs text-gray-600 font-mono truncate mt-0.5">
+                  <p className="text-xs text-gray-500 font-mono truncate mt-0.5">
                     {merchant.origin}
                   </p>
                   <div className="flex items-center gap-2 mt-2">
@@ -53,8 +53,8 @@ export function SearchResults({ results, query, total }: SearchResultsProps) {
                   </div>
                 </div>
                 <div className="text-right ml-4 flex-shrink-0">
-                  <div className="w-24">
-                    <ScoreBar score={merchant.rankerScore} showLabel />
+                  <div className="w-32">
+                    <ScoreBar score={merchant.rankerScore * 100} showLabel />
                   </div>
                   {merchant.priceUsd !== null && (
                     <p className="text-xs text-gray-500 mt-1">

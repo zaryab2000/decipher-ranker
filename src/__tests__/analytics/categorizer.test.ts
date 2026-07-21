@@ -1,17 +1,19 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { resetIdCounter, makeCategory } from "../fixtures/factories";
-import { makeSelectChain, makeUpdateChain } from "../fixtures/mock-chains";
+import { resetIdCounter } from "../fixtures/factories";
+import { makeSelectChain, makeUpdateChain, makeDeleteChain } from "../fixtures/mock-chains";
 
 const mockSelect = vi.fn();
 const mockUpdate = vi.fn();
 const mockExecute = vi.fn();
+const mockDelete = vi.fn();
 
 vi.mock("@/lib/db", () => ({
-  db: {
+  getDb: () => ({
     select: (...args: unknown[]) => mockSelect(...args),
     update: (...args: unknown[]) => mockUpdate(...args),
     execute: (...args: unknown[]) => mockExecute(...args),
-  },
+    delete: (...args: unknown[]) => mockDelete(...args),
+  }),
 }));
 
 import { assignCategory, assignAllMerchantCategories } from "@/lib/analytics/categorizer";
@@ -35,121 +37,121 @@ beforeEach(() => {
 
   mockUpdate.mockImplementation(() => makeUpdateChain());
   mockExecute.mockResolvedValue(undefined);
+  mockDelete.mockImplementation(() => makeDeleteChain());
 });
 
 function setSelectResults(...results: unknown[][]) {
   selectResults = results;
 }
 
-describe("assignCategory (pure)", () => {
-  const categories = [
-    makeCategory({ id: "cat-1", name: "api" }),
-    makeCategory({ id: "cat-2", name: "ml" }),
-    makeCategory({ id: "cat-3", name: "data" }),
-  ];
-
-  it("returns null for empty tags", () => {
-    expect(assignCategory([], categories)).toBeNull();
+describe("assignCategory (pure, taxonomy-based)", () => {
+  it("maps ai tags to ai-agents", () => {
+    expect(assignCategory(["ai"])).toBe("ai-agents");
+    expect(assignCategory(["inference"])).toBe("ai-agents");
   });
 
-  it("returns null for null tags", () => {
-    expect(assignCategory(null as unknown as string[], categories)).toBeNull();
+  it("resolves ties by taxonomy order (crypto before ai)", () => {
+    expect(assignCategory(["defi", "ai"])).toBe("crypto-defi");
+    expect(assignCategory(["ai", "defi"])).toBe("crypto-defi");
   });
 
-  it("returns category id when tag matches", () => {
-    expect(assignCategory(["api"], categories)).toBe("cat-1");
+  it("matches across casing and spacing via token normalization", () => {
+    expect(assignCategory(["real-estate"])).toBe("real-world-data");
+    expect(assignCategory(["real estate"])).toBe("real-world-data");
+    expect(assignCategory(["Web Content"])).toBe("web-search");
   });
 
-  it("matches case-insensitively", () => {
-    expect(assignCategory(["API"], categories)).toBe("cat-1");
-    expect(assignCategory(["Ml"], categories)).toBe("cat-2");
+  it("maps novelty tags to fun-games", () => {
+    expect(assignCategory(["dice"])).toBe("fun-games");
+    expect(assignCategory(["jokes"])).toBe("fun-games");
   });
 
-  it("returns first match when multiple tags match", () => {
-    expect(assignCategory(["ml", "api"], categories)).toBe("cat-2");
+  it("falls back to other for unmatched tags", () => {
+    expect(assignCategory(["totallyunknowntag"])).toBe("other");
   });
 
-  it("returns null when no tags match", () => {
-    expect(assignCategory(["blockchain", "defi"], categories)).toBeNull();
+  it("falls back to other for empty and nullish tags", () => {
+    expect(assignCategory([])).toBe("other");
+    expect(assignCategory(null as unknown as string[])).toBe("other");
+  });
+
+  it("does not match a pattern token inside an unrelated word (no naive substring)", () => {
+    // "chain" must not match the "ai" pattern (it has no "ai" token).
+    expect(assignCategory(["chain"])).toBe("other");
   });
 });
 
 describe("assignAllMerchantCategories (DB-dependent)", () => {
-  it("assigns categories based on resource tags", async () => {
-    const cat = makeCategory({ id: "cat-1", name: "api" });
+  // Select order: (1) categories {id,slug}, (2) merchants {id}, (3) resources {merchantId,tags}.
+  const taxonomyRows = [
+    { id: "cat-ai", slug: "ai-agents" },
+    { id: "cat-crypto", slug: "crypto-defi" },
+    { id: "cat-other", slug: "other" },
+  ];
+
+  it("assigns every merchant a category (matched or other)", async () => {
     setSelectResults(
-      [cat],
-      [{ id: "m-1" }],
-      [{ merchantId: "m-1", tags: ["api"] }],
-    );
-
-    const result = await assignAllMerchantCategories();
-    expect(result).toBe(1);
-    expect(mockUpdate).toHaveBeenCalled();
-  });
-
-  it("returns 0 when no merchants match any category", async () => {
-    const cat = makeCategory({ id: "cat-1", name: "api" });
-    setSelectResults(
-      [cat],
-      [{ id: "m-1" }],
-      [{ merchantId: "m-1", tags: ["blockchain"] }],
-    );
-
-    const result = await assignAllMerchantCategories();
-    expect(result).toBe(0);
-  });
-
-  it("handles merchants with no resources", async () => {
-    const cat = makeCategory({ id: "cat-1", name: "api" });
-    setSelectResults([cat], [{ id: "m-1" }], []);
-
-    const result = await assignAllMerchantCategories();
-    expect(result).toBe(0);
-  });
-
-  it("handles resources with null tags", async () => {
-    setSelectResults(
-      [makeCategory({ id: "cat-1", name: "api" })],
-      [{ id: "m-1" }],
-      [{ merchantId: "m-1", tags: null }],
-    );
-
-    const result = await assignAllMerchantCategories();
-    expect(result).toBe(0);
-  });
-
-  it("processes multiple merchants", async () => {
-    setSelectResults(
-      [makeCategory({ id: "cat-1", name: "api" })],
+      taxonomyRows,
       [{ id: "m-1" }, { id: "m-2" }],
       [
-        { merchantId: "m-1", tags: ["api"] },
-        { merchantId: "m-2", tags: ["api"] },
+        { merchantId: "m-1", tags: ["ai"] },
+        { merchantId: "m-2", tags: ["nonsense"] },
       ],
     );
 
     const result = await assignAllMerchantCategories();
-    expect(result).toBe(2);
+    expect(result).toBe(2); // both assigned — m-2 lands in other
+    expect(mockUpdate).toHaveBeenCalled();
+  });
+
+  it("assigns merchants with no resources to other", async () => {
+    setSelectResults(taxonomyRows, [{ id: "m-1" }], []);
+    const result = await assignAllMerchantCategories();
+    expect(result).toBe(1);
+  });
+
+  it("assigns merchants with null tags to other", async () => {
+    setSelectResults(
+      taxonomyRows,
+      [{ id: "m-1" }],
+      [{ merchantId: "m-1", tags: null }],
+    );
+    const result = await assignAllMerchantCategories();
+    expect(result).toBe(1);
   });
 
   it("aggregates tags across multiple resources per merchant", async () => {
     setSelectResults(
-      [makeCategory({ id: "cat-1", name: "ml" })],
+      taxonomyRows,
       [{ id: "m-1" }],
       [
-        { merchantId: "m-1", tags: ["api"] },
-        { merchantId: "m-1", tags: ["ml"] },
+        { merchantId: "m-1", tags: ["unmatched"] },
+        { merchantId: "m-1", tags: ["ai"] },
       ],
     );
-
     const result = await assignAllMerchantCategories();
     expect(result).toBe(1);
   });
 
+  it("throws when the assigned taxonomy slug is not seeded", async () => {
+    // Missing the "other" row — an unmatched merchant cannot resolve.
+    setSelectResults(
+      [{ id: "cat-ai", slug: "ai-agents" }],
+      [{ id: "m-1" }],
+      [{ merchantId: "m-1", tags: ["nonsense"] }],
+    );
+    await expect(assignAllMerchantCategories()).rejects.toThrow(/not in the categories table/);
+  });
+
   it("runs SQL updates for merchant_count and median_price", async () => {
-    setSelectResults([], [], []);
+    setSelectResults(taxonomyRows, [], []);
     await assignAllMerchantCategories();
     expect(mockExecute).toHaveBeenCalledTimes(2);
+  });
+
+  it("reconciles by deleting non-taxonomy category rows after re-pointing merchants", async () => {
+    setSelectResults(taxonomyRows, [{ id: "m-1" }], [{ merchantId: "m-1", tags: ["ai"] }]);
+    await assignAllMerchantCategories();
+    expect(mockDelete).toHaveBeenCalled();
   });
 });

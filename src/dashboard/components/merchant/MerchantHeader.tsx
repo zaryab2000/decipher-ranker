@@ -1,7 +1,7 @@
 import { ExternalLink } from "lucide-react";
 import { Badge } from "@/dashboard/components/shared/Badge";
 import { RankBadge } from "@/dashboard/components/shared/RankBadge";
-import { truncate } from "@/dashboard/lib/formatters";
+import { truncate, displayName } from "@/dashboard/lib/formatters";
 import type { MerchantProfile } from "@/dashboard/types";
 
 export function MerchantHeader({ merchant }: { merchant: MerchantProfile }) {
@@ -11,14 +11,14 @@ export function MerchantHeader({ merchant }: { merchant: MerchantProfile }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-gray-50 truncate">
-              {merchant.serviceName ?? merchant.origin}
+              {displayName(merchant)}
             </h1>
             {merchant.origin && (
               <a
                 href={merchant.origin.startsWith("http") ? merchant.origin : `https://${merchant.origin}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-gray-600 hover:text-gray-400 transition-colors flex-shrink-0"
+                className="text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0"
               >
                 <ExternalLink className="w-4 h-4" />
               </a>

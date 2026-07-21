@@ -1,21 +1,21 @@
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { merchants, categories, resources } from "@/lib/db/schema";
 import { desc, sql } from "drizzle-orm";
 
 export async function getEcosystemStats() {
-  const [merchantCount] = await db
+  const [merchantCount] = await getDb()
     .select({ count: sql<number>`count(*)` })
     .from(merchants);
 
-  const [categoryCount] = await db
+  const [categoryCount] = await getDb()
     .select({ count: sql<number>`count(*)` })
     .from(categories);
 
-  const [txSum] = await db
+  const [txSum] = await getDb()
     .select({ total: sql<number>`coalesce(sum(${merchants.txCount}), 0)` })
     .from(merchants);
 
-  const [topCat] = await db
+  const [topCat] = await getDb()
     .select({ name: categories.name })
     .from(categories)
     .orderBy(desc(categories.merchantCount))
@@ -30,7 +30,7 @@ export async function getEcosystemStats() {
 }
 
 export async function getRecentlyUpdatedMerchants(limit: number = 5) {
-  return db
+  return getDb()
     .select({
       id: merchants.id,
       payeeAddress: merchants.payeeAddress,

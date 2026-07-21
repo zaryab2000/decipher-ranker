@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { router } from "@/lib/router";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { merchants, categories } from "@/lib/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -33,7 +33,7 @@ const handler = router
 
     let categoryId: string | null = null;
     if (categoryFilter) {
-      const [cat] = await db
+      const [cat] = await getDb()
         .select({ id: categories.id })
         .from(categories)
         .where(eq(categories.name, categoryFilter))
@@ -41,7 +41,7 @@ const handler = router
       categoryId = cat?.id ?? null;
     }
 
-    const results = await db.query.merchants.findMany({
+    const results = await getDb().query.merchants.findMany({
       where: categoryId ? eq(merchants.categoryId, categoryId) : undefined,
       orderBy: [desc(merchants.rankerScore)],
       limit,
