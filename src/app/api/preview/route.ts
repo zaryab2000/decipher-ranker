@@ -42,6 +42,80 @@ const PreviewResponseSchema = z.object({
   links: z.record(z.string(), z.string()),
 });
 
+function extractHost(input: string): string | null {
+  try {
+    return new URL(input.startsWith("http") ? input : `https://${input}`).host.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Candidate brand labels of a host, most-specific first:
+ * "arbipulse.theaslangroupllc.com" -> ["arbipulse", "theaslangroupllc"].
+ * The subdomain often carries the product name; the registrable label carries
+ * the company name. Either can match a service name.
+ */
+function domainLabels(host: string): string[] {
+  const parts = host.split(".").filter(Boolean);
+  if (parts.length <= 1) return [host];
+  const labels: string[] = [];
+  if (parts.length >= 3) labels.push(parts[0]!);
+  labels.push(parts[parts.length - 2]!);
+  return [...new Set(labels)];
+}
+
+/** Lowercase alphanumeric tokens of a string, e.g. "Heurist Mesh" -> ["heurist","mesh"]. */
+function tokenize(value: string): string[] {
+  return value
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+/**
+ * Pick the merchant's display name from its resources' service names.
+ *
+ * A single merchant (one origin/host) can expose many resources, and an
+ * aggregator's resources are named after the sub-services it proxies
+ * (e.g. mesh.heurist.xyz lists both "Firecrawl" and "Heurist Mesh"). Picking
+ * the first service name misidentifies the merchant. Prefer the service name
+ * whose tokens match the origin's brand label; fall back to the title-cased
+ * label, then any service name.
+ */
+function resolveMerchantName(
+  serviceNames: readonly (string | null)[],
+  originHost: string | null,
+): string | null {
+  const names = serviceNames.filter((n): n is string => Boolean(n && n.trim()));
+  const labels = originHost ? domainLabels(originHost) : [];
+
+  if (names.length === 0) {
+    const label = labels[0];
+    return label ? label.charAt(0).toUpperCase() + label.slice(1) : null;
+  }
+
+  for (const label of labels) {
+    const exact = names.find((n) => tokenize(n).includes(label));
+    if (exact) return exact;
+  }
+
+  for (const label of labels) {
+    const partial = names.find((n) =>
+      tokenize(n).some((t) => t.includes(label) || label.includes(t)),
+    );
+    if (partial) return partial;
+  }
+
+  // No service name references the brand — derive one from the most specific
+  // label so the card shows the merchant's identity, not an unrelated
+  // sub-service.
+  const label = labels[0];
+  if (label) return label.charAt(0).toUpperCase() + label.slice(1);
+
+  return names[0] ?? null;
+}
+
 function scoreToGrade(score: number): string {
   if (score >= 90) return "A+";
   if (score >= 80) return "A";
@@ -110,7 +184,11 @@ const handler = router
     const listingCompleteness = computeListingCompleteness(merchantResources);
     const tips = generateTips(data, descriptionQuality, listingCompleteness);
 
-    const firstName = merchantResources.find((r) => r.serviceName)?.serviceName ?? null;
+    const originHost = extractHost(query.origin);
+    const firstName = resolveMerchantName(
+      merchantResources.map((r) => r.serviceName),
+      originHost,
+    );
 
     const dashboardOrigin = merchantResources[0]?.resourceUrl ?? query.origin;
 
