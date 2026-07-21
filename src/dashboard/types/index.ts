@@ -8,7 +8,7 @@ export interface MerchantListItem {
   rankPosition: number | null;
   priceUsd: number | null;
   txCount30d: number;
-  uniqueBuyers: number;
+  uniqueBuyers: number | null;
   lastUpdated: string;
 }
 
@@ -44,13 +44,13 @@ export interface CategoryItem {
   merchantCount: number;
   medianPriceUsd: number | null;
   avgScore: number | null;
-  topMerchant: { address: string; score: number; serviceName?: string | null } | null;
+  topMerchant: { address: string; score: number; serviceName?: string | null; resourceUrl?: string | null } | null;
   growthIndicator: number;
 }
 
 export interface CategoryDetail extends CategoryItem {
   merchants: MerchantListItem[];
-  totalVolume30d: number;
+  totalVolume30d: number | null;
   scoreDistribution: { range: string; count: number }[];
 }
 

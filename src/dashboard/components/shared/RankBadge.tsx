@@ -13,14 +13,16 @@ function getRankStyle(rank: number): string {
 
 export function RankBadge({
   rank,
+  muted,
   className,
 }: {
   rank: number;
+  muted?: boolean;
   className?: string;
 }) {
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold min-w-[2rem] ${getRankStyle(rank)} ${className ?? ""}`}
+      className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold min-w-[2rem] ${muted ? "bg-gray-800/50 text-gray-600" : getRankStyle(rank)} ${className ?? ""}`}
     >
       #{rank}
     </span>

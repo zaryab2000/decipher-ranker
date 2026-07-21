@@ -8,6 +8,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Cell,
 } from "recharts";
 import { SCORE_COMPONENTS } from "@/dashboard/lib/constants";
 import type { ScoreBreakdown } from "@/dashboard/types";
@@ -26,7 +27,7 @@ export function ScoreBreakdownChart({
   const data = SCORE_COMPONENTS.map((comp) => ({
     name: comp.label,
     value: Math.round(breakdown[comp.key] ?? 0),
-    fill: barColor(breakdown[comp.key] ?? 0),
+    color: barColor(breakdown[comp.key] ?? 0),
   }));
 
   return (
@@ -63,7 +64,11 @@ export function ScoreBreakdownChart({
           itemStyle={{ color: "#d1d5db" }}
           formatter={(value: number) => [`${value}`, "Score"]}
         />
-        <Bar dataKey="value" radius={[0, 2, 2, 0]} />
+        <Bar dataKey="value" radius={[0, 2, 2, 0]}>
+          {data.map((entry, i) => (
+            <Cell key={i} fill={entry.color} />
+          ))}
+        </Bar>
       </BarChart>
     </ResponsiveContainer>
   );

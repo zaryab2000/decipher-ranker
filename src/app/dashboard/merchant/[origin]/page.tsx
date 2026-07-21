@@ -23,19 +23,13 @@ export async function generateMetadata(
   const { origin } = await props.params;
   const decoded = decodeURIComponent(origin);
   const merchant = await getCachedMerchant(decoded);
-  if (!merchant) return { title: "Merchant not found — decipher-ranker" };
+  if (!merchant) return { title: "Merchant not found" };
   const name = merchant.serviceName ?? merchant.payeeAddress;
-  const rankStr = merchant.rankPosition != null
-    ? `Ranked #${merchant.rankPosition}`
-    : "";
-  const catStr = merchant.category != null
-    ? `in ${merchant.category}`
-    : "";
   return {
-    title: `${name} — decipher-ranker`,
-    description: `${rankStr} ${catStr}. Score: ${(merchant.rankerScore * 100).toFixed(0)}. Volume: ${merchant.txCount30d} tx, ${merchant.uniqueBuyers} buyers.`.replace(/\s+/g, " ").trim(),
+    title: name,
+    description: `Score: ${(merchant.rankerScore * 100).toFixed(0)}. Volume: ${merchant.txCount30d} tx${merchant.uniqueBuyers != null ? `, ${merchant.uniqueBuyers} buyers` : ""}.`.replace(/\s+/g, " ").trim(),
     openGraph: {
-      title: `${name} — decipher-ranker`,
+      title: name,
       description: `x402 merchant profile and competitive analysis.`,
     },
   };
@@ -72,7 +66,7 @@ export default async function MerchantProfilePage({
         />
         <MetricCard
           label="Price"
-          value={merchant.priceUsd != null ? formatPrice(merchant.priceUsd) : "N/A"}
+          value={merchant.priceUsd != null ? formatPrice(merchant.priceUsd) : "—"}
           icon={<DollarSign className="w-5 h-5" />}
         />
         <MetricCard
@@ -82,7 +76,7 @@ export default async function MerchantProfilePage({
         />
         <MetricCard
           label="Unique Buyers"
-          value={formatNumber(merchant.uniqueBuyers)}
+          value={merchant.uniqueBuyers != null ? formatNumber(merchant.uniqueBuyers) : "—"}
           icon={<Users className="w-5 h-5" />}
         />
       </div>
@@ -95,15 +89,11 @@ export default async function MerchantProfilePage({
       </div>
 
       {merchant.competitors.length > 0 && (
-        <div>
-          <h2 className="text-lg font-semibold text-gray-50 mb-3">
-            Competitors{merchant.category ? ` in ${merchant.category}` : ""}
-          </h2>
-          <CompetitorList
-            competitors={merchant.competitors}
-            currentScore={merchant.rankerScore}
-          />
-        </div>
+        <CompetitorList
+          competitors={merchant.competitors}
+          currentScore={merchant.rankerScore}
+          categoryName={merchant.category}
+        />
       )}
 
       {merchant.improvements.length > 0 && (
