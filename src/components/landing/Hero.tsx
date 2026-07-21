@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BarChart3, Lightbulb, AlertCircle, ExternalLink } from "lucide-react";
 
 interface PreviewMerchant {
@@ -92,6 +92,14 @@ function ResultSkeleton() {
 function ResultCard({ data }: { data: PreviewResult }) {
   const merchant = data.merchant;
   const tipCount = data.teaser?.tip_count ?? 0;
+  const targetWidth = Math.max(merchant?.score ?? 0, 2);
+
+  // Start the bar empty and grow to the score on mount so the fill animates.
+  const [barWidth, setBarWidth] = useState(0);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setBarWidth(targetWidth));
+    return () => cancelAnimationFrame(id);
+  }, [targetWidth]);
 
   return (
     <div
@@ -143,7 +151,7 @@ function ResultCard({ data }: { data: PreviewResult }) {
         >
           <div
             className={`h-2 rounded-full transition-all duration-700 ease-out ${scoreBarColor(merchant?.score ?? 0)}`}
-            style={{ width: `${Math.max(merchant?.score ?? 0, 2)}%` }}
+            style={{ width: `${barWidth}%` }}
           />
         </div>
       </div>
@@ -266,8 +274,12 @@ export function Hero({ merchantCount }: { merchantCount: number }) {
     <section id="search" className="pt-24 sm:pt-32 pb-16 sm:pb-24 px-4 sm:px-6">
       <div className="text-center">
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-gray-900 max-w-2xl mx-auto text-center">
-          You can sell more to agents — but only if they see you
+          You can&apos;t sell to agents, if they can&apos;t discover You
         </h1>
+
+        <p className="mt-3 text-xl sm:text-2xl font-semibold text-emerald-600 max-w-2xl mx-auto text-center">
+          Rank Higher, Sell More
+        </p>
 
         <p className="mt-4 text-base sm:text-lg text-gray-600 max-w-xl mx-auto text-center leading-relaxed">
           {merchantCountText}
@@ -302,7 +314,7 @@ export function Hero({ merchantCount }: { merchantCount: number }) {
           <button
             type="button"
             onClick={() => setInputValue("bitrefill.com")}
-            className="text-emerald-600 hover:text-emerald-700 underline decoration-emerald-600/30 cursor-pointer"
+            className="text-emerald-600 hover:text-emerald-700 underline decoration-emerald-600/30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
           >
             bitrefill.com
           </button>
@@ -310,7 +322,7 @@ export function Hero({ merchantCount }: { merchantCount: number }) {
           <button
             type="button"
             onClick={() => setInputValue("mesh.heurist.xyz")}
-            className="text-emerald-600 hover:text-emerald-700 underline decoration-emerald-600/30 cursor-pointer"
+            className="text-emerald-600 hover:text-emerald-700 underline decoration-emerald-600/30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
           >
             mesh.heurist.xyz
           </button>
@@ -318,7 +330,7 @@ export function Hero({ merchantCount }: { merchantCount: number }) {
           <button
             type="button"
             onClick={() => setInputValue("exa.ai")}
-            className="text-emerald-600 hover:text-emerald-700 underline decoration-emerald-600/30 cursor-pointer"
+            className="text-emerald-600 hover:text-emerald-700 underline decoration-emerald-600/30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
           >
             exa.ai
           </button>
@@ -331,27 +343,29 @@ export function Hero({ merchantCount }: { merchantCount: number }) {
           {searchState.status === "error" && <ErrorCard message={searchState.message} />}
         </div>
 
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <a
-            href="https://www.x402scan.com/server/d683a3a0-e920-4ebb-9f5d-2f3e0fe25803"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-full px-3 py-1 hover:bg-gray-100 transition-colors"
-          >
-            <ExternalLink className="w-3 h-3" /> Listed on x402scan
-          </a>
-          <a
-            href="https://mppscan.com/services/decipher-ranker"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-full px-3 py-1 hover:bg-gray-100 transition-colors"
-          >
-            <ExternalLink className="w-3 h-3" /> Listed on MPPscan
-          </a>
-          <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-full px-3 py-1">
-            <BarChart3 className="w-3 h-3" /> {merchantCount.toLocaleString()}+ merchants indexed
-          </span>
-        </div>
+        {searchState.status === "idle" && (
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <a
+              href="https://www.x402scan.com/server/d683a3a0-e920-4ebb-9f5d-2f3e0fe25803"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-full px-3 py-1 hover:bg-gray-100 transition-colors"
+            >
+              <ExternalLink className="w-3 h-3" /> Listed on x402scan
+            </a>
+            <a
+              href="https://mppscan.com/services/decipher-ranker"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-full px-3 py-1 hover:bg-gray-100 transition-colors"
+            >
+              <ExternalLink className="w-3 h-3" /> Listed on MPPscan
+            </a>
+            <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-full px-3 py-1">
+              <BarChart3 className="w-3 h-3" /> {merchantCount.toLocaleString()}+ merchants indexed
+            </span>
+          </div>
+        )}
       </div>
     </section>
   );

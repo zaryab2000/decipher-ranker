@@ -70,7 +70,9 @@ describe("GET /api/preview", () => {
     expect(body.found).toBe(true);
     expect(body.origin).toBe("https://bitrefill.com");
     expect(body.merchant).toBeDefined();
-    expect(body.merchant.name).toBe("Test Service");
+    // No resource service name matches the "bitrefill" brand label, so the name
+    // is derived from the origin domain rather than an unrelated sub-service.
+    expect(body.merchant.name).toBe("Bitrefill");
     expect(body.merchant.category).toBe("Crypto & DeFi");
     expect(body.merchant.score).toBe(76);
     expect(body.merchant.grade).toBe("B+");
@@ -222,7 +224,7 @@ describe("GET /api/preview", () => {
     expect(body.links.dashboard).toContain(encodeURIComponent("https://api.example.com"));
   });
 
-  it("8: merchant name falls back gracefully when no serviceName", async () => {
+  it("8: merchant name is derived from the origin domain when no serviceName", async () => {
     const data = makeMerchantData({
       merchant: { rankerScore: "0.5", rankPosition: 1, chain: "base" },
       category: { name: "Test", merchantCount: 5 },
@@ -234,10 +236,30 @@ describe("GET /api/preview", () => {
     mockComputeListingCompleteness.mockReturnValueOnce(50);
     mockGenerateTips.mockReturnValueOnce([]);
 
-    const res = await GET(makeRequest("http://localhost/api/preview?origin=https://test.com"));
+    const res = await GET(makeRequest("http://localhost/api/preview?origin=https://acmepay.com"));
     const body = await res.json();
 
-    expect(body.merchant.name).toBeNull();
+    expect(body.merchant.name).toBe("Acmepay");
+  });
+
+  it("11: aggregator name matches the origin brand, not the first sub-service", async () => {
+    // A single merchant exposing many resources whose service names are the
+    // sub-services it proxies. The name should reflect the origin's brand.
+    const data = makeMerchantData({
+      merchant: { rankerScore: "0.25", rankPosition: 153, chain: "base" },
+      category: { name: "Crypto & DeFi", merchantCount: 154 },
+      resources: [{ serviceName: "Firecrawl" }, { serviceName: "Heurist Mesh" }],
+    });
+
+    mockGetMerchantByOrigin.mockResolvedValueOnce(data);
+    mockComputeDescriptionQuality.mockReturnValueOnce(50);
+    mockComputeListingCompleteness.mockReturnValueOnce(50);
+    mockGenerateTips.mockReturnValueOnce([]);
+
+    const res = await GET(makeRequest("http://localhost/api/preview?origin=https://mesh.heurist.xyz"));
+    const body = await res.json();
+
+    expect(body.merchant.name).toBe("Heurist Mesh");
   });
 
   it("9: category-less merchant returns null category but valid rank", async () => {

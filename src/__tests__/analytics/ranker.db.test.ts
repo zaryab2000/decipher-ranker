@@ -150,6 +150,20 @@ describe("getMerchantByOrigin", () => {
     expect(result).not.toBeNull();
   });
 
+  it("falls back to a subdomain when the bare registrable domain has no exact or host row", async () => {
+    const merchant = makeMerchant({ categoryId: null });
+    const resource = makeResource(merchant.id, {
+      resourceUrl: "https://api.bitrefill.com/x402/checkout",
+    });
+    // exact empty, host (bitrefill.com) empty, subdomain (*.bitrefill.com) hits,
+    // then getMerchantData.
+    setSelectResults([], [], [resource], [merchant], [resource]);
+
+    const result = await getMerchantByOrigin("bitrefill.com");
+    expect(result).not.toBeNull();
+    expect(result!.merchant.id).toBe(merchant.id);
+  });
+
   it("returns null for an unparseable origin", async () => {
     setSelectResults([]);
     const result = await getMerchantByOrigin("://::not-a-url");

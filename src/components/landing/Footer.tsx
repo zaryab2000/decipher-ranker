@@ -19,7 +19,7 @@ export function Footer() {
             llms.txt
           </a>
           <a
-            href="https://github.com/AgenCash/decipher-ranker"
+            href="https://github.com/zaryab2000/decipher-ranker/"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-gray-400 hover:text-gray-300 transition-colors"

@@ -27,8 +27,12 @@ export function AgentPrompt() {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
-    await navigator.clipboard.writeText(CODE_BLOCK_TEXT);
-    setCopied(true);
+    try {
+      await navigator.clipboard.writeText(CODE_BLOCK_TEXT);
+      setCopied(true);
+    } catch {
+      // Clipboard API may be unavailable (HTTP, permissions, etc.)
+    }
     setTimeout(() => setCopied(false), 2000);
   }
 
@@ -49,7 +53,7 @@ export function AgentPrompt() {
         <div className="relative bg-gray-900 rounded-xl p-6 overflow-x-auto">
           <button
             onClick={handleCopy}
-            className="absolute top-4 right-4 text-gray-500 hover:text-gray-300 transition-colors"
+            className="absolute top-4 right-4 text-gray-500 hover:text-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
             aria-label="Copy to clipboard"
           >
             {copied ? (

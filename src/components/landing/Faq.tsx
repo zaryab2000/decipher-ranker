@@ -5,6 +5,10 @@ import { ChevronDown } from "lucide-react";
 
 const FAQ_ITEMS = [
   {
+    q: "What is Decipher Ranker?",
+    a: "Decipher Ranker is a merchant-analytics service for the x402 micropayment ecosystem. It indexes every x402 merchant from the Coinbase Bazaar catalog, scores and ranks them by discoverability, and exposes those rankings as reports — free previews plus paid competitive intelligence — so merchants can see where they stand and AI agents can find the best services.",
+  },
+  {
     q: "What is the Decipher score?",
     a: "A 0–100 composite score based on 30-day transaction volume (40%), buyer diversity (25%), listing quality (15%), recency (15%), and reliability (5%). Updated daily from Coinbase Bazaar data.",
   },
@@ -34,7 +38,7 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between text-left cursor-pointer"
+        className="w-full flex items-center justify-between text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
         aria-expanded={open}
       >
         <span className="text-base font-medium text-gray-900">{question}</span>

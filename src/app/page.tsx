@@ -9,6 +9,8 @@ import { ApiReference } from "@/components/landing/ApiReference";
 import { Faq } from "@/components/landing/Faq";
 import { Footer } from "@/components/landing/Footer";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Decipher Ranker — x402 merchant analytics",
   description:

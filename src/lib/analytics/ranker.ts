@@ -211,8 +211,35 @@ export async function getMerchantByOrigin(origin: string): Promise<MerchantData 
     .orderBy(resources.resourceUrl)
     .limit(1);
 
-  if (!byHost) return null;
-  return getMerchantData(byHost.merchantId);
+  if (byHost) return getMerchantData(byHost.merchantId);
+
+  // Merchants commonly list under a subdomain (api.foo.com, x402.foo.com) while
+  // a user types the bare registrable domain (foo.com). Fall back to matching
+  // any resource whose host is that domain or a subdomain of it. The pattern
+  // still anchors on the scheme and a dot boundary so "foo.com" cannot match
+  // "notfoo.com".
+  const registrable = registrableDomain(host);
+  if (registrable) {
+    const [bySubdomain] = await getDb()
+      .select()
+      .from(resources)
+      .where(
+        sql`${resources.resourceUrl} ~ ${`^https?://([a-z0-9-]+\\.)*${escapeRegex(registrable)}(/|$|:)`}`,
+      )
+      .orderBy(resources.resourceUrl)
+      .limit(1);
+
+    if (bySubdomain) return getMerchantData(bySubdomain.merchantId);
+  }
+
+  return null;
+}
+
+/** The registrable domain (last two labels): "bitrefill.com" from "api.bitrefill.com". */
+function registrableDomain(host: string): string | null {
+  const parts = host.split(".").filter(Boolean);
+  if (parts.length < 2) return null;
+  return parts.slice(-2).join(".");
 }
 
 /** Extract the lowercased host from a URL or bare host string; null if unusable. */
