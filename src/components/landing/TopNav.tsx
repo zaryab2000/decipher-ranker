@@ -77,7 +77,7 @@ export function TopNav() {
 
           <button
             onClick={() => setMenuOpen(true)}
-            className="md:hidden p-2 text-gray-600 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
+            className="md:hidden inline-flex items-center justify-center w-11 h-11 -mr-2 text-gray-600 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-lg"
             aria-label="Open menu"
           >
             <Menu className="w-5 h-5" />
@@ -106,7 +106,7 @@ export function TopNav() {
           <span className="text-base font-semibold text-gray-900">Decipher Ranker</span>
           <button
             onClick={() => setMenuOpen(false)}
-            className="p-1 text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
+            className="inline-flex items-center justify-center w-11 h-11 -mr-2 text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-lg"
             aria-label="Close menu"
           >
             <X className="w-5 h-5" />
