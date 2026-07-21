@@ -91,6 +91,7 @@ function ResultSkeleton() {
 
 function ResultCard({ data }: { data: PreviewResult }) {
   const merchant = data.merchant;
+  const tipCount = data.teaser?.tip_count ?? 0;
 
   return (
     <div
@@ -149,10 +150,14 @@ function ResultCard({ data }: { data: PreviewResult }) {
 
       <p className="text-sm text-gray-500 mb-4">
         <Lightbulb className="inline w-4 h-4 text-amber-500 mr-1.5 -mt-0.5" />
-        {data.teaser?.tip_count ?? 0} improvement tip
-        {data.teaser?.tip_count !== 1 ? "s" : ""} available
-        {" — "}
-        <span className="text-emerald-600">connect wallet to see them</span>
+        {tipCount === 0
+          ? "No improvement tips — your listing looks solid"
+          : <>
+              {tipCount} improvement tip{tipCount !== 1 ? "s" : ""} available
+              {" — "}
+              <span className="text-emerald-600">connect wallet to see them</span>
+            </>
+        }
       </p>
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -173,7 +178,7 @@ function ResultCard({ data }: { data: PreviewResult }) {
   );
 }
 
-function NotFoundCard() {
+function NotFoundCard(_data: { data: PreviewResult }) {
   return (
     <div
       className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 border-l-4 border-l-amber-400"
@@ -259,7 +264,7 @@ export function Hero({ merchantCount }: { merchantCount: number }) {
 
   return (
     <section id="search" className="pt-24 sm:pt-32 pb-16 sm:pb-24 px-4 sm:px-6">
-      <div className="max-w-lg mx-auto text-center">
+      <div className="text-center">
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-gray-900 max-w-2xl mx-auto text-center">
           You can sell more to agents — but only if they see you
         </h1>
@@ -322,7 +327,7 @@ export function Hero({ merchantCount }: { merchantCount: number }) {
         <div className="mt-8 max-w-lg mx-auto" role="status" aria-live="polite">
           {searchState.status === "loading" && <ResultSkeleton />}
           {searchState.status === "found" && <ResultCard data={searchState.data} />}
-          {searchState.status === "not_found" && <NotFoundCard />}
+          {searchState.status === "not_found" && <NotFoundCard data={searchState.data} />}
           {searchState.status === "error" && <ErrorCard message={searchState.message} />}
         </div>
 

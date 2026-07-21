@@ -34,7 +34,7 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between text-left"
+        className="w-full flex items-center justify-between text-left cursor-pointer"
         aria-expanded={open}
       >
         <span className="text-base font-medium text-gray-900">{question}</span>
