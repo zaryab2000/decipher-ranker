@@ -53,8 +53,8 @@ export function AgentPrompt() {
         <div className="relative bg-gray-900 rounded-xl p-6 overflow-x-auto">
           <button
             onClick={handleCopy}
-            className="absolute top-4 right-4 text-gray-500 hover:text-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
-            aria-label="Copy to clipboard"
+            className="absolute top-2 right-2 inline-flex items-center justify-center w-11 h-11 text-gray-500 hover:text-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-lg"
+            aria-label={copied ? "Copied" : "Copy to clipboard"}
           >
             {copied ? (
               <Check className="w-4 h-4 text-emerald-400" />
