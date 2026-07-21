@@ -38,13 +38,14 @@ describe("routes-barrel", () => {
     }
   });
 
-  it("registers all 5 API routes after barrel import", async () => {
+  it("registers all 6 API routes after barrel import", async () => {
     const { router } = await import("@/lib/router");
     await import("@/lib/routes-barrel");
 
     const expectedRoutes = [
       "categories",
       "leaderboard",
+      "preview",
       "report/origin",
       "report/competitive",
       "report/merchant",
@@ -53,7 +54,7 @@ describe("routes-barrel", () => {
     for (const route of expectedRoutes) {
       expect(router.registry.has(route)).toBe(true);
     }
-    expect(router.registry.size).toBe(5);
+    expect(router.registry.size).toBe(6);
   });
 
   it("registers categories as unprotected", async () => {
@@ -61,6 +62,14 @@ describe("routes-barrel", () => {
     await import("@/lib/routes-barrel");
 
     const entry = router.registry.get("categories");
+    expect(entry?.authMode).toBe("unprotected");
+  });
+
+  it("registers preview as unprotected", async () => {
+    const { router } = await import("@/lib/router");
+    await import("@/lib/routes-barrel");
+
+    const entry = router.registry.get("preview");
     expect(entry?.authMode).toBe("unprotected");
   });
 

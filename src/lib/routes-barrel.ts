@@ -10,3 +10,4 @@ import "@/app/api/report/competitive/route";
 import "@/app/api/report/merchant/route";
 import "@/app/api/categories/route";
 import "@/app/api/leaderboard/route";
+import "@/app/api/preview/route";
