@@ -34,11 +34,11 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="py-5">
+    <div>
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
+        className="w-full flex items-center justify-between text-left py-5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
         aria-expanded={open}
       >
         <span className="text-base font-medium text-gray-900">{question}</span>
@@ -47,7 +47,7 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
         />
       </button>
       {open && (
-        <p className="mt-3 text-sm text-gray-600 leading-relaxed">{answer}</p>
+        <p className="-mt-1 pb-5 text-sm text-gray-600 leading-relaxed">{answer}</p>
       )}
     </div>
   );

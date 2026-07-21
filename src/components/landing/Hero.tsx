@@ -314,7 +314,7 @@ export function Hero({ merchantCount }: { merchantCount: number }) {
           <button
             type="button"
             onClick={() => setInputValue("bitrefill.com")}
-            className="text-emerald-600 hover:text-emerald-700 underline decoration-emerald-600/30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
+            className="inline-block py-1 text-emerald-600 hover:text-emerald-700 underline decoration-emerald-600/30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
           >
             bitrefill.com
           </button>
@@ -322,7 +322,7 @@ export function Hero({ merchantCount }: { merchantCount: number }) {
           <button
             type="button"
             onClick={() => setInputValue("mesh.heurist.xyz")}
-            className="text-emerald-600 hover:text-emerald-700 underline decoration-emerald-600/30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
+            className="inline-block py-1 text-emerald-600 hover:text-emerald-700 underline decoration-emerald-600/30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
           >
             mesh.heurist.xyz
           </button>
@@ -330,7 +330,7 @@ export function Hero({ merchantCount }: { merchantCount: number }) {
           <button
             type="button"
             onClick={() => setInputValue("exa.ai")}
-            className="text-emerald-600 hover:text-emerald-700 underline decoration-emerald-600/30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
+            className="inline-block py-1 text-emerald-600 hover:text-emerald-700 underline decoration-emerald-600/30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
           >
             exa.ai
           </button>
