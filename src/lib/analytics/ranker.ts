@@ -315,7 +315,7 @@ async function computePricePosition(
   return "median";
 }
 
-function computeDescriptionQuality(merchantResources: Resource[]): number {
+export function computeDescriptionQuality(merchantResources: Resource[]): number {
   if (merchantResources.length === 0) return 0;
 
   let total = 0;
@@ -329,7 +329,7 @@ function computeDescriptionQuality(merchantResources: Resource[]): number {
   return Math.round(total / merchantResources.length);
 }
 
-function computeListingCompleteness(merchantResources: Resource[]): number {
+export function computeListingCompleteness(merchantResources: Resource[]): number {
   if (merchantResources.length === 0) return 0;
 
   // Weighted toward the structural signals that drive the ranker's listing-quality
@@ -350,7 +350,7 @@ function computeListingCompleteness(merchantResources: Resource[]): number {
   return Math.round(total / merchantResources.length);
 }
 
-function generateTips(
+export function generateTips(
   data: MerchantData,
   descQuality: number,
   listingCompleteness: number,
