@@ -202,6 +202,42 @@ Uses `max(lastCalledAt, lastUpdated)` across all resources. Penalizes stale list
 
 ### Free (no auth)
 
+**`GET /preview`** — `.unprotected()`, rate-limited (20 req/min per IP)
+
+Quick merchant lookup by domain or URL. Returns score, grade, rank, category, and improvement tip count. Powers the landing-page hero instant-win demo.
+
+Query params: `origin` (string, min 3 chars). Input validated via Zod schema.
+
+- **What Bazaar provides:** Raw resource listings matched by URL or host
+- **What we compute:** Score-to-grade mapping (`scoreToGrade` at `preview/route.ts:45-54`), ranking position, listing quality score, tip generation
+
+```
+Response: {
+  found: boolean,
+  origin: string,
+  merchant?: {
+    name: string | null,
+    category: string | null,
+    score: number,            // 0-100 integer
+    grade: string,            // A+ through F
+    rank: number | null,
+    total_in_category: number,
+    resource_count: number,
+    chain: string
+  },
+  teaser?: {
+    has_tips: boolean,
+    tip_count: number,
+    available_reports: string[]
+  },
+  links: {
+    full_report: string,
+    competitive: string,
+    dashboard: string
+  }
+}
+```
+
 **`GET /categories`** — `.unprotected()`, rate-limited (30 req/min per IP)
 
 Returns all categories with merchant counts, median pricing, and top-3 merchants per category.
