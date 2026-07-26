@@ -139,6 +139,16 @@ export const categoryCache = pgTable("category_cache", {
   refreshedAt: timestamp("refreshed_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const supplyGapCache = pgTable("supply_gap_cache", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  categoryName: text("category_name").notNull().unique(),
+  perQuery: jsonb("per_query").notNull(),
+  averageGapRatio: decimal("average_gap_ratio", { precision: 5, scale: 4 }),
+  buriedMerchantCount: integer("buried_merchant_count").default(0),
+  totalCategoryMerchants: integer("total_category_merchants").default(0),
+  refreshedAt: timestamp("refreshed_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Relations
 
 export const categoriesRelations = relations(categories, ({ many }) => ({

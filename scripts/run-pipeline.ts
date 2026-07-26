@@ -6,6 +6,7 @@ import { assignAllMerchantCategories } from "@/lib/analytics/categorizer";
 import { scoreAllMerchants } from "@/lib/analytics/ranker";
 import { refreshCategoryCache } from "@/lib/services/categoryService";
 import { writeDailySnapshot } from "@/lib/services/trendService";
+import { refreshSupplyGap } from "@/lib/services/supplyGapService";
 
 function log(message: string): void {
   const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
@@ -63,6 +64,10 @@ export async function runPipeline(fresh: boolean): Promise<void> {
 
   const snapshotsWritten = await writeDailySnapshot();
   log(`Wrote ${snapshotsWritten} daily trend snapshots.`);
+
+  log("Refreshing supply gap cache (CDP search probes)…");
+  const gapCount = await refreshSupplyGap();
+  log(`Refreshed supply gap for ${gapCount} categories.`);
 
   log("Pipeline complete.");
 }

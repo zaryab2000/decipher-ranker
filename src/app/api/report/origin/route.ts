@@ -49,6 +49,35 @@ const OriginResponseSchema = z.object({
   listing_completeness: z.number().optional(),
   tips: z.array(z.string()).optional(),
   last_updated: z.string().optional(),
+  discovery_layers: z
+    .object({
+      cdp_bazaar: z.object({ indexed: z.boolean(), note: z.string() }),
+      x402scan: z.object({ indexed: z.boolean(), note: z.string() }),
+      agent_cash: z.object({ indexed: z.boolean(), note: z.string() }),
+      layer_alignment_score: z.number(),
+    })
+    .nullable()
+    .optional(),
+  supply_gap: z
+    .object({
+      category_name: z.string(),
+      average_gap_ratio: z.number(),
+      total_buried_merchants: z.number(),
+      total_category_merchants: z.number(),
+      refreshed_at: z.string(),
+      merchant_is_buried: z.boolean(),
+      per_query: z.array(
+        z.object({
+          query: z.string(),
+          cdp_results: z.number(),
+          category_merchant_count: z.number(),
+          buried_count: z.number(),
+          gap_ratio: z.number(),
+        }),
+      ),
+    })
+    .nullable()
+    .optional(),
 });
 
 const handler = router
@@ -109,6 +138,31 @@ const handler = router
       listing_completeness: report.listingCompleteness,
       tips: report.tips,
       last_updated: data.merchant.lastUpdated.toISOString(),
+      discovery_layers: report.discoveryLayers
+        ? {
+            cdp_bazaar: report.discoveryLayers.cdpBazaar,
+            x402scan: report.discoveryLayers.x402scan,
+            agent_cash: report.discoveryLayers.agentCash,
+            layer_alignment_score: report.discoveryLayers.layerAlignmentScore,
+          }
+        : null,
+      supply_gap: report.supplyGap
+        ? {
+            category_name: report.supplyGap.categoryName,
+            average_gap_ratio: report.supplyGap.averageGapRatio,
+            total_buried_merchants: report.supplyGap.totalBuriedMerchants,
+            total_category_merchants: report.supplyGap.totalCategoryMerchants,
+            refreshed_at: report.supplyGap.refreshedAt,
+            merchant_is_buried: report.supplyGap.merchantIsBuried,
+            per_query: report.supplyGap.perQuery.map((q) => ({
+              query: q.query,
+              cdp_results: q.cdpResults,
+              category_merchant_count: q.categoryMerchantCount,
+              buried_count: q.buriedCount,
+              gap_ratio: q.gapRatio,
+            })),
+          }
+        : null,
     };
   });
 

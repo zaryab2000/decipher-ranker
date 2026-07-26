@@ -28,6 +28,18 @@ vi.mock("@/lib/analytics/ai-analyst", () => ({
   computeAIInsights: vi.fn(async () => null),
 }));
 
+// computeBasicReport now probes discovery layers + reads the supply-gap cache.
+// Stub both so tests don't make real HTTP/DB calls; individual tests override.
+vi.mock("@/lib/analytics/origin-probe", () => ({
+  checkDiscoveryLayersCached: vi.fn(),
+}));
+vi.mock("@/lib/services/supplyGapService", () => ({
+  getSupplyGapForCategory: vi.fn(),
+}));
+
+import { checkDiscoveryLayersCached as mockCheckDiscoveryLayers } from "@/lib/analytics/origin-probe";
+import { getSupplyGapForCategory as mockGetSupplyGapForCategory } from "@/lib/services/supplyGapService";
+
 import {
   getMerchantData,
   getMerchantByOrigin,
@@ -66,6 +78,16 @@ beforeEach(() => {
   // Default: x402scan unavailable — deep-dive falls back to nulls for all-time
   // stats. Tests that assert real all-time figures set a resolved value.
   mockFetchMerchantStats.mockResolvedValue(null);
+
+  // Default discovery-layer probe result (all layers except CDP absent) and no
+  // supply-gap cache. Tests that assert layer/gap tips override these.
+  vi.mocked(mockCheckDiscoveryLayers).mockResolvedValue({
+    cdpBazaar: { indexed: true, note: "Indexed via CDP" },
+    x402scan: { indexed: false, note: "Not found" },
+    agentCash: { indexed: false, note: "No openapi.json" },
+    layerAlignmentScore: 1,
+  });
+  vi.mocked(mockGetSupplyGapForCategory).mockResolvedValue(null);
 });
 
 describe("getMerchantData", () => {
@@ -296,6 +318,13 @@ describe("computeBasicReport", () => {
   it("generates no tips for high quality merchant", async () => {
     // High quality now means a keyword-dense, fluff-free description AND
     // category-relevant tags (plus schemas, volume, buyers) — not just length.
+    // Also present on all 3 discovery layers so no discovery-layer tip fires.
+    vi.mocked(mockCheckDiscoveryLayers).mockResolvedValueOnce({
+      cdpBazaar: { indexed: true, note: "ok" },
+      x402scan: { indexed: true, note: "ok" },
+      agentCash: { indexed: true, note: "ok" },
+      layerAlignmentScore: 3,
+    });
     const cat = makeCategory({ slug: "crypto-defi", name: "Crypto & DeFi" });
     const merchant = makeMerchant({
       categoryId: cat.id,
@@ -318,6 +347,52 @@ describe("computeBasicReport", () => {
 
     const report = await computeBasicReport(data);
     expect(report.tips.length).toBe(0);
+  });
+
+  it("surfaces the discovery-layer status and a registration tip", async () => {
+    const merchant = makeMerchant({ categoryId: null });
+    const resource = makeResource(merchant.id);
+    const data = { merchant, resources: [resource], category: null };
+
+    // Default mock: on CDP only (score 1), x402scan + agentCash absent.
+    const report = await computeBasicReport(data);
+    expect(report.discoveryLayers?.layerAlignmentScore).toBe(1);
+    expect(
+      report.tips.some((t) => t.includes("of 3 discovery layers")),
+    ).toBe(true);
+  });
+
+  it("prepends a supply-gap tip when the merchant is buried", async () => {
+    const cat = makeCategory({ slug: "crypto-defi", name: "Crypto & DeFi" });
+    const merchant = makeMerchant({ categoryId: cat.id });
+    const resource = makeResource(merchant.id);
+    const data = { merchant, resources: [resource], category: cat };
+
+    vi.mocked(mockGetSupplyGapForCategory).mockResolvedValueOnce({
+      categoryName: "Crypto & DeFi",
+      perQuery: [
+        {
+          query: "crypto",
+          cdpResults: 15,
+          cdpResourceUrls: [],
+          categoryMerchantCount: 303,
+          buriedCount: 288,
+          gapRatio: 0.95,
+          buriedSample: [],
+        },
+      ],
+      averageGapRatio: 0.85,
+      totalBuriedMerchants: 200,
+      totalCategoryMerchants: 303,
+      refreshedAt: "2026-07-26T00:00:00Z",
+      merchantIsBuried: true,
+    });
+
+    setSelectResults([{ count: 303 }]);
+
+    const report = await computeBasicReport(data);
+    expect(report.supplyGap?.merchantIsBuried).toBe(true);
+    expect(report.tips[0]).toContain("invisible to CDP search");
   });
 });
 
