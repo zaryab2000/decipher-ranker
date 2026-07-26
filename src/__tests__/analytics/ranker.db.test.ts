@@ -294,20 +294,27 @@ describe("computeBasicReport", () => {
   });
 
   it("generates no tips for high quality merchant", async () => {
+    // High quality now means a keyword-dense, fluff-free description AND
+    // category-relevant tags (plus schemas, volume, buyers) — not just length.
+    const cat = makeCategory({ slug: "crypto-defi", name: "Crypto & DeFi" });
     const merchant = makeMerchant({
-      categoryId: null,
+      categoryId: cat.id,
+      rankPosition: 2,
       txCount30d: 100,
       buyers30d: 50,
     });
     const resource = makeResource(merchant.id, {
-      description: "A".repeat(200),
-      tags: ["api", "ml"],
+      description:
+        "Returns on-chain DeFi token balances and wallet holdings from Base blockchain. GET /api/v1/ endpoint accepts an address query parameter, returns JSON response with token, crypto price, and holdings.",
+      tags: ["crypto", "defi", "onchain", "wallet"],
       serviceName: "Great Service",
       priceUsd: "0.01",
       hasInputSchema: true,
       hasOutputExample: true,
     });
-    const data = { merchant, resources: [resource], category: null };
+    const data = { merchant, resources: [resource], category: cat };
+
+    setSelectResults([{ count: 5 }]);
 
     const report = await computeBasicReport(data);
     expect(report.tips.length).toBe(0);

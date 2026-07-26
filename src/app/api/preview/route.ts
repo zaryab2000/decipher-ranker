@@ -180,7 +180,7 @@ const handler = router
 
     const score = Math.round(Number(merchant.rankerScore ?? 0) * 100);
 
-    const descriptionQuality = computeDescriptionQuality(merchantResources);
+    const descriptionQuality = computeDescriptionQuality(merchantResources, category);
     const listingCompleteness = computeListingCompleteness(merchantResources);
     const tips = generateTips(data, descriptionQuality, listingCompleteness);
 

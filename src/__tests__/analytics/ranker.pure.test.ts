@@ -154,6 +154,12 @@ describe("computeRankerScore", () => {
       tags: [],
     };
 
+    // A realistic, keyword-dense, structurally-specific API description. Used in
+    // place of "A".repeat(N) so the quality-aware description scoring produces a
+    // meaningful (near-max) contribution.
+    const REALISTIC_DESC =
+      "Extract clean markdown text, links, and metadata from whitepapers, research PDFs, and technical reports — single-page web scraping and structured summarization. Accepts a URL, returns JSON with title, body, and links.";
+
     it("returns 0 for no resources", () => {
       const data = makeMerchantData({ resources: [] });
       data.resources = [];
@@ -181,20 +187,27 @@ describe("computeRankerScore", () => {
       expect(computeScoreBreakdown(data).listingQuality).toBeCloseTo(1.0 / 3.6, 4);
     });
 
-    it("uses mutually-exclusive description tiers (>150 => 0.8, >50 => 0.4)", () => {
+    it("scores description by quality, not raw length", () => {
+      // A dense, keyword-rich 150+ char description contributes near the 0.8 max
+      // (gated by its quality score ~0.78 → 0.8*0.78/3.6). A shorter slice of the
+      // same text contributes less; a tiny fluff string contributes little.
       const long = makeMerchantData({
-        resources: [{ ...bare, description: "A".repeat(200) }],
+        resources: [{ ...bare, description: REALISTIC_DESC }],
       });
       const medium = makeMerchantData({
-        resources: [{ ...bare, description: "A".repeat(100) }],
+        resources: [{ ...bare, description: REALISTIC_DESC.slice(0, 80) }],
       });
       const short = makeMerchantData({
         resources: [{ ...bare, description: "short" }],
       });
-      expect(computeScoreBreakdown(long).listingQuality).toBeCloseTo(0.8 / 3.6, 4);
-      expect(computeScoreBreakdown(medium).listingQuality).toBeCloseTo(0.4 / 3.6, 4);
-      // <=50 chars scores nothing on description.
-      expect(computeScoreBreakdown(short).listingQuality).toBe(0);
+      const longLq = computeScoreBreakdown(long).listingQuality;
+      const mediumLq = computeScoreBreakdown(medium).listingQuality;
+      const shortLq = computeScoreBreakdown(short).listingQuality;
+      // A full, keyword-dense description contributes ~0.8*quality; a truncated
+      // or tiny one contributes strictly less.
+      expect(longLq).toBeCloseTo((0.8 * 0.82) / 3.6, 3);
+      expect(longLq).toBeGreaterThan(mediumLq);
+      expect(longLq).toBeGreaterThan(shortLq);
     });
 
     it("scores service name at 0.5/3.6", () => {
@@ -204,33 +217,50 @@ describe("computeRankerScore", () => {
       expect(computeScoreBreakdown(data).listingQuality).toBeCloseTo(0.5 / 3.6, 4);
     });
 
-    it("rewards 3-5 tags more than tag spam (>5) or a lone tag", () => {
-      const fourTags = makeMerchantData({
-        resources: [{ ...bare, tags: ["a", "b", "c", "d"] }],
+    it("rewards 3-5 category-relevant tags over spam (>5) or a lone tag", () => {
+      // crypto-defi category so tag relevance/specificity are meaningful.
+      const cat = { slug: "crypto-defi" as const };
+      const four = makeMerchantData({
+        category: cat,
+        resources: [{ ...bare, tags: ["crypto", "defi", "bitcoin", "onchain"] }],
       });
-      const manyTags = makeMerchantData({
-        resources: [{ ...bare, tags: ["a", "b", "c", "d", "e", "f", "g"] }],
+      const many = makeMerchantData({
+        category: cat,
+        resources: [{ ...bare, tags: ["crypto", "defi", "bitcoin", "onchain", "solana", "dex", "wallet"] }],
       });
-      const oneTag = makeMerchantData({ resources: [{ ...bare, tags: ["a"] }] });
-      expect(computeScoreBreakdown(fourTags).listingQuality).toBeCloseTo(0.3 / 3.6, 4);
-      expect(computeScoreBreakdown(manyTags).listingQuality).toBeCloseTo(0.1 / 3.6, 4);
-      expect(computeScoreBreakdown(oneTag).listingQuality).toBeCloseTo(0.1 / 3.6, 4);
+      const one = makeMerchantData({
+        category: cat,
+        resources: [{ ...bare, tags: ["crypto"] }],
+      });
+      const fourLq = computeScoreBreakdown(four).listingQuality;
+      const manyLq = computeScoreBreakdown(many).listingQuality;
+      const oneLq = computeScoreBreakdown(one).listingQuality;
+      // 3-5 relevant tags hit the full count-score bonus; >5 and lone drop it.
+      expect(fourLq).toBeGreaterThan(manyLq);
+      expect(fourLq).toBeGreaterThan(oneLq);
     });
 
-    it("caps a maxed-out resource at 1.0", () => {
+    it("caps a fully-maxed resource (quality desc + relevant tags) near 1.0", () => {
+      // Quality gating means the max is only reached with a keyword-rich, fluff-
+      // free description AND category-relevant tags. Structural signals here are
+      // exact (schemas, service name); desc + tags approach but rarely hit 1.0.
       const data = makeMerchantData({
+        category: { slug: "crypto-defi" },
         resources: [
           {
             hasInputSchema: true,
             hasOutputExample: true,
-            description: "A".repeat(200),
+            description:
+              "Returns on-chain DeFi token balances and wallet holdings from Base blockchain. GET /api/v1/ endpoint accepts an address query parameter, returns JSON response with token, crypto price, and holdings.",
             serviceName: "My API",
-            tags: ["a", "b", "c", "d"],
+            tags: ["crypto", "defi", "onchain", "wallet"],
           },
         ],
       });
-      // Raw 1.0+1.0+0.8+0.5+0.3 = 3.6 => exactly 1.0.
-      expect(computeScoreBreakdown(data).listingQuality).toBeCloseTo(1.0, 4);
+      const lq = computeScoreBreakdown(data).listingQuality;
+      // Structural 2.0/3.6 alone is 0.556; a strong desc+tags push it high.
+      expect(lq).toBeGreaterThan(0.85);
+      expect(lq).toBeLessThanOrEqual(1.0);
     });
 
     it("rewards documentation effort over verbosity", () => {
@@ -249,7 +279,7 @@ describe("computeRankerScore", () => {
     });
 
     it("averages across multiple resources", () => {
-      const good = { hasInputSchema: true, hasOutputExample: true, description: "A".repeat(200), serviceName: "X", tags: ["a", "b", "c"] };
+      const good = { hasInputSchema: true, hasOutputExample: true, description: REALISTIC_DESC, serviceName: "X", tags: ["a", "b", "c"] };
       const data = makeMerchantData({ resources: [{ ...good }, { ...bare }] });
       const singleGood = computeScoreBreakdown(
         makeMerchantData({ resources: [{ ...good }] }),

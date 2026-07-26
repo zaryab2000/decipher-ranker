@@ -6,6 +6,10 @@ import type { ScoreBreakdown, BasicReport, GapAnalysis, PricingBenchmark, Compet
 import { fetchMerchantStats } from "@/lib/data-sources/x402scan";
 import { computeAIInsights } from "@/lib/analytics/ai-analyst";
 import { normalizeChain } from "@/lib/data-sources/bazaar";
+import { computeDescriptionQualityScore } from "@/lib/analytics/description-quality";
+import type { DescriptionQualityScore } from "@/lib/analytics/description-quality";
+import { computeTagQualityScore, suggestTags } from "@/lib/analytics/tag-quality";
+import type { TagQualityScore } from "@/lib/analytics/tag-quality";
 
 export interface MerchantData {
   merchant: Merchant;
@@ -40,7 +44,7 @@ export function computeRankerScore(data: MerchantData): number {
 
   const reliability = computeReliability(merchantResources);
 
-  const listingQuality = computeListingQualityFromResources(merchantResources);
+  const listingQuality = computeListingQualityFromResources(merchantResources, data.category);
 
   const recency = computeRecency(merchantResources);
 
@@ -63,7 +67,7 @@ export function computeScoreBreakdown(data: MerchantData): ScoreBreakdown {
       0.5 * logNorm(Number(merchant.volume30d ?? 0)),
     buyerDiversity: computeBuyerDiversity(merchant.buyers30d ?? 0),
     reliability: computeReliability(merchantResources),
-    listingQuality: computeListingQualityFromResources(merchantResources),
+    listingQuality: computeListingQualityFromResources(merchantResources, data.category),
     recency: computeRecency(merchantResources),
   };
 }
@@ -106,31 +110,49 @@ function computeReliability(merchantResources: Resource[]): number {
 //   Opt-in    (max 0.8):  service name +0.5, tags 3-5 +0.3 / >5 or 1-2 +0.1
 const LISTING_QUALITY_MAX = 3.6;
 
-function computeListingQualityForResource(r: Resource): number {
+function computeListingQualityForResource(
+  r: Resource,
+  category: Category | null,
+): number {
   let score = 0;
 
   if (r.hasInputSchema) score += 1.0;
   if (r.hasOutputExample) score += 1.0;
 
-  const descLen = r.description?.length ?? 0;
-  if (descLen > 150) score += 0.8;
-  else if (descLen > 50) score += 0.4;
+  // Description contributes up to 0.8, gated by a composite quality score
+  // (keyword density, category keyword presence, structural specificity, fluff)
+  // rather than raw length — a fluff-filled 200-char blurb scores below a dense
+  // 120-char API description.
+  const descQuality = computeDescriptionQualityScore(
+    r.description ?? "",
+    category,
+  );
+  score += 0.8 * descQuality.score;
 
   if (r.serviceName && r.serviceName.length > 0) score += 0.5;
 
-  const tagCount = r.tags?.length ?? 0;
-  if (tagCount >= 3 && tagCount <= 5) score += 0.3;
-  else if (tagCount >= 1) score += 0.1;
+  // Tags contribute up to 0.3, gated by tag quality (taxonomy relevance,
+  // specificity, count, anti-spam) rather than raw count — 3 category-matching
+  // tags beat 5 generic ones. A resource with no tags contributes 0 (the tag
+  // quality score's anti-spam floor is for the report breakdown, not ranking).
+  const tags = r.tags ?? [];
+  if (tags.length > 0) {
+    const tagQuality = computeTagQualityScore(tags, category);
+    score += 0.3 * tagQuality.score;
+  }
 
   return Math.min(score / LISTING_QUALITY_MAX, 1);
 }
 
-function computeListingQualityFromResources(merchantResources: Resource[]): number {
+function computeListingQualityFromResources(
+  merchantResources: Resource[],
+  category: Category | null,
+): number {
   if (merchantResources.length === 0) return 0;
 
   let totalScore = 0;
   for (const r of merchantResources) {
-    totalScore += computeListingQualityForResource(r);
+    totalScore += computeListingQualityForResource(r, category);
   }
 
   return totalScore / merchantResources.length;
@@ -305,9 +327,40 @@ export async function computeBasicReport(data: MerchantData): Promise<BasicRepor
   }
 
   const pricePosition = await computePricePosition(data);
-  const descriptionQuality = computeDescriptionQuality(data.resources);
+  const descriptionQuality = computeDescriptionQuality(data.resources, data.category);
   const listingCompleteness = computeListingCompleteness(data.resources);
-  const tips = generateTips(data, descriptionQuality, listingCompleteness);
+
+  // Breakdown for the first resource that actually has a description, so the
+  // surfaced breakdown matches the resource the description tips reason about
+  // (rather than resources[0], which may be undescribed).
+  const firstDescribedResource = data.resources.find(
+    (r) => r.description && r.description.length > 0,
+  );
+  const descriptionQualityBreakdown =
+    firstDescribedResource ?? data.resources[0]
+      ? computeDescriptionQualityScore(
+          (firstDescribedResource ?? data.resources[0])?.description ?? "",
+          data.category,
+        )
+      : null;
+
+  // Tag quality for the first tagged resource; fall back to an empty-tags result
+  // so a merchant with no tags still surfaces the "No tags" issue.
+  const firstTaggedResource = data.resources.find(
+    (r) => r.tags && r.tags.length > 0,
+  );
+  const tagQualityBreakdown = firstTaggedResource
+    ? computeTagQualityScore(firstTaggedResource.tags ?? [], data.category)
+    : computeTagQualityScore([], data.category);
+
+  // Pass the precomputed breakdowns so generateTips doesn't recompute them.
+  const tips = generateTips(
+    data,
+    descriptionQuality,
+    listingCompleteness,
+    descriptionQualityBreakdown,
+    tagQualityBreakdown,
+  );
 
   return {
     category: categoryName,
@@ -317,6 +370,8 @@ export async function computeBasicReport(data: MerchantData): Promise<BasicRepor
     descriptionQuality,
     listingCompleteness,
     tips,
+    descriptionQualityBreakdown,
+    tagQualityBreakdown,
   };
 }
 
@@ -342,15 +397,16 @@ async function computePricePosition(
   return "median";
 }
 
-export function computeDescriptionQuality(merchantResources: Resource[]): number {
+export function computeDescriptionQuality(
+  merchantResources: Resource[],
+  category: Category | null = null,
+): number {
   if (merchantResources.length === 0) return 0;
 
   let total = 0;
   for (const r of merchantResources) {
-    const len = r.description?.length ?? 0;
-    if (len > 150) total += 100;
-    else if (len > 50) total += 60;
-    else if (len > 0) total += 30;
+    const quality = computeDescriptionQualityScore(r.description ?? "", category);
+    total += quality.score * 100;
   }
 
   return Math.round(total / merchantResources.length);
@@ -381,13 +437,48 @@ export function generateTips(
   data: MerchantData,
   descQuality: number,
   listingCompleteness: number,
+  descriptionQualityBreakdown?: DescriptionQualityScore | null,
+  tagQualityBreakdown?: TagQualityScore | null,
 ): string[] {
   const tips: string[] = [];
 
   if (descQuality < 60) {
     tips.push(
-      "Improve your service descriptions — aim for 150+ characters with clear value propositions.",
+      "Improve your service descriptions — aim for 150+ characters with specific API terms, not marketing language.",
     );
+  }
+
+  // Detailed description-quality tips for the first resource that has a description.
+  const firstDescribedResource = data.resources.find(
+    (r) => r.description && r.description.length > 0,
+  );
+  if (firstDescribedResource?.description) {
+    // Reuse the breakdown computed by the caller when provided; only compute if
+    // this function is called standalone.
+    const quality =
+      descriptionQualityBreakdown ??
+      computeDescriptionQualityScore(
+        firstDescribedResource.description,
+        data.category,
+      );
+
+    if (quality.buzzwords.length > 0) {
+      tips.push(
+        `Your description contains marketing buzzwords (${quality.buzzwords.slice(0, 3).join(", ")}). Rewrite with exact API terms — agents' cross-encoders fire on technical vocabulary, not marketing language.`,
+      );
+    }
+
+    if (quality.keywordDensity < 0.4 && firstDescribedResource.description.length > 50) {
+      tips.push(
+        "Your description has low keyword density — too many stop words. Rewrite with content-rich terms that match your API's function.",
+      );
+    }
+
+    if (quality.structuralSpecificity < 0.3 && firstDescribedResource.description.length > 50) {
+      tips.push(
+        "Your description lacks concrete API artifacts (endpoint paths, HTTP methods, response formats). Add terms like 'GET', '/api/', 'JSON', 'returns' for better agent-discovery match.",
+      );
+    }
   }
 
   const missingSchema = data.resources.some(
@@ -399,12 +490,32 @@ export function generateTips(
     );
   }
 
-  const hasTaggedResources = data.resources.some(
+  // Tag-quality tips: name specific replacement tags instead of the generic
+  // "add relevant tags" advice. Reuse the caller's breakdown when provided.
+  const firstTaggedResource = data.resources.find(
     (r) => r.tags && r.tags.length > 0,
   );
-  if (!hasTaggedResources) {
+  const tagQuality =
+    tagQualityBreakdown ??
+    computeTagQualityScore(firstTaggedResource?.tags ?? [], data.category);
+
+  if (tagQuality.count === 0) {
+    const suggested = suggestTags([], data.category, 3);
     tips.push(
-      "Add relevant tags to your resources to improve discoverability in category searches.",
+      `No tags on your resource. Add 3-5 tags from your category's vocabulary${suggested.length > 0 ? ` (e.g., ${suggested.join(", ")})` : ""} — x402scan uses tag count as a sort tiebreaker and CDP uses tags as a filter key.`,
+    );
+  } else if (tagQuality.relevance < 0.4) {
+    const suggested = suggestTags(
+      firstTaggedResource?.tags ?? [],
+      data.category,
+      3,
+    );
+    tips.push(
+      `Your tags don't match your category's search vocabulary. Replace generic tags with${suggested.length > 0 ? ` ${suggested.join(", ")}` : " category-specific tags"} that agents filter on.`,
+    );
+  } else if (tagQuality.spam) {
+    tips.push(
+      "Your tags span multiple unrelated categories — remove tags that don't match your actual service to strengthen your category signal.",
     );
   }
 
