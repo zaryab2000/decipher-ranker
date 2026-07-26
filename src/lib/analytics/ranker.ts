@@ -10,7 +10,7 @@ import { computeDescriptionQualityScore } from "@/lib/analytics/description-qual
 import type { DescriptionQualityScore } from "@/lib/analytics/description-quality";
 import { computeTagQualityScore, suggestTags } from "@/lib/analytics/tag-quality";
 import type { TagQualityScore } from "@/lib/analytics/tag-quality";
-import { checkDiscoveryLayers } from "@/lib/analytics/origin-probe";
+import { checkDiscoveryLayersCached } from "@/lib/analytics/origin-probe";
 import { getSupplyGapForCategory } from "@/lib/services/supplyGapService";
 import type { DiscoveryLayerStatus, SupplyGapData } from "@/lib/types";
 
@@ -370,7 +370,7 @@ export async function computeBasicReport(data: MerchantData): Promise<BasicRepor
   let discoveryLayers: DiscoveryLayerStatus | null = null;
   if (primaryResourceUrl) {
     try {
-      discoveryLayers = await checkDiscoveryLayers(primaryResourceUrl);
+      discoveryLayers = await checkDiscoveryLayersCached(primaryResourceUrl);
     } catch {
       discoveryLayers = null;
     }

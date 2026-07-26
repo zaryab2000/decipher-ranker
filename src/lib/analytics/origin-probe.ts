@@ -8,11 +8,35 @@
  */
 
 import type { DiscoveryLayerStatus } from "@/lib/types";
+import { cached } from "@/lib/cache";
 
 const PROBE_TIMEOUT_MS = 5000;
+// Membership rarely changes hour-to-hour; caching keeps the report off the hot
+// path of downloading x402scan's ~1.5MB page + hitting the merchant's server.
+const PROBE_CACHE_TTL_SECONDS = 3600;
 
 const CDP_BAZAAR_NOTE =
   "Indexed via CDP Facilitator settlement — all merchants in our catalog are on CDP Bazaar";
+
+/**
+ * KV-cached wrapper around {@link checkDiscoveryLayers}. Keyed by the merchant's
+ * origin (so all of a merchant's resources share one entry) with a 1-hour TTL.
+ * Fail-open: a KV miss/outage transparently runs the live probe (see `cached`).
+ */
+export async function checkDiscoveryLayersCached(
+  primaryResourceUrl: string,
+): Promise<DiscoveryLayerStatus> {
+  let cacheKey: string;
+  try {
+    cacheKey = `discovery:${new URL(primaryResourceUrl).origin}`;
+  } catch {
+    // Unparseable URL — don't cache under a garbage key; probe directly.
+    return checkDiscoveryLayers(primaryResourceUrl);
+  }
+  return cached(cacheKey, PROBE_CACHE_TTL_SECONDS, () =>
+    checkDiscoveryLayers(primaryResourceUrl),
+  );
+}
 
 export async function checkDiscoveryLayers(
   primaryResourceUrl: string,

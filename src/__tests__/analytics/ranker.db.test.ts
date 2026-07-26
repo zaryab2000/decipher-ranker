@@ -31,13 +31,13 @@ vi.mock("@/lib/analytics/ai-analyst", () => ({
 // computeBasicReport now probes discovery layers + reads the supply-gap cache.
 // Stub both so tests don't make real HTTP/DB calls; individual tests override.
 vi.mock("@/lib/analytics/origin-probe", () => ({
-  checkDiscoveryLayers: vi.fn(),
+  checkDiscoveryLayersCached: vi.fn(),
 }));
 vi.mock("@/lib/services/supplyGapService", () => ({
   getSupplyGapForCategory: vi.fn(),
 }));
 
-import { checkDiscoveryLayers as mockCheckDiscoveryLayers } from "@/lib/analytics/origin-probe";
+import { checkDiscoveryLayersCached as mockCheckDiscoveryLayers } from "@/lib/analytics/origin-probe";
 import { getSupplyGapForCategory as mockGetSupplyGapForCategory } from "@/lib/services/supplyGapService";
 
 import {
