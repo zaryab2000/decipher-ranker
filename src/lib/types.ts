@@ -10,6 +10,9 @@ import type {
 
 import type { DescriptionQualityScore } from "@/lib/analytics/description-quality";
 import type { TagQualityScore } from "@/lib/analytics/tag-quality";
+import type { ActionItem } from "@/lib/analytics/completeness";
+import type { WeightRationale } from "@/lib/analytics/weight-rationale";
+import type { RankTrendData } from "@/lib/analytics/rank-trend";
 
 export type Merchant = InferSelectModel<typeof merchants>;
 export type Resource = InferSelectModel<typeof resources>;
@@ -24,6 +27,7 @@ export interface BazaarResource {
   serviceName: string | null;
   description: string | null;
   tags: string[];
+  iconUrl: string | null;
   quality: {
     l30DaysTotalCalls: number;
     l30DaysUniquePayers: number;
@@ -87,6 +91,11 @@ export interface BasicReport {
   tagQualityBreakdown?: TagQualityScore | null;
   discoveryLayers?: DiscoveryLayerStatus | null;
   supplyGap?: SupplyGapData | null;
+  completenessGrade?: "A" | "B" | "C" | "D" | "F" | null;
+  actionRoadmap?: ActionItem[];
+  chainCount?: number;
+  weightRationale?: WeightRationale | null;
+  rankTrend?: RankTrendData | null;
 }
 
 export interface CompetitorEntry {

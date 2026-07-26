@@ -115,6 +115,35 @@ describe("POST /api/report/origin", () => {
         refreshedAt: "2026-07-26T00:00:00Z",
         merchantIsBuried: true,
       },
+      completenessGrade: "C",
+      actionRoadmap: [
+        {
+          action: "Publish input schemas for every endpoint",
+          priority: "high",
+          component: "listingQuality",
+          issue: "Missing Bazaar input schema",
+          expectedImpact: "+0.04 score",
+        },
+      ],
+      chainCount: 2,
+      weightRationale: {
+        volume: { weight: 0.4, reason: "r", whatMovesIt: "w", merchantCanControl: false },
+        buyerDiversity: { weight: 0.25, reason: "r", whatMovesIt: "w", merchantCanControl: false },
+        reliability: { weight: 0.05, reason: "r", whatMovesIt: "w", merchantCanControl: false },
+        listingQuality: { weight: 0.15, reason: "r", whatMovesIt: "w", merchantCanControl: true },
+        recency: { weight: 0.15, reason: "r", whatMovesIt: "w", merchantCanControl: false },
+      },
+      rankTrend: {
+        trendDirection: "improving",
+        scoreChange30d: 0.1,
+        rankChange30d: 7,
+        volumeChange30d: 60,
+        buyerChange30d: 12,
+        snapshotsAvailable: 30,
+        firstSnapshotDate: "2026-06-26",
+        lastSnapshotDate: "2026-07-26",
+        interpretation: "Your score improved.",
+      },
     });
 
     const res = await POST(makeRequest({ origin: "https://test.com" }));
@@ -145,6 +174,22 @@ describe("POST /api/report/origin", () => {
     expect(body.supply_gap.per_query[0]).toMatchObject({
       query: "crypto",
       cdp_results: 15,
+    });
+    expect(body.completeness_grade).toBe("C");
+    expect(body.action_roadmap[0]).toMatchObject({
+      action: expect.any(String),
+      priority: "high",
+      expected_impact: expect.any(String),
+    });
+    expect(body.chain_count).toBe(2);
+    expect(body.weight_rationale.volume).toMatchObject({
+      weight: 0.4,
+      merchant_can_control: false,
+    });
+    expect(body.weight_rationale.listingQuality.merchant_can_control).toBe(true);
+    expect(body.rank_trend).toMatchObject({
+      trend_direction: "improving",
+      score_change_30d: 0.1,
     });
   });
 

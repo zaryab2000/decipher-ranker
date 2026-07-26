@@ -67,6 +67,7 @@ export const resources = pgTable(
     serviceName: text("service_name"),
     description: text("description"),
     tags: text("tags").array(),
+    iconUrl: text("icon_url"),
     hasInputSchema: boolean("has_input_schema").default(false),
     hasOutputExample: boolean("has_output_example").default(false),
     toolCalls: integer("tool_calls").default(0),

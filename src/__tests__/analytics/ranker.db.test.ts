@@ -36,6 +36,21 @@ vi.mock("@/lib/analytics/origin-probe", () => ({
 vi.mock("@/lib/services/supplyGapService", () => ({
   getSupplyGapForCategory: vi.fn(),
 }));
+// computeBasicReport also reads the trends table via computeRankTrend; stub it
+// so tests don't consume the sequential select-mock queue.
+vi.mock("@/lib/analytics/rank-trend", () => ({
+  computeRankTrend: vi.fn().mockResolvedValue({
+    trendDirection: "insufficient_data",
+    scoreChange30d: null,
+    rankChange30d: null,
+    volumeChange30d: null,
+    buyerChange30d: null,
+    snapshotsAvailable: 0,
+    firstSnapshotDate: null,
+    lastSnapshotDate: null,
+    interpretation: "No trend data yet.",
+  }),
+}));
 
 import { checkDiscoveryLayersCached as mockCheckDiscoveryLayers } from "@/lib/analytics/origin-probe";
 import { getSupplyGapForCategory as mockGetSupplyGapForCategory } from "@/lib/services/supplyGapService";
