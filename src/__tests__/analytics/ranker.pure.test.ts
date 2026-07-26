@@ -205,7 +205,7 @@ describe("computeRankerScore", () => {
       const shortLq = computeScoreBreakdown(short).listingQuality;
       // A full, keyword-dense description contributes ~0.8*quality; a truncated
       // or tiny one contributes strictly less.
-      expect(longLq).toBeCloseTo((0.8 * 0.78) / 3.6, 3);
+      expect(longLq).toBeCloseTo((0.8 * 0.82) / 3.6, 3);
       expect(longLq).toBeGreaterThan(mediumLq);
       expect(longLq).toBeGreaterThan(shortLq);
     });

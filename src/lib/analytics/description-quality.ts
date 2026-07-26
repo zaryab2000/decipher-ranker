@@ -49,8 +49,11 @@ function tokenize(description: string): string[] {
 export function computeKeywordDensity(description: string): number {
   const words = tokenize(description);
   if (words.length === 0) return 0;
+  // Length >= 3 keeps content-rich domain abbreviations (api, eth, nft, sol,
+  // dex, dai); the STOP_WORDS filter still drops 3-char function words
+  // (the, and, for, are, ...). Sub-3-char noise (a, of, in, is) is excluded.
   const contentWords = words.filter(
-    (w) => w.length > 3 && !STOP_WORDS.has(w),
+    (w) => w.length >= 3 && !STOP_WORDS.has(w),
   );
   return contentWords.length / words.length;
 }
@@ -122,8 +125,18 @@ export function computeFluffScore(description: string): {
 
   const buzzwordPenalty = Math.min(buzzwordHits.length * 0.1, 0.3);
   const pronounPenalty = pronounRatio > 0.05 ? 0.2 : 0;
-  const stopPenalty =
-    stopWordRatio > 0.5 ? 0.2 : stopWordRatio > 0.4 ? 0.1 : 0;
+  // A high stop-word ratio is only a fluff signal when paired with marketing
+  // language. Correct API docs are full grammar ("Returns the price of a token
+  // for the given address") and routinely exceed 40% stop words — penalizing
+  // them purely for grammar would cap every clean description below 1.0.
+  const hasOtherFluff = buzzwordHits.length > 0 || pronounRatio > 0.05;
+  const stopPenalty = hasOtherFluff
+    ? stopWordRatio > 0.5
+      ? 0.2
+      : stopWordRatio > 0.4
+        ? 0.1
+        : 0
+    : 0;
 
   const fluffScore = Math.max(
     0,
@@ -165,17 +178,17 @@ export function computeDescriptionQualityScore(
   const score = Math.max(0, normalized * fluff.fluffScore);
 
   let verdict: string;
-  if (score >= 0.7) {
+  if (length === 0) {
+    verdict = "Missing — no description or empty";
+  } else if (score >= 0.7) {
     verdict =
       "Good — description has strong keyword grounding and structural specificity";
   } else if (score >= 0.4) {
     verdict =
       "Fair — description has some useful terms but could use more API-specific vocabulary";
-  } else if (score > 0) {
+  } else {
     verdict =
       "Poor — description lacks keyword grounding or contains marketing fluff";
-  } else {
-    verdict = "Missing — no description or empty";
   }
 
   return {

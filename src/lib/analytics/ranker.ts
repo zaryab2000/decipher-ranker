@@ -7,7 +7,9 @@ import { fetchMerchantStats } from "@/lib/data-sources/x402scan";
 import { computeAIInsights } from "@/lib/analytics/ai-analyst";
 import { normalizeChain } from "@/lib/data-sources/bazaar";
 import { computeDescriptionQualityScore } from "@/lib/analytics/description-quality";
+import type { DescriptionQualityScore } from "@/lib/analytics/description-quality";
 import { computeTagQualityScore, suggestTags } from "@/lib/analytics/tag-quality";
+import type { TagQualityScore } from "@/lib/analytics/tag-quality";
 
 export interface MerchantData {
   merchant: Merchant;
@@ -327,11 +329,20 @@ export async function computeBasicReport(data: MerchantData): Promise<BasicRepor
   const pricePosition = await computePricePosition(data);
   const descriptionQuality = computeDescriptionQuality(data.resources, data.category);
   const listingCompleteness = computeListingCompleteness(data.resources);
-  const tips = generateTips(data, descriptionQuality, listingCompleteness);
 
-  const descriptionQualityBreakdown = data.resources[0]
-    ? computeDescriptionQualityScore(data.resources[0].description ?? "", data.category)
-    : null;
+  // Breakdown for the first resource that actually has a description, so the
+  // surfaced breakdown matches the resource the description tips reason about
+  // (rather than resources[0], which may be undescribed).
+  const firstDescribedResource = data.resources.find(
+    (r) => r.description && r.description.length > 0,
+  );
+  const descriptionQualityBreakdown =
+    firstDescribedResource ?? data.resources[0]
+      ? computeDescriptionQualityScore(
+          (firstDescribedResource ?? data.resources[0])?.description ?? "",
+          data.category,
+        )
+      : null;
 
   // Tag quality for the first tagged resource; fall back to an empty-tags result
   // so a merchant with no tags still surfaces the "No tags" issue.
@@ -341,6 +352,15 @@ export async function computeBasicReport(data: MerchantData): Promise<BasicRepor
   const tagQualityBreakdown = firstTaggedResource
     ? computeTagQualityScore(firstTaggedResource.tags ?? [], data.category)
     : computeTagQualityScore([], data.category);
+
+  // Pass the precomputed breakdowns so generateTips doesn't recompute them.
+  const tips = generateTips(
+    data,
+    descriptionQuality,
+    listingCompleteness,
+    descriptionQualityBreakdown,
+    tagQualityBreakdown,
+  );
 
   return {
     category: categoryName,
@@ -417,6 +437,8 @@ export function generateTips(
   data: MerchantData,
   descQuality: number,
   listingCompleteness: number,
+  descriptionQualityBreakdown?: DescriptionQualityScore | null,
+  tagQualityBreakdown?: TagQualityScore | null,
 ): string[] {
   const tips: string[] = [];
 
@@ -431,10 +453,14 @@ export function generateTips(
     (r) => r.description && r.description.length > 0,
   );
   if (firstDescribedResource?.description) {
-    const quality = computeDescriptionQualityScore(
-      firstDescribedResource.description,
-      data.category,
-    );
+    // Reuse the breakdown computed by the caller when provided; only compute if
+    // this function is called standalone.
+    const quality =
+      descriptionQualityBreakdown ??
+      computeDescriptionQualityScore(
+        firstDescribedResource.description,
+        data.category,
+      );
 
     if (quality.buzzwords.length > 0) {
       tips.push(
@@ -465,14 +491,13 @@ export function generateTips(
   }
 
   // Tag-quality tips: name specific replacement tags instead of the generic
-  // "add relevant tags" advice.
+  // "add relevant tags" advice. Reuse the caller's breakdown when provided.
   const firstTaggedResource = data.resources.find(
     (r) => r.tags && r.tags.length > 0,
   );
-  const tagQuality = computeTagQualityScore(
-    firstTaggedResource?.tags ?? [],
-    data.category,
-  );
+  const tagQuality =
+    tagQualityBreakdown ??
+    computeTagQualityScore(firstTaggedResource?.tags ?? [], data.category);
 
   if (tagQuality.count === 0) {
     const suggested = suggestTags([], data.category, 3);

@@ -40,6 +40,13 @@ describe("computeKeywordDensity", () => {
     const signal = "Extract markdown text from whitepapers research PDFs technical reports with structured metadata output";
     expect(computeKeywordDensity(signal)).toBeGreaterThan(0.6);
   });
+
+  it("counts 3-char domain terms as content, not noise", () => {
+    // api, eth, nft, sol, dex, dai are content-rich; a description built from
+    // them should read as high density, not get filtered out.
+    const domain = "api eth nft sol dex dai";
+    expect(computeKeywordDensity(domain)).toBe(1);
+  });
 });
 
 describe("computeCategoryKeywordPresence", () => {
@@ -93,6 +100,25 @@ describe("computeFluffScore", () => {
     expect(result.pronounRatio).toBeGreaterThan(0.05);
     expect(result.fluffScore).toBeLessThan(1.0);
   });
+
+  it("does not penalize a clean, grammatical description for stop words alone", () => {
+    // Correct API docs are full grammar and routinely exceed 40% stop words.
+    // Without buzzwords or first-person voice, that must NOT reduce the score.
+    const clean =
+      "Returns the price of a token for the address that was in the request and has been over the limit";
+    const result = computeFluffScore(clean);
+    expect(result.stopWordRatio).toBeGreaterThan(0.4);
+    expect(result.buzzwordHits).toEqual([]);
+    expect(result.fluffScore).toBe(1);
+  });
+
+  it("applies the stop-word penalty only alongside another fluff signal", () => {
+    // Same high stop-word ratio, but now with a buzzword + first-person voice.
+    const fluffy =
+      "We built a powerful platform that returns the price of a token for any of your given addresses";
+    const result = computeFluffScore(fluffy);
+    expect(result.fluffScore).toBeLessThan(1);
+  });
 });
 
 describe("computeDescriptionQualityScore", () => {
@@ -122,5 +148,13 @@ describe("computeDescriptionQualityScore", () => {
     const result = computeDescriptionQualityScore("", null);
     expect(result.score).toBe(0);
     expect(result.verdict).toContain("Missing");
+  });
+
+  it("labels a non-empty low-scoring description Poor, not Missing", () => {
+    // A tiny, keyword-less string is Poor — only length 0 is "Missing".
+    const result = computeDescriptionQualityScore("a b c", null);
+    expect(result.length).toBeGreaterThan(0);
+    expect(result.verdict).toContain("Poor");
+    expect(result.verdict).not.toContain("Missing");
   });
 });
