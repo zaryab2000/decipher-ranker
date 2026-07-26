@@ -111,7 +111,9 @@ export function computeActionCoverage(data: MerchantData): ActionItem[] {
         expectedImpact: "+0.03 score (description: up to +0.8 raw × quality multiplier)",
       });
     }
-  } else {
+  } else if (firstResource) {
+    // Only advise adding a description when a resource actually exists — a
+    // merchant with zero resources is covered by the "no endpoints" action below.
     actions.push({
       action: "Add a description to every endpoint (aim for 150+ characters with specific API terms)",
       priority: "high",
@@ -147,7 +149,7 @@ export function computeActionCoverage(data: MerchantData): ActionItem[] {
         priority: "medium",
         component: "listingQuality",
         issue: tagQuality.issues[0] ?? "Tags are missing or low-quality",
-        expectedImpact: "+0.02 score (tags: +0.3 × quality multiplier)",
+        expectedImpact: "+0.01 score (tags: +0.3 / LISTING_QUALITY_MAX × weight 0.15)",
       });
     }
   }

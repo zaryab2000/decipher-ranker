@@ -107,4 +107,14 @@ describe("computeActionCoverage", () => {
     expect(moreEndpoints).toHaveLength(1);
     expect(noEndpoints).toHaveLength(0);
   });
+
+  it("does not suggest adding a description when the merchant has no resources", () => {
+    const data = makeMerchantData({ resources: [] });
+    data.resources = [];
+    const actions = computeActionCoverage(data);
+    // The contradictory "add a description to every endpoint" tip must NOT fire;
+    // the zero-resource case is covered by the "no endpoints" foundational tip.
+    expect(actions.some((a) => a.action.includes("Add a description"))).toBe(false);
+    expect(actions.some((a) => a.action.includes("at least one API endpoint"))).toBe(true);
+  });
 });
