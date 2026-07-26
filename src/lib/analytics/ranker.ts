@@ -10,6 +10,15 @@ import { computeDescriptionQualityScore } from "@/lib/analytics/description-qual
 import type { DescriptionQualityScore } from "@/lib/analytics/description-quality";
 import { computeTagQualityScore, suggestTags } from "@/lib/analytics/tag-quality";
 import type { TagQualityScore } from "@/lib/analytics/tag-quality";
+import { computeServiceNameQuality } from "@/lib/analytics/service-name-quality";
+import {
+  completenessGrade,
+  computeActionCoverage,
+  countMerchantChains,
+} from "@/lib/analytics/completeness";
+import { buildWeightRationale } from "@/lib/analytics/weight-rationale";
+import { computeRankTrend } from "@/lib/analytics/rank-trend";
+import type { RankTrendData } from "@/lib/analytics/rank-trend";
 import { checkDiscoveryLayersCached } from "@/lib/analytics/origin-probe";
 import { getSupplyGapForCategory } from "@/lib/services/supplyGapService";
 import type { DiscoveryLayerStatus, SupplyGapData } from "@/lib/types";
@@ -109,9 +118,10 @@ function computeReliability(merchantResources: Resource[]): number {
 // tag spam. Raw score is normalized by the theoretical max below.
 //
 //   Structural (max 2.8): input schema +1.0, output example +1.0,
-//                         description tier (exclusive) >150 +0.8 / >50 +0.4
-//   Opt-in    (max 0.8):  service name +0.5, tags 3-5 +0.3 / >5 or 1-2 +0.1
-const LISTING_QUALITY_MAX = 3.6;
+//                         description +0.8 (gated by quality)
+//   Opt-in    (max 0.95): service name +0.5 (gated by specificity),
+//                         tags +0.3 (gated by quality), icon +0.15
+const LISTING_QUALITY_MAX = 3.75;
 
 function computeListingQualityForResource(
   r: Resource,
@@ -132,7 +142,9 @@ function computeListingQualityForResource(
   );
   score += 0.8 * descQuality.score;
 
-  if (r.serviceName && r.serviceName.length > 0) score += 0.5;
+  // Service name contributes up to 0.5, gated by name specificity — a generic
+  // "API" scores far below "Weather Forecast API".
+  score += 0.5 * computeServiceNameQuality(r.serviceName);
 
   // Tags contribute up to 0.3, gated by tag quality (taxonomy relevance,
   // specificity, count, anti-spam) rather than raw count — 3 category-matching
@@ -143,6 +155,9 @@ function computeListingQualityForResource(
     const tagQuality = computeTagQualityScore(tags, category);
     score += 0.3 * tagQuality.score;
   }
+
+  // Icon presence is a small metadata-completeness bonus.
+  if (r.iconUrl) score += 0.15;
 
   return Math.min(score / LISTING_QUALITY_MAX, 1);
 }
@@ -414,6 +429,21 @@ export async function computeBasicReport(data: MerchantData): Promise<BasicRepor
   }
   const finalTips = allTips.slice(0, 3);
 
+  // Completeness grade + prioritized action roadmap (action 09).
+  const grade = completenessGrade(listingCompleteness);
+  const actionRoadmap = computeActionCoverage(data);
+  const chainCount = countMerchantChains(data.resources);
+
+  // Weight rationale (static) + rank trend from the trends table (action 12).
+  const weightRationale = buildWeightRationale();
+  let rankTrend: RankTrendData | null = null;
+  try {
+    rankTrend = await computeRankTrend(data.merchant.id);
+  } catch {
+    // Trends table might not have data yet — fail silently.
+    rankTrend = null;
+  }
+
   return {
     category: categoryName,
     rankPosition,
@@ -426,6 +456,11 @@ export async function computeBasicReport(data: MerchantData): Promise<BasicRepor
     tagQualityBreakdown,
     discoveryLayers,
     supplyGap,
+    completenessGrade: grade,
+    actionRoadmap,
+    chainCount,
+    weightRationale,
+    rankTrend,
   };
 }
 
@@ -809,7 +844,7 @@ function generateCompetitiveRecommendations(
 
   if (pricing.yourPrice && pricing.medianPrice && pricing.yourPrice > pricing.medianPrice * 1.5) {
     recs.push(
-      `Your price ($${pricing.yourPrice.toFixed(3)}) is significantly above the category median ($${pricing.medianPrice.toFixed(3)}). Consider competitive pricing.`,
+      `Your price ($${pricing.yourPrice.toFixed(3)}) is significantly above the category median ($${pricing.medianPrice.toFixed(3)}). Price is not a direct ranking signal, but a competitive price lowers agent adoption friction — which drives volume, the dominant (40% weight) ranking factor. Consider lowering toward the median to increase adoption.`,
     );
   }
 
@@ -840,7 +875,7 @@ function generateCompetitiveRecommendations(
 
   if (data.resources.length < 3) {
     recs.push(
-      "Register more API endpoints to increase your service coverage and discoverability.",
+      "Register more API endpoints — each endpoint is an independent retrieval surface in x402scan and contributes to AgentCash's originUsage aggregation. More endpoints do not directly increase your score but grow the surface area over which agent traffic can find you and generate volume (the dominant ranking signal).",
     );
   }
 
@@ -950,7 +985,7 @@ function generateDeepDiveRecommendations(
       );
     } else if (rank > 10) {
       recs.push(
-        "You rank outside the category top 10 — the fastest lever is buyer diversity and 30-day call volume.",
+        "You rank outside the category top 10. Rank is an output, not an input — to move it, focus on buyer diversity (new distinct paying wallets) and 30-day call volume (settled transactions). Together these explain ~90% of the rank gap per our thesis research. Metadata improvements (listing quality) move the remaining ~10%.",
       );
     }
   }

@@ -144,7 +144,7 @@ describe("computeRankerScore", () => {
     });
   });
 
-  describe("listing quality (weight 0.15, structural signals, max divisor 3.6)", () => {
+  describe("listing quality (weight 0.15, structural signals, max divisor 3.75)", () => {
     // Bare resource: no schemas, no serviceName, no tags, empty description.
     const bare = {
       hasInputSchema: false,
@@ -173,18 +173,18 @@ describe("computeRankerScore", () => {
       expect(breakdown.listingQuality).toBe(0);
     });
 
-    it("scores input schema at 1.0/3.6", () => {
+    it("scores input schema at 1.0/3.75", () => {
       const data = makeMerchantData({
         resources: [{ ...bare, hasInputSchema: true }],
       });
-      expect(computeScoreBreakdown(data).listingQuality).toBeCloseTo(1.0 / 3.6, 4);
+      expect(computeScoreBreakdown(data).listingQuality).toBeCloseTo(1.0 / 3.75, 4);
     });
 
-    it("scores output example at 1.0/3.6", () => {
+    it("scores output example at 1.0/3.75", () => {
       const data = makeMerchantData({
         resources: [{ ...bare, hasOutputExample: true }],
       });
-      expect(computeScoreBreakdown(data).listingQuality).toBeCloseTo(1.0 / 3.6, 4);
+      expect(computeScoreBreakdown(data).listingQuality).toBeCloseTo(1.0 / 3.75, 4);
     });
 
     it("scores description by quality, not raw length", () => {
@@ -205,16 +205,20 @@ describe("computeRankerScore", () => {
       const shortLq = computeScoreBreakdown(short).listingQuality;
       // A full, keyword-dense description contributes ~0.8*quality; a truncated
       // or tiny one contributes strictly less.
-      expect(longLq).toBeCloseTo((0.8 * 0.82) / 3.6, 3);
+      expect(longLq).toBeCloseTo((0.8 * 0.82) / 3.75, 3);
       expect(longLq).toBeGreaterThan(mediumLq);
       expect(longLq).toBeGreaterThan(shortLq);
     });
 
-    it("scores service name at 0.5/3.6", () => {
+    it("scores service name by specificity (0.5 × name quality / 3.75)", () => {
+      // "My API" is capitalized + spaced but <10 chars → quality 0.8.
       const data = makeMerchantData({
         resources: [{ ...bare, serviceName: "My API" }],
       });
-      expect(computeScoreBreakdown(data).listingQuality).toBeCloseTo(0.5 / 3.6, 4);
+      expect(computeScoreBreakdown(data).listingQuality).toBeCloseTo(
+        (0.5 * 0.8) / 3.75,
+        4,
+      );
     });
 
     it("rewards 3-5 category-relevant tags over spam (>5) or a lone tag", () => {
