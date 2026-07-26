@@ -10,6 +10,9 @@ import { computeDescriptionQualityScore } from "@/lib/analytics/description-qual
 import type { DescriptionQualityScore } from "@/lib/analytics/description-quality";
 import { computeTagQualityScore, suggestTags } from "@/lib/analytics/tag-quality";
 import type { TagQualityScore } from "@/lib/analytics/tag-quality";
+import { checkDiscoveryLayers } from "@/lib/analytics/origin-probe";
+import { getSupplyGapForCategory } from "@/lib/services/supplyGapService";
+import type { DiscoveryLayerStatus, SupplyGapData } from "@/lib/types";
 
 export interface MerchantData {
   merchant: Merchant;
@@ -362,6 +365,55 @@ export async function computeBasicReport(data: MerchantData): Promise<BasicRepor
     tagQualityBreakdown,
   );
 
+  // Discovery-layer probe (action 03) — best-effort, never throws.
+  const primaryResourceUrl = data.resources[0]?.resourceUrl ?? null;
+  let discoveryLayers: DiscoveryLayerStatus | null = null;
+  if (primaryResourceUrl) {
+    try {
+      discoveryLayers = await checkDiscoveryLayers(primaryResourceUrl);
+    } catch {
+      discoveryLayers = null;
+    }
+  }
+
+  // Supply-gap data for the merchant's category (action 04) — null when the
+  // cache is not yet populated or the lookup fails.
+  let supplyGap: SupplyGapData | null = null;
+  if (data.category) {
+    try {
+      supplyGap = await getSupplyGapForCategory(
+        data.category.name,
+        data.resources.map((r) => r.resourceUrl),
+      );
+    } catch {
+      supplyGap = null;
+    }
+  }
+
+  // Prepend the highest-priority discovery insights, then re-slice to 3. Supply
+  // gap ("CDP can't find you") outranks the discovery-layer registration tip.
+  const allTips = [...tips];
+  if (discoveryLayers && discoveryLayers.layerAlignmentScore < 3) {
+    const missing: string[] = [];
+    if (!discoveryLayers.x402scan.indexed) {
+      missing.push("x402scan (x402scan.com/resources/register)");
+    }
+    if (!discoveryLayers.agentCash.indexed) {
+      missing.push("AgentCash (publish /openapi.json with x-payment-info)");
+    }
+    if (missing.length > 0) {
+      allTips.unshift(
+        `You are visible on ${discoveryLayers.layerAlignmentScore} of 3 discovery layers. Register on: ${missing.join(", ")}.`,
+      );
+    }
+  }
+  if (supplyGap && supplyGap.merchantIsBuried) {
+    allTips.unshift(
+      `Your category "${supplyGap.categoryName}" has ${supplyGap.totalCategoryMerchants} merchants, but CDP search returns only ${supplyGap.perQuery[0]?.cdpResults ?? "few"} results for category queries. You are one of the ${supplyGap.totalBuriedMerchants} merchants invisible to CDP search — improve your description and tags with category-relevant keywords to become discoverable.`,
+    );
+  }
+  const finalTips = allTips.slice(0, 3);
+
   return {
     category: categoryName,
     rankPosition,
@@ -369,9 +421,11 @@ export async function computeBasicReport(data: MerchantData): Promise<BasicRepor
     pricePosition,
     descriptionQuality,
     listingCompleteness,
-    tips,
+    tips: finalTips,
     descriptionQualityBreakdown,
     tagQualityBreakdown,
+    discoveryLayers,
+    supplyGap,
   };
 }
 

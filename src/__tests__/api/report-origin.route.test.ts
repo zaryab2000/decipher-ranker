@@ -90,6 +90,31 @@ describe("POST /api/report/origin", () => {
         issues: [],
         suggestedTags: ["onchain", "wallet"],
       },
+      discoveryLayers: {
+        cdpBazaar: { indexed: true, note: "Indexed via CDP" },
+        x402scan: { indexed: false, note: "Not found" },
+        agentCash: { indexed: false, note: "No openapi.json" },
+        layerAlignmentScore: 1,
+      },
+      supplyGap: {
+        categoryName: "Crypto & DeFi",
+        perQuery: [
+          {
+            query: "crypto",
+            cdpResults: 15,
+            cdpResourceUrls: [],
+            categoryMerchantCount: 303,
+            buriedCount: 288,
+            gapRatio: 0.95,
+            buriedSample: [],
+          },
+        ],
+        averageGapRatio: 0.85,
+        totalBuriedMerchants: 200,
+        totalCategoryMerchants: 303,
+        refreshedAt: "2026-07-26T00:00:00Z",
+        merchantIsBuried: true,
+      },
     });
 
     const res = await POST(makeRequest({ origin: "https://test.com" }));
@@ -106,6 +131,20 @@ describe("POST /api/report/origin", () => {
       score: expect.any(Number),
       count: expect.any(Number),
       suggested_tags: expect.any(Array),
+    });
+    expect(body.discovery_layers).toEqual({
+      cdp_bazaar: { indexed: true, note: "Indexed via CDP" },
+      x402scan: { indexed: false, note: "Not found" },
+      agent_cash: { indexed: false, note: "No openapi.json" },
+      layer_alignment_score: 1,
+    });
+    expect(body.supply_gap).toMatchObject({
+      category_name: "Crypto & DeFi",
+      merchant_is_buried: true,
+    });
+    expect(body.supply_gap.per_query[0]).toMatchObject({
+      query: "crypto",
+      cdp_results: 15,
     });
   });
 
