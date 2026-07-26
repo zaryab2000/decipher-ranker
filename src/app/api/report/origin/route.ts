@@ -19,6 +19,33 @@ const OriginResponseSchema = z.object({
   total_competitors: z.number().optional(),
   price_position: z.string().optional(),
   description_quality: z.number().optional(),
+  description_quality_breakdown: z
+    .object({
+      score: z.number(),
+      lengthScore: z.number(),
+      keywordDensity: z.number(),
+      categoryKeywordPresence: z.number(),
+      structuralSpecificity: z.number(),
+      length: z.number(),
+      fluffScore: z.number(),
+      buzzwords: z.array(z.string()),
+      verdict: z.string(),
+    })
+    .nullable()
+    .optional(),
+  tag_quality: z
+    .object({
+      score: z.number(),
+      relevance: z.number(),
+      specificity: z.number(),
+      count_score: z.number(),
+      spam: z.boolean(),
+      count: z.number(),
+      issues: z.array(z.string()),
+      suggested_tags: z.array(z.string()),
+    })
+    .nullable()
+    .optional(),
   listing_completeness: z.number().optional(),
   tips: z.array(z.string()).optional(),
   last_updated: z.string().optional(),
@@ -66,6 +93,19 @@ const handler = router
       total_competitors: report.totalCompetitors,
       price_position: report.pricePosition,
       description_quality: report.descriptionQuality,
+      description_quality_breakdown: report.descriptionQualityBreakdown ?? null,
+      tag_quality: report.tagQualityBreakdown
+        ? {
+            score: report.tagQualityBreakdown.score,
+            relevance: report.tagQualityBreakdown.relevance,
+            specificity: report.tagQualityBreakdown.specificity,
+            count_score: report.tagQualityBreakdown.countScore,
+            spam: report.tagQualityBreakdown.spam,
+            count: report.tagQualityBreakdown.count,
+            issues: report.tagQualityBreakdown.issues,
+            suggested_tags: report.tagQualityBreakdown.suggestedTags,
+          }
+        : null,
       listing_completeness: report.listingCompleteness,
       tips: report.tips,
       last_updated: data.merchant.lastUpdated.toISOString(),

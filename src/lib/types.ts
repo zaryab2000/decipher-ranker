@@ -8,6 +8,9 @@ import type {
   categoryCache,
 } from "./db/schema";
 
+import type { DescriptionQualityScore } from "@/lib/analytics/description-quality";
+import type { TagQualityScore } from "@/lib/analytics/tag-quality";
+
 export type Merchant = InferSelectModel<typeof merchants>;
 export type Resource = InferSelectModel<typeof resources>;
 export type Category = InferSelectModel<typeof categories>;
@@ -73,6 +76,8 @@ export interface BasicReport {
   descriptionQuality: number;
   listingCompleteness: number;
   tips: string[];
+  descriptionQualityBreakdown?: DescriptionQualityScore | null;
+  tagQualityBreakdown?: TagQualityScore | null;
 }
 
 export interface CompetitorEntry {

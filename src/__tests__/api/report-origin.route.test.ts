@@ -68,6 +68,28 @@ describe("POST /api/report/origin", () => {
       descriptionQuality: 80,
       listingCompleteness: 75,
       tips: ["Tip 1"],
+      descriptionQualityBreakdown: {
+        score: 0.72,
+        lengthScore: 1.0,
+        keywordDensity: 0.57,
+        categoryKeywordPresence: 0.6,
+        structuralSpecificity: 0.8,
+        length: 234,
+        fluffScore: 0.9,
+        buzzwords: [],
+        verdict:
+          "Good — description has strong keyword grounding and structural specificity",
+      },
+      tagQualityBreakdown: {
+        score: 0.85,
+        relevance: 1,
+        specificity: 1,
+        countScore: 1,
+        spam: false,
+        count: 4,
+        issues: [],
+        suggestedTags: ["onchain", "wallet"],
+      },
     });
 
     const res = await POST(makeRequest({ origin: "https://test.com" }));
@@ -76,6 +98,15 @@ describe("POST /api/report/origin", () => {
     expect(body.category).toBe("api");
     expect(body.rank_position).toBe(1);
     expect(body.tips).toEqual(["Tip 1"]);
+    expect(body.description_quality_breakdown).toMatchObject({
+      score: expect.any(Number),
+      verdict: expect.any(String),
+    });
+    expect(body.tag_quality).toMatchObject({
+      score: expect.any(Number),
+      count: expect.any(Number),
+      suggested_tags: expect.any(Array),
+    });
   });
 
   it("returns 500 on unexpected error", async () => {
