@@ -29,6 +29,11 @@ const PRIVATE_IP_PATTERNS = [
   /^fe80/i,
 ];
 
+// Hostname-string check only — does not resolve DNS, so a public hostname
+// pointing at a private IP (DNS rebinding) would bypass this. Acceptable for
+// the current threat model (input is the Bazaar catalog, not arbitrary user
+// input). If origin-probe is ever exposed to less-trusted input, resolve the
+// hostname and check the IP.
 function isPrivateOrigin(origin: string): boolean {
   try {
     const url = new URL(origin);

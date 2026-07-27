@@ -231,13 +231,15 @@ export async function refreshSupplyGap(): Promise<number> {
   }
 
   // Remove stale rows for categories that no longer qualify (shrunk below
-  // threshold, renamed, or removed by taxonomy cleanup).
-  const activeNames = new Set(allCategories.map((c) => c.name));
-  const cachedRows = await getDb().select({ categoryName: supplyGapCache.categoryName }).from(supplyGapCache);
-  for (const row of cachedRows) {
-    if (!activeNames.has(row.categoryName)) {
-      await getDb().delete(supplyGapCache).where(eq(supplyGapCache.categoryName, row.categoryName));
-    }
+  // threshold, renamed, or removed by taxonomy cleanup). Single set-based
+  // DELETE to stay consistent with the codebase's batch-operation style.
+  const activeNames = allCategories.map((c) => c.name);
+  if (activeNames.length > 0) {
+    await getDb()
+      .delete(supplyGapCache)
+      .where(sql`${supplyGapCache.categoryName} NOT IN (${sql.join(activeNames.map((n) => sql`${n}`), sql`, `)})`);
+  } else {
+    await getDb().delete(supplyGapCache);
   }
 
   console.log(`[supplyGap] Refreshed ${refreshedCount} categories`);

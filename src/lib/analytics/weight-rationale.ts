@@ -145,7 +145,7 @@ export function classifyTip(tip: string): TipComponentMapping {
         "Indirect: price is not a score component. But a competitive price lowers agent adoption friction, which drives volume — the dominant ranking factor. Each settled payment at any price increments the same signal.",
     };
   }
-  if (lower.includes("endpoint") || lower.includes("resource") || lower.includes("more endpoint") || lower.includes("more resource")) {
+  if (lower.includes("endpoint") || lower.includes("resource")) {
     return {
       tip,
       component: "indirect",

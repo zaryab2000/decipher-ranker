@@ -1,13 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { makeSelectChain, makeInsertChain } from "../fixtures/mock-chains";
+import { makeSelectChain, makeInsertChain, makeDeleteChain } from "../fixtures/mock-chains";
 
 const mockSelect = vi.fn();
 const mockInsert = vi.fn();
+const mockDelete = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   getDb: () => ({
     select: (...args: unknown[]) => mockSelect(...args),
     insert: (...args: unknown[]) => mockInsert(...args),
+    delete: (...args: unknown[]) => mockDelete(...args),
   }),
 }));
 
@@ -30,6 +32,7 @@ beforeEach(() => {
     return makeSelectChain(result);
   });
   mockInsert.mockImplementation(() => makeInsertChain());
+  mockDelete.mockImplementation(() => makeDeleteChain());
 });
 
 afterEach(() => {
