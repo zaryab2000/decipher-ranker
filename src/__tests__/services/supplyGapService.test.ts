@@ -112,6 +112,45 @@ describe("getSupplyGapForCategory", () => {
     expect(result).toBeNull();
   });
 
+  it("flags a merchant as buried via buriedResourceUrls even if absent from buriedSample", async () => {
+    selectResults = [
+      [
+        {
+          categoryName: "Crypto & DeFi",
+          perQuery: [
+            {
+              query: "crypto",
+              cdpResults: 5,
+              cdpResourceUrls: [],
+              categoryMerchantCount: 30,
+              buriedCount: 25,
+              gapRatio: 0.83,
+              buriedSample: [
+                { resourceUrl: "https://top-scorer.com/api", serviceName: "Top", rankerScore: 0.99 },
+              ],
+              buriedResourceUrls: [
+                "https://top-scorer.com/api",
+                "https://mine.com/api",
+                "https://another.com/api",
+              ],
+            },
+          ],
+          averageGapRatio: "0.8300",
+          buriedMerchantCount: 25,
+          totalCategoryMerchants: 30,
+          refreshedAt: new Date("2026-07-26T00:00:00Z"),
+        },
+      ],
+    ];
+
+    const result = await getSupplyGapForCategory("Crypto & DeFi", [
+      "https://mine.com/api",
+    ]);
+
+    expect(result).not.toBeNull();
+    expect(result?.merchantIsBuried).toBe(true);
+  });
+
   it("flags the merchant as buried when its URL appears in a buried sample", async () => {
     selectResults = [
       [

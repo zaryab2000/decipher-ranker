@@ -193,6 +193,7 @@ export async function refreshSupplyGap(): Promise<number> {
             serviceName: b.serviceName,
             rankerScore: Number(b.rankerScore),
           })),
+        buriedResourceUrls: buried.map((b) => b.resourceUrl),
       });
     }
 
@@ -261,11 +262,12 @@ export async function getSupplyGapForCategory(
   const perQuery = (row.perQuery ?? []) as SupplyGapQueryResult[];
 
   const normalizedMerchantUrls = new Set(merchantResourceUrls.map(normalizeUrl));
-  const merchantIsBuried = perQuery.some((q) =>
-    q.buriedSample.some((b) =>
-      normalizedMerchantUrls.has(normalizeUrl(b.resourceUrl)),
-    ),
-  );
+  const merchantIsBuried = perQuery.some((q) => {
+    // Prefer the full buried URL list; fall back to the top-10 sample for
+    // cache rows written before this field was added.
+    const urls = q.buriedResourceUrls ?? q.buriedSample.map((b) => b.resourceUrl);
+    return urls.some((url) => normalizedMerchantUrls.has(normalizeUrl(url)));
+  });
 
   return {
     categoryName: row.categoryName,

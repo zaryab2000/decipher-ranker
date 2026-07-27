@@ -148,6 +148,7 @@ export interface SupplyGapQueryResult {
     serviceName: string | null;
     rankerScore: number;
   }>;
+  buriedResourceUrls?: string[];
 }
 
 export interface SupplyGapData {
