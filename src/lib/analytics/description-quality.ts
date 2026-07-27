@@ -58,26 +58,29 @@ export function computeKeywordDensity(description: string): number {
   return contentWords.length / words.length;
 }
 
+function hasWordBoundaryMatch(text: string, word: string): boolean {
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`\\b${escaped}\\b`, "i").test(text);
+}
+
 export function computeCategoryKeywordPresence(
   description: string,
   category: Category | null,
 ): number {
   if (!category) return 0;
-  const descLower = description.toLowerCase();
   const patterns =
     TAXONOMY.find((c) => c.slug === category.slug)?.tagPatterns ?? [];
   if (patterns.length === 0) return 0;
   const normalizedPatterns = patterns.map(normalizeTag);
   const matches = normalizedPatterns.filter((p) =>
-    p.split(" ").every((token) => descLower.includes(token)),
+    p.split(" ").every((token) => hasWordBoundaryMatch(description, token)),
   );
   return matches.length / patterns.length;
 }
 
 export function computeStructuralSpecificity(description: string): number {
-  const descLower = description.toLowerCase();
   const hits = STRUCTURAL_TERMS.filter((t) =>
-    descLower.includes(t.toLowerCase()),
+    hasWordBoundaryMatch(description, t),
   );
   return Math.min(hits.length / 5, 1);
 }
@@ -105,11 +108,13 @@ export function computeFluffScore(description: string): {
 } {
   const words = tokenize(description);
   if (words.length === 0) {
+    // Non-Latin or empty description — use neutral fluff score (1.0) so the
+    // final score is driven by other signals, not penalized for script choice.
     return {
-      fluffScore: 0,
+      fluffScore: description.trim().length > 0 ? 1.0 : 0,
       buzzwordHits: [],
       pronounRatio: 0,
-      stopWordRatio: 1,
+      stopWordRatio: 0,
     };
   }
 

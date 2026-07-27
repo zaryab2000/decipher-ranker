@@ -63,13 +63,16 @@ export async function computeRankTrend(
   targetDate.setDate(targetDate.getDate() - 30);
   const targetIso = targetDate.toISOString().split("T")[0]!;
 
-  // Find the snapshot closest to 30 days ago (or the earliest if we don't have
-  // that far back).
+  // Find the snapshot closest to 30 days ago by absolute distance.
   let baseline = earliest;
-  for (let i = snapshots.length - 1; i >= 0; i--) {
-    if (snapshots[i]!.snapshotDate >= targetIso) {
-      baseline = snapshots[i]!;
-      break;
+  let bestDistance = Infinity;
+  for (const snap of snapshots) {
+    const distance = Math.abs(
+      new Date(snap.snapshotDate).getTime() - targetDate.getTime(),
+    );
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      baseline = snap;
     }
   }
 
@@ -167,7 +170,7 @@ function buildInterpretation(params: {
     return `Your score improved by ${scoreChange.toFixed(4)} over the last 30 days.${rankNote}${volumeNote}${buyerNote}${basisNote}`;
   }
   if (trendDirection === "declining") {
-    return `Your score declined by ${Math.abs(scoreChange).toFixed(4)} over the last 30 days.${rankNote}${volumeNote}${basisNote}`;
+    return `Your score declined by ${Math.abs(scoreChange).toFixed(4)} over the last 30 days.${rankNote}${volumeNote}${buyerNote}${basisNote}`;
   }
-  return `Your score is stable (change: ${scoreChange >= 0 ? "+" : ""}${scoreChange.toFixed(4)}).${rankNote}${basisNote}`;
+  return `Your score is stable (change: ${scoreChange >= 0 ? "+" : ""}${scoreChange.toFixed(4)}).${rankNote}${volumeNote}${buyerNote}${basisNote}`;
 }

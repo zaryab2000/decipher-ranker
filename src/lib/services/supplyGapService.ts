@@ -37,7 +37,7 @@ function sleep(ms: number): Promise<void> {
 
 function generateQueries(categorySlug: string): string[] {
   const cat = TAXONOMY.find((c) => c.slug === categorySlug);
-  if (!cat) return [];
+  if (!cat || cat.tagPatterns.length === 0) return [];
 
   const topPatterns = cat.tagPatterns.slice(0, MAX_QUERIES_PER_CATEGORY - 1);
 
@@ -49,7 +49,7 @@ function generateQueries(categorySlug: string): string[] {
     .join(" ");
 
   const queries = [...singleWordQueries, combinedQuery].filter(
-    (q, i, arr) => arr.indexOf(q) === i,
+    (q, i, arr) => q.length > 0 && arr.indexOf(q) === i,
   );
 
   return queries.slice(0, MAX_QUERIES_PER_CATEGORY);
@@ -113,8 +113,8 @@ async function getCategoryMerchants(
   const seen = new Set<string>();
   const unique: CategoryMerchant[] = [];
   for (const r of rows) {
-    if (!seen.has(r.resourceUrl)) {
-      seen.add(r.resourceUrl);
+    if (!seen.has(r.merchantId)) {
+      seen.add(r.merchantId);
       unique.push({
         resourceUrl: r.resourceUrl,
         serviceName: r.serviceName,
@@ -228,6 +228,16 @@ export async function refreshSupplyGap(): Promise<number> {
       });
 
     refreshedCount++;
+  }
+
+  // Remove stale rows for categories that no longer qualify (shrunk below
+  // threshold, renamed, or removed by taxonomy cleanup).
+  const activeNames = new Set(allCategories.map((c) => c.name));
+  const cachedRows = await getDb().select({ categoryName: supplyGapCache.categoryName }).from(supplyGapCache);
+  for (const row of cachedRows) {
+    if (!activeNames.has(row.categoryName)) {
+      await getDb().delete(supplyGapCache).where(eq(supplyGapCache.categoryName, row.categoryName));
+    }
   }
 
   console.log(`[supplyGap] Refreshed ${refreshedCount} categories`);

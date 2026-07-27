@@ -11,6 +11,35 @@ import type { DiscoveryLayerStatus } from "@/lib/types";
 import { cached } from "@/lib/cache";
 
 const PROBE_TIMEOUT_MS = 5000;
+
+const BLOCKED_HOSTNAMES = new Set([
+  "localhost", "127.0.0.1", "0.0.0.0", "[::1]", "[::]",
+  "metadata.google.internal", "169.254.169.254",
+]);
+
+const PRIVATE_IP_PATTERNS = [
+  /^10\./,
+  /^172\.(1[6-9]|2\d|3[01])\./,
+  /^192\.168\./,
+  /^169\.254\./,
+  /^127\./,
+  /^0\./,
+  /^fc/i,
+  /^fd/i,
+  /^fe80/i,
+];
+
+function isPrivateOrigin(origin: string): boolean {
+  try {
+    const url = new URL(origin);
+    if (BLOCKED_HOSTNAMES.has(url.hostname)) return true;
+    if (PRIVATE_IP_PATTERNS.some((p) => p.test(url.hostname))) return true;
+    if (url.protocol !== "https:" && url.protocol !== "http:") return true;
+    return false;
+  } catch {
+    return true;
+  }
+}
 // Membership rarely changes hour-to-hour; caching keeps the report off the hot
 // path of downloading x402scan's ~1.5MB page + hitting the merchant's server.
 const PROBE_CACHE_TTL_SECONDS = 3600;
@@ -115,8 +144,12 @@ async function checkX402Scan(
 async function checkAgentCash(
   origin: string,
 ): Promise<{ indexed: boolean; note: string }> {
+  if (isPrivateOrigin(origin)) {
+    return { indexed: false, note: "Origin resolves to a private/internal address — skipped" };
+  }
   try {
     const res = await fetch(`${origin}/openapi.json`, {
+      redirect: "error",
       signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
       headers: { accept: "application/json" },
     });

@@ -25,6 +25,10 @@ export function computeServiceNameQuality(serviceName: string | null): number {
   // Exact match against generic-name list — always low-score
   if (GENERIC_NAMES.has(lower)) return 0.1;
 
+  // Compound names made entirely of generic words (e.g., "api-service", "test tool")
+  const parts = lower.split(/[-_\s]+/).filter(Boolean);
+  if (parts.length > 1 && parts.every((p) => GENERIC_NAMES.has(p))) return 0.2;
+
   // Too short to be meaningful
   if (name.length < 3) return 0.1;
 

@@ -66,8 +66,12 @@ export async function runPipeline(fresh: boolean): Promise<void> {
   log(`Wrote ${snapshotsWritten} daily trend snapshots.`);
 
   log("Refreshing supply gap cache (CDP search probes)…");
-  const gapCount = await refreshSupplyGap();
-  log(`Refreshed supply gap for ${gapCount} categories.`);
+  try {
+    const gapCount = await refreshSupplyGap();
+    log(`Refreshed supply gap for ${gapCount} categories.`);
+  } catch (err) {
+    log(`Supply gap refresh failed (non-fatal): ${err}`);
+  }
 
   log("Pipeline complete.");
 }

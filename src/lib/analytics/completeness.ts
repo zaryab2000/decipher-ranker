@@ -70,7 +70,6 @@ export function countMerchantChains(resources: Resource[]): number {
 export function computeActionCoverage(data: MerchantData): ActionItem[] {
   const actions: ActionItem[] = [];
   const { merchant, resources: merchantResources, category } = data;
-  const firstResource = merchantResources[0];
 
   // 1. Input schema — high priority if missing (structural signal)
   const missingInputSchema = merchantResources.some((r) => !r.hasInputSchema);
@@ -96,62 +95,75 @@ export function computeActionCoverage(data: MerchantData): ActionItem[] {
     });
   }
 
-  // 3. Description quality (action 06/07)
-  if (firstResource?.description) {
-    const descQuality = computeDescriptionQualityScore(firstResource.description, category);
-    if (descQuality.score < 0.5) {
+  // 3. Description quality (action 06/07) — check across ALL resources since the
+  // ranker averages description quality over all of them.
+  const anyHasDescription = merchantResources.some((r) => r.description);
+  if (anyHasDescription) {
+    const worstDesc = merchantResources
+      .filter((r) => r.description)
+      .map((r) => computeDescriptionQualityScore(r.description!, category))
+      .sort((a, b) => a.score - b.score)[0];
+    if (worstDesc && worstDesc.score < 0.5) {
       actions.push({
         action:
-          descQuality.buzzwords.length > 0
-            ? `Remove marketing buzzwords (${descQuality.buzzwords.slice(0, 3).join(", ")}) and rewrite with API-specific terms`
+          worstDesc.buzzwords.length > 0
+            ? `Remove marketing buzzwords (${worstDesc.buzzwords.slice(0, 3).join(", ")}) and rewrite with API-specific terms`
             : "Improve description quality — add category keywords and structural terms",
         priority: "high",
         component: "listingQuality",
-        issue: descQuality.verdict,
+        issue: worstDesc.verdict,
         expectedImpact: "+0.03 score (description: up to +0.8 raw × quality multiplier)",
       });
     }
-  } else if (firstResource) {
-    // Only advise adding a description when a resource actually exists — a
-    // merchant with zero resources is covered by the "no endpoints" action below.
+    const missingDesc = merchantResources.filter((r) => !r.description);
+    if (missingDesc.length > 0) {
+      actions.push({
+        action: `Add descriptions to ${missingDesc.length} endpoint${missingDesc.length > 1 ? "s" : ""} missing them (aim for 150+ characters with specific API terms)`,
+        priority: "high",
+        component: "listingQuality",
+        issue: `${missingDesc.length} of ${merchantResources.length} resource(s) have no description — dragging down the average`,
+        expectedImpact: "+0.03 score (description tier: 0 → +0.8 raw)",
+      });
+    }
+  } else if (merchantResources.length > 0) {
     actions.push({
       action: "Add a description to every endpoint (aim for 150+ characters with specific API terms)",
       priority: "high",
       component: "listingQuality",
-      issue: "No description on primary resource — cross-encoders have no text to score",
+      issue: "No description on any resource — cross-encoders have no text to score",
       expectedImpact: "+0.03 score (description tier: 0 → +0.8 raw)",
     });
   }
 
-  // 4. Service name quality
-  if (firstResource) {
-    const nameQuality = computeServiceNameQuality(firstResource.serviceName);
-    if (nameQuality < 0.5) {
-      actions.push({
-        action: `Rename "${firstResource.serviceName ?? "(none)"}" to a more specific service name (e.g., "Weather Forecast API" not "API")`,
-        priority: "medium",
-        component: "listingQuality",
-        issue: "Service name is generic or absent — no semantic signal for cross-encoders",
-        expectedImpact: "+0.02 score (serviceName: +0.5 × quality multiplier)",
-      });
-    }
+  // 4. Service name quality — check across ALL resources
+  const worstNameResource = merchantResources
+    .map((r) => ({ r, q: computeServiceNameQuality(r.serviceName) }))
+    .sort((a, b) => a.q - b.q)[0];
+  if (worstNameResource && worstNameResource.q < 0.5) {
+    actions.push({
+      action: `Rename "${worstNameResource.r.serviceName ?? "(none)"}" to a more specific service name (e.g., "Weather Forecast API" not "API")`,
+      priority: "medium",
+      component: "listingQuality",
+      issue: "Service name is generic or absent — no semantic signal for cross-encoders",
+      expectedImpact: "+0.02 score (serviceName: +0.5 × quality multiplier)",
+    });
   }
 
-  // 5. Tag quality (action 11)
-  if (firstResource) {
-    const tagQuality = computeTagQualityScore(firstResource.tags ?? [], category);
-    if (tagQuality.count === 0 || tagQuality.score < 0.4) {
-      const suggested = tagQuality.suggestedTags.length > 0
-        ? ` (try: ${tagQuality.suggestedTags.join(", ")})`
-        : "";
-      actions.push({
-        action: `Add 3-5 tags from your category's vocabulary${suggested}`,
-        priority: "medium",
-        component: "listingQuality",
-        issue: tagQuality.issues[0] ?? "Tags are missing or low-quality",
-        expectedImpact: "+0.01 score (tags: +0.3 / LISTING_QUALITY_MAX × weight 0.15)",
-      });
-    }
+  // 5. Tag quality (action 11) — check across ALL resources
+  const worstTagResource = merchantResources
+    .map((r) => ({ r, q: computeTagQualityScore(r.tags ?? [], category) }))
+    .sort((a, b) => a.q.score - b.q.score)[0];
+  if (worstTagResource && (worstTagResource.q.count === 0 || worstTagResource.q.score < 0.4)) {
+    const suggested = worstTagResource.q.suggestedTags.length > 0
+      ? ` (try: ${worstTagResource.q.suggestedTags.join(", ")})`
+      : "";
+    actions.push({
+      action: `Add 3-5 tags from your category's vocabulary${suggested}`,
+      priority: "medium",
+      component: "listingQuality",
+      issue: worstTagResource.q.issues[0] ?? "Tags are missing or low-quality",
+      expectedImpact: "+0.01 score (tags: +0.3 / LISTING_QUALITY_MAX × weight 0.15)",
+    });
   }
 
   // 6. Icon presence
