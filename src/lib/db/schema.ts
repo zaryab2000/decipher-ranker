@@ -67,6 +67,7 @@ export const resources = pgTable(
     serviceName: text("service_name"),
     description: text("description"),
     tags: text("tags").array(),
+    iconUrl: text("icon_url"),
     hasInputSchema: boolean("has_input_schema").default(false),
     hasOutputExample: boolean("has_output_example").default(false),
     toolCalls: integer("tool_calls").default(0),
@@ -136,6 +137,16 @@ export const categoryCache = pgTable("category_cache", {
   medianPrice: decimal("median_price", { precision: 20, scale: 6 }),
   avgBuyers: decimal("avg_buyers", { precision: 10, scale: 2 }),
   topMerchants: jsonb("top_merchants"),
+  refreshedAt: timestamp("refreshed_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const supplyGapCache = pgTable("supply_gap_cache", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  categoryName: text("category_name").notNull().unique(),
+  perQuery: jsonb("per_query").notNull(),
+  averageGapRatio: decimal("average_gap_ratio", { precision: 5, scale: 4 }),
+  buriedMerchantCount: integer("buried_merchant_count").default(0),
+  totalCategoryMerchants: integer("total_category_merchants").default(0),
   refreshedAt: timestamp("refreshed_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

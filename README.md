@@ -54,7 +54,7 @@ Coinbase Bazaar API                     decipher-ranker
 The **ranker score** formula that powers every ranking and report:
 
 ```
-0.30·volume + 0.25·buyerDiversity + 0.15·reliability + 0.15·listingQuality + 0.15·recency
+0.40·volume + 0.25·buyerDiversity + 0.05·reliability + 0.15·listingQuality + 0.15·recency
 ```
 
 Each component maps to an action a merchant can take: drive more volume, diversify buyers, maintain uptime, write better descriptions, stay active. The dashboard makes every component visible and explainable.
@@ -91,6 +91,7 @@ curl "http://localhost:3000/api/leaderboard?limit=10"
 
 | Endpoint                    | Method | Auth   | Cost  | Description                                                        |
 | --------------------------- | ------ | ------ | ----- | ------------------------------------------------------------------ |
+| `/api/preview`              | GET    | None   | Free  | Quick merchant lookup by domain — score, grade, rank, category     |
 | `/api/categories`           | GET    | None   | Free  | All categories with merchant counts and top-3 merchants            |
 | `/api/leaderboard`          | GET    | None   | Free  | Top N merchants ranked by decipher score                           |
 | `/api/report/origin`        | POST   | SIWX   | Free  | Basic report: rank, price position, listing quality, tips          |
@@ -110,7 +111,7 @@ npm run dev          # Next.js dev server
 npm run build        # Production build
 npm run lint         # ESLint (next lint)
 npm run typecheck    # tsc --noEmit
-npm test             # vitest run (196 tests)
+npm test             # vitest run (336 tests)
 npm run test:watch   # vitest in watch mode
 ```
 

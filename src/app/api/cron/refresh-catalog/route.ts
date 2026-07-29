@@ -5,6 +5,7 @@ import { assignAllMerchantCategories } from "@/lib/analytics/categorizer";
 import { scoreAllMerchants } from "@/lib/analytics/ranker";
 import { refreshCategoryCache } from "@/lib/services/categoryService";
 import { writeDailySnapshot } from "@/lib/services/trendService";
+import { refreshSupplyGap } from "@/lib/services/supplyGapService";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,14 @@ export async function GET(request: Request) {
     const categoriesCached = await refreshCategoryCache();
     const snapshotsWritten = await writeDailySnapshot();
 
+    // Supply gap probes CDP search; never let it fail the whole cron run.
+    let supplyGapRefreshed = 0;
+    try {
+      supplyGapRefreshed = await refreshSupplyGap();
+    } catch (err) {
+      console.error("[cron] Supply gap refresh failed:", err);
+    }
+
     return NextResponse.json({
       status: "ok",
       resources_fetched: bazaarResources.length,
@@ -33,6 +42,7 @@ export async function GET(request: Request) {
       merchants_scored: merchantsScored,
       categories_cached: categoriesCached,
       snapshots_written: snapshotsWritten,
+      supply_gap_refreshed: supplyGapRefreshed,
     });
   } catch (error) {
     console.error("Cron refresh-catalog error:", error);
