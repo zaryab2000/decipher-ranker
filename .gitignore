@@ -55,3 +55,6 @@ skills-lock.json
 # test
 scripts/test-payment.ts
 scripts/test-siwx.ts
+scripts/analyze-thesis-data.ts
+scripts/collect-thesis-data.ts
+scripts/probe-cdp-thesis.ts

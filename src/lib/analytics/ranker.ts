@@ -6,6 +6,22 @@ import type { ScoreBreakdown, BasicReport, GapAnalysis, PricingBenchmark, Compet
 import { fetchMerchantStats } from "@/lib/data-sources/x402scan";
 import { computeAIInsights } from "@/lib/analytics/ai-analyst";
 import { normalizeChain } from "@/lib/data-sources/bazaar";
+import { computeDescriptionQualityScore } from "@/lib/analytics/description-quality";
+import type { DescriptionQualityScore } from "@/lib/analytics/description-quality";
+import { computeTagQualityScore, suggestTags } from "@/lib/analytics/tag-quality";
+import type { TagQualityScore } from "@/lib/analytics/tag-quality";
+import { computeServiceNameQuality } from "@/lib/analytics/service-name-quality";
+import {
+  completenessGrade,
+  computeActionCoverage,
+  countMerchantChains,
+} from "@/lib/analytics/completeness";
+import { buildWeightRationale } from "@/lib/analytics/weight-rationale";
+import { computeRankTrend } from "@/lib/analytics/rank-trend";
+import type { RankTrendData } from "@/lib/analytics/rank-trend";
+import { checkDiscoveryLayersCached } from "@/lib/analytics/origin-probe";
+import { getSupplyGapForCategory } from "@/lib/services/supplyGapService";
+import type { DiscoveryLayerStatus, SupplyGapData } from "@/lib/types";
 
 export interface MerchantData {
   merchant: Merchant;
@@ -40,7 +56,7 @@ export function computeRankerScore(data: MerchantData): number {
 
   const reliability = computeReliability(merchantResources);
 
-  const listingQuality = computeListingQualityFromResources(merchantResources);
+  const listingQuality = computeListingQualityFromResources(merchantResources, data.category);
 
   const recency = computeRecency(merchantResources);
 
@@ -63,7 +79,7 @@ export function computeScoreBreakdown(data: MerchantData): ScoreBreakdown {
       0.5 * logNorm(Number(merchant.volume30d ?? 0)),
     buyerDiversity: computeBuyerDiversity(merchant.buyers30d ?? 0),
     reliability: computeReliability(merchantResources),
-    listingQuality: computeListingQualityFromResources(merchantResources),
+    listingQuality: computeListingQualityFromResources(merchantResources, data.category),
     recency: computeRecency(merchantResources),
   };
 }
@@ -102,35 +118,59 @@ function computeReliability(merchantResources: Resource[]): number {
 // tag spam. Raw score is normalized by the theoretical max below.
 //
 //   Structural (max 2.8): input schema +1.0, output example +1.0,
-//                         description tier (exclusive) >150 +0.8 / >50 +0.4
-//   Opt-in    (max 0.8):  service name +0.5, tags 3-5 +0.3 / >5 or 1-2 +0.1
-const LISTING_QUALITY_MAX = 3.6;
+//                         description +0.8 (gated by quality)
+//   Opt-in    (max 0.95): service name +0.5 (gated by specificity),
+//                         tags +0.3 (gated by quality), icon +0.15
+const LISTING_QUALITY_MAX = 3.75;
 
-function computeListingQualityForResource(r: Resource): number {
+function computeListingQualityForResource(
+  r: Resource,
+  category: Category | null,
+): number {
   let score = 0;
 
   if (r.hasInputSchema) score += 1.0;
   if (r.hasOutputExample) score += 1.0;
 
-  const descLen = r.description?.length ?? 0;
-  if (descLen > 150) score += 0.8;
-  else if (descLen > 50) score += 0.4;
+  // Description contributes up to 0.8, gated by a composite quality score
+  // (keyword density, category keyword presence, structural specificity, fluff)
+  // rather than raw length — a fluff-filled 200-char blurb scores below a dense
+  // 120-char API description.
+  const descQuality = computeDescriptionQualityScore(
+    r.description ?? "",
+    category,
+  );
+  score += 0.8 * descQuality.score;
 
-  if (r.serviceName && r.serviceName.length > 0) score += 0.5;
+  // Service name contributes up to 0.5, gated by name specificity — a generic
+  // "API" scores far below "Weather Forecast API".
+  score += 0.5 * computeServiceNameQuality(r.serviceName);
 
-  const tagCount = r.tags?.length ?? 0;
-  if (tagCount >= 3 && tagCount <= 5) score += 0.3;
-  else if (tagCount >= 1) score += 0.1;
+  // Tags contribute up to 0.3, gated by tag quality (taxonomy relevance,
+  // specificity, count, anti-spam) rather than raw count — 3 category-matching
+  // tags beat 5 generic ones. A resource with no tags contributes 0 (the tag
+  // quality score's anti-spam floor is for the report breakdown, not ranking).
+  const tags = r.tags ?? [];
+  if (tags.length > 0) {
+    const tagQuality = computeTagQualityScore(tags, category);
+    score += 0.3 * tagQuality.score;
+  }
+
+  // Icon presence is a small metadata-completeness bonus.
+  if (r.iconUrl) score += 0.15;
 
   return Math.min(score / LISTING_QUALITY_MAX, 1);
 }
 
-function computeListingQualityFromResources(merchantResources: Resource[]): number {
+function computeListingQualityFromResources(
+  merchantResources: Resource[],
+  category: Category | null,
+): number {
   if (merchantResources.length === 0) return 0;
 
   let totalScore = 0;
   for (const r of merchantResources) {
-    totalScore += computeListingQualityForResource(r);
+    totalScore += computeListingQualityForResource(r, category);
   }
 
   return totalScore / merchantResources.length;
@@ -305,9 +345,104 @@ export async function computeBasicReport(data: MerchantData): Promise<BasicRepor
   }
 
   const pricePosition = await computePricePosition(data);
-  const descriptionQuality = computeDescriptionQuality(data.resources);
+  const descriptionQuality = computeDescriptionQuality(data.resources, data.category);
   const listingCompleteness = computeListingCompleteness(data.resources);
-  const tips = generateTips(data, descriptionQuality, listingCompleteness);
+
+  // Breakdown for the first resource that actually has a description, so the
+  // surfaced breakdown matches the resource the description tips reason about
+  // (rather than resources[0], which may be undescribed).
+  const firstDescribedResource = data.resources.find(
+    (r) => r.description && r.description.length > 0,
+  );
+  const descriptionQualityBreakdown =
+    firstDescribedResource ?? data.resources[0]
+      ? computeDescriptionQualityScore(
+          (firstDescribedResource ?? data.resources[0])?.description ?? "",
+          data.category,
+        )
+      : null;
+
+  // Tag quality for the first tagged resource; fall back to an empty-tags result
+  // so a merchant with no tags still surfaces the "No tags" issue.
+  const firstTaggedResource = data.resources.find(
+    (r) => r.tags && r.tags.length > 0,
+  );
+  const tagQualityBreakdown = firstTaggedResource
+    ? computeTagQualityScore(firstTaggedResource.tags ?? [], data.category)
+    : computeTagQualityScore([], data.category);
+
+  // Pass the precomputed breakdowns so generateTips doesn't recompute them.
+  const tips = generateTips(
+    data,
+    descriptionQuality,
+    listingCompleteness,
+    descriptionQualityBreakdown,
+    tagQualityBreakdown,
+  );
+
+  // Discovery-layer probe (action 03) — best-effort, never throws.
+  const primaryResourceUrl = data.resources[0]?.resourceUrl ?? null;
+  let discoveryLayers: DiscoveryLayerStatus | null = null;
+  if (primaryResourceUrl) {
+    try {
+      discoveryLayers = await checkDiscoveryLayersCached(primaryResourceUrl);
+    } catch {
+      discoveryLayers = null;
+    }
+  }
+
+  // Supply-gap data for the merchant's category (action 04) — null when the
+  // cache is not yet populated or the lookup fails.
+  let supplyGap: SupplyGapData | null = null;
+  if (data.category) {
+    try {
+      supplyGap = await getSupplyGapForCategory(
+        data.category.name,
+        data.resources.map((r) => r.resourceUrl),
+      );
+    } catch {
+      supplyGap = null;
+    }
+  }
+
+  // Prepend the highest-priority discovery insights, then re-slice to 3. Supply
+  // gap ("CDP can't find you") outranks the discovery-layer registration tip.
+  const allTips = [...tips];
+  if (discoveryLayers && discoveryLayers.layerAlignmentScore < 3) {
+    const missing: string[] = [];
+    if (!discoveryLayers.x402scan.indexed) {
+      missing.push("x402scan (x402scan.com/resources/register)");
+    }
+    if (!discoveryLayers.agentCash.indexed) {
+      missing.push("AgentCash (publish /openapi.json with x-payment-info)");
+    }
+    if (missing.length > 0) {
+      allTips.unshift(
+        `You are visible on ${discoveryLayers.layerAlignmentScore} of 3 discovery layers. Register on: ${missing.join(", ")}.`,
+      );
+    }
+  }
+  if (supplyGap && supplyGap.merchantIsBuried) {
+    allTips.unshift(
+      `Your category "${supplyGap.categoryName}" has ${supplyGap.totalCategoryMerchants} merchants, but CDP search returns only ${supplyGap.perQuery[0]?.cdpResults ?? "few"} results for category queries. You are one of the ${supplyGap.totalBuriedMerchants} merchants invisible to CDP search — improve your description and tags with category-relevant keywords to become discoverable.`,
+    );
+  }
+  const finalTips = allTips.slice(0, 3);
+
+  // Completeness grade + prioritized action roadmap (action 09).
+  const grade = completenessGrade(listingCompleteness);
+  const actionRoadmap = computeActionCoverage(data);
+  const chainCount = countMerchantChains(data.resources);
+
+  // Weight rationale (static) + rank trend from the trends table (action 12).
+  const weightRationale = buildWeightRationale();
+  let rankTrend: RankTrendData | null = null;
+  try {
+    rankTrend = await computeRankTrend(data.merchant.id);
+  } catch {
+    // Trends table might not have data yet — fail silently.
+    rankTrend = null;
+  }
 
   return {
     category: categoryName,
@@ -316,7 +451,16 @@ export async function computeBasicReport(data: MerchantData): Promise<BasicRepor
     pricePosition,
     descriptionQuality,
     listingCompleteness,
-    tips,
+    tips: finalTips,
+    descriptionQualityBreakdown,
+    tagQualityBreakdown,
+    discoveryLayers,
+    supplyGap,
+    completenessGrade: grade,
+    actionRoadmap,
+    chainCount,
+    weightRationale,
+    rankTrend,
   };
 }
 
@@ -342,15 +486,16 @@ async function computePricePosition(
   return "median";
 }
 
-export function computeDescriptionQuality(merchantResources: Resource[]): number {
+export function computeDescriptionQuality(
+  merchantResources: Resource[],
+  category: Category | null = null,
+): number {
   if (merchantResources.length === 0) return 0;
 
   let total = 0;
   for (const r of merchantResources) {
-    const len = r.description?.length ?? 0;
-    if (len > 150) total += 100;
-    else if (len > 50) total += 60;
-    else if (len > 0) total += 30;
+    const quality = computeDescriptionQualityScore(r.description ?? "", category);
+    total += quality.score * 100;
   }
 
   return Math.round(total / merchantResources.length);
@@ -381,13 +526,48 @@ export function generateTips(
   data: MerchantData,
   descQuality: number,
   listingCompleteness: number,
+  descriptionQualityBreakdown?: DescriptionQualityScore | null,
+  tagQualityBreakdown?: TagQualityScore | null,
 ): string[] {
   const tips: string[] = [];
 
   if (descQuality < 60) {
     tips.push(
-      "Improve your service descriptions — aim for 150+ characters with clear value propositions.",
+      "Improve your service descriptions — aim for 150+ characters with specific API terms, not marketing language.",
     );
+  }
+
+  // Detailed description-quality tips for the first resource that has a description.
+  const firstDescribedResource = data.resources.find(
+    (r) => r.description && r.description.length > 0,
+  );
+  if (firstDescribedResource?.description) {
+    // Reuse the breakdown computed by the caller when provided; only compute if
+    // this function is called standalone.
+    const quality =
+      descriptionQualityBreakdown ??
+      computeDescriptionQualityScore(
+        firstDescribedResource.description,
+        data.category,
+      );
+
+    if (quality.buzzwords.length > 0) {
+      tips.push(
+        `Your description contains marketing buzzwords (${quality.buzzwords.slice(0, 3).join(", ")}). Rewrite with exact API terms — agents' cross-encoders fire on technical vocabulary, not marketing language.`,
+      );
+    }
+
+    if (quality.keywordDensity < 0.4 && firstDescribedResource.description.length > 50) {
+      tips.push(
+        "Your description has low keyword density — too many stop words. Rewrite with content-rich terms that match your API's function.",
+      );
+    }
+
+    if (quality.structuralSpecificity < 0.3 && firstDescribedResource.description.length > 50) {
+      tips.push(
+        "Your description lacks concrete API artifacts (endpoint paths, HTTP methods, response formats). Add terms like 'GET', '/api/', 'JSON', 'returns' for better agent-discovery match.",
+      );
+    }
   }
 
   const missingSchema = data.resources.some(
@@ -399,12 +579,32 @@ export function generateTips(
     );
   }
 
-  const hasTaggedResources = data.resources.some(
+  // Tag-quality tips: name specific replacement tags instead of the generic
+  // "add relevant tags" advice. Reuse the caller's breakdown when provided.
+  const firstTaggedResource = data.resources.find(
     (r) => r.tags && r.tags.length > 0,
   );
-  if (!hasTaggedResources) {
+  const tagQuality =
+    tagQualityBreakdown ??
+    computeTagQualityScore(firstTaggedResource?.tags ?? [], data.category);
+
+  if (tagQuality.count === 0) {
+    const suggested = suggestTags([], data.category, 3);
     tips.push(
-      "Add relevant tags to your resources to improve discoverability in category searches.",
+      `No tags on your resource. Add 3-5 tags from your category's vocabulary${suggested.length > 0 ? ` (e.g., ${suggested.join(", ")})` : ""} — x402scan uses tag count as a sort tiebreaker and CDP uses tags as a filter key.`,
+    );
+  } else if (tagQuality.relevance < 0.4) {
+    const suggested = suggestTags(
+      firstTaggedResource?.tags ?? [],
+      data.category,
+      3,
+    );
+    tips.push(
+      `Your tags don't match your category's search vocabulary. Replace generic tags with${suggested.length > 0 ? ` ${suggested.join(", ")}` : " category-specific tags"} that agents filter on.`,
+    );
+  } else if (tagQuality.spam) {
+    tips.push(
+      "Your tags span multiple unrelated categories — remove tags that don't match your actual service to strengthen your category signal.",
     );
   }
 
@@ -644,7 +844,7 @@ function generateCompetitiveRecommendations(
 
   if (pricing.yourPrice && pricing.medianPrice && pricing.yourPrice > pricing.medianPrice * 1.5) {
     recs.push(
-      `Your price ($${pricing.yourPrice.toFixed(3)}) is significantly above the category median ($${pricing.medianPrice.toFixed(3)}). Consider competitive pricing.`,
+      `Your price ($${pricing.yourPrice.toFixed(3)}) is significantly above the category median ($${pricing.medianPrice.toFixed(3)}). Price is not a direct ranking signal, but a competitive price lowers agent adoption friction — which drives volume, the dominant (40% weight) ranking factor. Consider lowering toward the median to increase adoption.`,
     );
   }
 
@@ -675,7 +875,7 @@ function generateCompetitiveRecommendations(
 
   if (data.resources.length < 3) {
     recs.push(
-      "Register more API endpoints to increase your service coverage and discoverability.",
+      "Register more API endpoints — each endpoint is an independent retrieval surface in x402scan and contributes to AgentCash's originUsage aggregation. More endpoints do not directly increase your score but grow the surface area over which agent traffic can find you and generate volume (the dominant ranking signal).",
     );
   }
 
@@ -785,7 +985,7 @@ function generateDeepDiveRecommendations(
       );
     } else if (rank > 10) {
       recs.push(
-        "You rank outside the category top 10 — the fastest lever is buyer diversity and 30-day call volume.",
+        "You rank outside the category top 10. Rank is an output, not an input — to move it, focus on buyer diversity (new distinct paying wallets) and 30-day call volume (settled transactions). Together these explain ~90% of the rank gap per our thesis research. Metadata improvements (listing quality) move the remaining ~10%.",
       );
     }
   }

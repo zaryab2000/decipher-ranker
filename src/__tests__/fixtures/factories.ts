@@ -50,6 +50,7 @@ export function makeResource(
     serviceName: "Test Service",
     description: "A".repeat(200),
     tags: ["api", "test"],
+    iconUrl: null,
     hasInputSchema: false,
     hasOutputExample: false,
     toolCalls: 0,
@@ -116,6 +117,7 @@ export function makeBazaarResource(
     serviceName: "Test Bazaar Service",
     description: "A test bazaar resource",
     tags: ["api"],
+    iconUrl: null,
     quality: {
       l30DaysTotalCalls: 10,
       l30DaysUniquePayers: 3,

@@ -186,6 +186,7 @@ async function upsertResources(
       tags: resource.tags
         ?.map((t) => sanitizeText(t))
         .filter((t): t is string => t !== null),
+      iconUrl: sanitizeText(resource.iconUrl),
       hasInputSchema: hasInputSchema(resource),
       hasOutputExample: hasSchemaExample(resource),
       priceUsd: priceUsd?.toString(),
@@ -211,6 +212,7 @@ async function upsertResources(
           serviceName: sql`excluded.service_name`,
           description: sql`excluded.description`,
           tags: sql`excluded.tags`,
+          iconUrl: sql`excluded.icon_url`,
           hasInputSchema: sql`excluded.has_input_schema`,
           hasOutputExample: sql`excluded.has_output_example`,
           priceUsd: sql`excluded.price_usd`,
