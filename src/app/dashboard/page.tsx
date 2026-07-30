@@ -13,7 +13,7 @@ import { FixList } from "@/dashboard/components/cockpit/FixList";
 import { RankHistoryChart } from "@/dashboard/components/cockpit/RankHistoryChart";
 import { CompetitorTable } from "@/dashboard/components/cockpit/CompetitorTable";
 import { MetricCard } from "@/dashboard/components/merchant/MetricCard";
-import { formatNumber, toDisplayScore } from "@/dashboard/lib/formatters";
+import { biggestLever, formatNumber, toDisplayScore } from "@/dashboard/lib/formatters";
 import type { MerchantProfile, RankHistoryPoint } from "@/dashboard/types";
 
 // No `revalidate` here: reading searchParams makes this route dynamic, so an
@@ -129,6 +129,12 @@ async function Cockpit({ merchant }: { merchant: MerchantProfile }) {
   const rankLabel = merchant.category ? "Category rank" : "Overall rank";
   const noBuyers = merchant.buyers30d === 0;
 
+  // Claim "largest gap" only when buyer diversity genuinely is it. A merchant
+  // with zero volume as well has a 40-point hole, not a 25-point one, and the
+  // component breakdown directly below would contradict the card.
+  const lever = biggestLever(merchant.scoreBreakdown);
+  const buyersAreTheBiggestGap = lever?.key === "buyerDiversity";
+
   return (
     <div className="space-y-6">
       <IdentityBand merchant={merchant} totalInScope={totalInScope} />
@@ -154,7 +160,13 @@ async function Cockpit({ merchant }: { merchant: MerchantProfile }) {
           value={formatNumber(merchant.buyers30d)}
           icon={<Users className="w-5 h-5" />}
           valueClassName={noBuyers ? "text-amber-600" : undefined}
-          subtitle={noBuyers ? "Worth 25 pts — your largest gap" : undefined}
+          subtitle={
+            noBuyers
+              ? buyersAreTheBiggestGap
+                ? "Worth 25 pts — your largest gap"
+                : "Worth 25 pts"
+              : undefined
+          }
           subtitleClassName={noBuyers ? "text-amber-600" : undefined}
         />
       </div>

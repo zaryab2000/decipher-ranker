@@ -566,7 +566,11 @@ async function fetchMerchantByOrigin(
   const currentScore = Number(merchant.rankerScore ?? 0);
   const rankHistory = await getRankHistory(merchant.id);
   const rankDelta = computeRankDelta(rankHistory);
-  const rankGap = computeRankGap(toDisplayScore(currentScore), competitorList);
+  const { oneAbove, leader } = await fetchRankNeighbours(
+    merchant.categoryId ?? null,
+    merchant.rankPosition ?? null,
+  );
+  const rankGap = computeRankGap(toDisplayScore(currentScore), oneAbove, leader);
 
   const improvements = buildImprovements({
     hasDescription: resourceDescription != null && resourceDescription.length > 0,
@@ -690,24 +694,60 @@ export function computeRankDelta(history: RankHistoryPoint[]): RankDelta {
  */
 export function computeRankGap(
   currentDisplayScore: number,
-  competitors: MerchantListItem[],
+  oneAbove: MerchantListItem | null,
+  leader: MerchantListItem | null,
 ): RankGap {
-  const ahead = competitors
-    .filter((c) => toDisplayScore(c.rankerScore) > currentDisplayScore)
-    .sort((a, b) => toDisplayScore(a.rankerScore) - toDisplayScore(b.rankerScore));
-
-  if (ahead.length === 0) {
+  if (!oneAbove) {
     return { toNextRank: null, toFirst: null, nextRankName: null };
   }
 
-  const next = ahead[0]!;
-  const leader = ahead[ahead.length - 1]!;
+  // Ties are common, so a gap of 0 is a real answer ("level with #19"), not a
+  // missing one. Clamped at 0 because rank and score can disagree briefly
+  // between pipeline runs.
+  const toNextRank = Math.max(0, toDisplayScore(oneAbove.rankerScore) - currentDisplayScore);
+  const toFirst = leader
+    ? Math.max(0, toDisplayScore(leader.rankerScore) - currentDisplayScore)
+    : null;
 
   return {
-    toNextRank: toDisplayScore(next.rankerScore) - currentDisplayScore,
-    toFirst: toDisplayScore(leader.rankerScore) - currentDisplayScore,
-    nextRankName: next.serviceName ?? extractHostname(next.origin) ?? next.payeeAddress,
+    toNextRank,
+    toFirst,
+    nextRankName:
+      oneAbove.serviceName ?? extractHostname(oneAbove.origin) ?? oneAbove.payeeAddress,
   };
+}
+
+/**
+ * The merchant one rank above, and the category leader.
+ *
+ * Two targeted lookups by rank_position rather than a sample of top scorers:
+ * the UI prints this gap beside an explicit "#{rank - 1}", so it has to be
+ * measured against that merchant. Returns nulls when the merchant leads its
+ * category or has no rank.
+ */
+async function fetchRankNeighbours(
+  categoryId: string | null,
+  rankPosition: number | null,
+): Promise<{ oneAbove: MerchantListItem | null; leader: MerchantListItem | null }> {
+  if (!categoryId || rankPosition == null || rankPosition <= 1) {
+    return { oneAbove: null, leader: null };
+  }
+
+  const byRank = async (position: number): Promise<MerchantListItem | null> => {
+    const resourceCols = buildResourceSubquery();
+    const [row] = await getDb()
+      .select(merchantSelect(resourceCols))
+      .from(merchants)
+      .leftJoin(resourceCols, eq(merchants.id, resourceCols.merchantId))
+      .leftJoin(categories, eq(merchants.categoryId, categories.id))
+      .where(and(eq(merchants.categoryId, categoryId), eq(merchants.rankPosition, position)))
+      .limit(1);
+
+    return row ? toMerchantListItem(row, position) : null;
+  };
+
+  const [oneAbove, leader] = await Promise.all([byRank(rankPosition - 1), byRank(1)]);
+  return { oneAbove, leader };
 }
 
 export function getMerchantByOrigin(

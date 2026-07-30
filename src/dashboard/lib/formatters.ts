@@ -107,6 +107,18 @@ export function toWeightedComponents(breakdown: ScoreBreakdown): WeightedCompone
   });
 }
 
+/**
+ * The zero-scoring component worth the most points, or null if none is zero.
+ *
+ * Single source of truth for the phrase "biggest lever" / "your largest gap" —
+ * the metric card and the component breakdown both read it, so they cannot make
+ * competing claims about which gap matters most. Components are already ordered
+ * by descending weight, so the first zero is the most valuable one.
+ */
+export function biggestLever(breakdown: ScoreBreakdown): WeightedComponent | null {
+  return toWeightedComponents(breakdown).find((c) => c.isZero) ?? null;
+}
+
 export function formatPercent(value: number): string {
   return `${Math.round(value * 100)}%`;
 }

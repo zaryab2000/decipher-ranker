@@ -53,7 +53,13 @@ export default async function CategoryDetailPage({
   // the distribution. Absent an origin the chart is just the category shape.
   const trimmedOrigin = origin?.trim();
   const you = trimmedOrigin ? await getMerchantByOrigin(trimmedOrigin) : null;
-  const yourScore = you ? toDisplayScore(you.rankerScore) : null;
+  // NOT toDisplayScore(): buildScoreDistribution buckets on the unrounded value
+  // (api.ts), and Math.floor over a rounded score lands 889 of the catalog's
+  // rows on a bar they did not contribute to — e.g. 39.98 counts in 30-40 but
+  // would be marked in 40-50.
+  const yourScore = you
+    ? Math.max(0, Math.min(1, Number(you.rankerScore ?? 0))) * 100
+    : null;
 
   return (
     <div className="space-y-8">

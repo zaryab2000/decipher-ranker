@@ -12,14 +12,19 @@ import {
 } from "recharts";
 
 /**
- * The bucket label a display-scale score falls into.
+ * The bucket label a score falls into.
  *
- * Must produce the same "{low}-{high}" strings buildScoreDistribution emits, and
- * must be given a 0..100 score — a raw 0..1 value would pin the line to the
- * "0-10" bucket for every merchant.
+ * Two constraints, both easy to get wrong:
+ *
+ * 1. The score must be on the 0..100 scale. A raw 0..1 value pins every
+ *    merchant to "0-10".
+ * 2. It must be UNROUNDED, matching how buildScoreDistribution bins the
+ *    histogram. Both floor into ten-point buckets, so rounding first shifts
+ *    scores across a boundary — 39.98 belongs in "30-40", but rounds to 40 and
+ *    would be marked in "40-50", pointing at a bar it never contributed to.
  */
-export function bucketFor(displayScore: number): string {
-  const b = Math.min(Math.floor(displayScore / 10), 9);
+export function bucketFor(score: number): string {
+  const b = Math.min(Math.floor(score / 10), 9);
   return `${b * 10}-${(b + 1) * 10}`;
 }
 

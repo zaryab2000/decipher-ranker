@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { computeRankDelta, computeRankGap } from "@/dashboard/lib/api";
-import { toWeightedComponents, toDisplayScore } from "@/dashboard/lib/formatters";
+import { toWeightedComponents, toDisplayScore, biggestLever } from "@/dashboard/lib/formatters";
 import type { RankHistoryPoint, MerchantListItem, ScoreBreakdown } from "@/dashboard/types";
 
 function point(date: string, rankPosition: number | null, rankerScore = 50): RankHistoryPoint {
@@ -75,28 +75,40 @@ describe("computeRankDelta", () => {
 });
 
 describe("computeRankGap", () => {
-  it("returns the points needed to pass the next merchant up and the leader", () => {
-    const gap = computeRankGap(60, [
-      competitor(0.72, "leader"),
-      competitor(0.64, "justAhead"),
-      competitor(0.4, "below"),
-    ]);
+  it("measures the gap against the merchant one rank above", () => {
+    const gap = computeRankGap(60, competitor(0.64, "justAhead"), competitor(0.72, "leader"));
     expect(gap.toNextRank).toBe(4);
     expect(gap.toFirst).toBe(12);
     expect(gap.nextRankName).toBe("justAhead");
   });
 
-  it("returns all null when the merchant leads the category", () => {
-    const gap = computeRankGap(80, [competitor(0.6, "a"), competitor(0.5, "b")]);
-    expect(gap).toEqual({ toNextRank: null, toFirst: null, nextRankName: null });
+  it("reports a 0-point gap when tied with the rank above", () => {
+    // Ties are common. "0 pts from #19" is a real, useful answer — it must not
+    // be swallowed as if no neighbour existed.
+    const gap = computeRankGap(52, competitor(0.52, "tied"), competitor(0.71, "leader"));
+    expect(gap.toNextRank).toBe(0);
+    expect(gap.nextRankName).toBe("tied");
   });
 
-  it("returns all null with no competitors", () => {
-    expect(computeRankGap(50, [])).toEqual({
+  it("returns all null when the merchant leads the category", () => {
+    expect(computeRankGap(80, null, null)).toEqual({
       toNextRank: null,
       toFirst: null,
       nextRankName: null,
     });
+  });
+
+  it("still reports toNextRank when the leader is unknown", () => {
+    const gap = computeRankGap(60, competitor(0.64, "justAhead"), null);
+    expect(gap.toNextRank).toBe(4);
+    expect(gap.toFirst).toBeNull();
+  });
+
+  it("clamps a negative gap to 0 when rank and score briefly disagree", () => {
+    // rank_position and ranker_score are written by different pipeline stages,
+    // so a merchant can momentarily outscore the rank above it.
+    const gap = computeRankGap(70, competitor(0.64, "staleAbove"), null);
+    expect(gap.toNextRank).toBe(0);
   });
 });
 
@@ -140,5 +152,39 @@ describe("toWeightedComponents", () => {
   it("does not flag a non-zero component as zero", () => {
     const components = toWeightedComponents(breakdown);
     expect(components.every((c) => !c.isZero)).toBe(true);
+  });
+});
+
+describe("biggestLever", () => {
+  const breakdown: ScoreBreakdown = {
+    volumeSignal: 56,
+    buyerDiversity: 49,
+    reliability: 50,
+    listingQuality: 80,
+    recency: 100,
+  };
+
+  it("returns null when nothing is zero", () => {
+    expect(biggestLever(breakdown)).toBeNull();
+  });
+
+  it("picks the most valuable zero when several components are zero", () => {
+    // A real case: lowpaymentfee.com has both volume (40 pts) and buyer
+    // diversity (25 pts) at zero. Only volume is the biggest lever — labelling
+    // both makes the superlative meaningless.
+    const lever = biggestLever({ ...breakdown, volumeSignal: 0, buyerDiversity: 0 });
+    expect(lever?.key).toBe("volumeSignal");
+    expect(lever?.available).toBe(40);
+  });
+
+  it("picks buyer diversity when it is the only zero", () => {
+    const lever = biggestLever({ ...breakdown, buyerDiversity: 0 });
+    expect(lever?.key).toBe("buyerDiversity");
+    expect(lever?.available).toBe(25);
+  });
+
+  it("prefers a higher-weighted zero over a lower-weighted one", () => {
+    const lever = biggestLever({ ...breakdown, recency: 0, buyerDiversity: 0 });
+    expect(lever?.key).toBe("buyerDiversity"); // 25 pts beats recency's 15
   });
 });

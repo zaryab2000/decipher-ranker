@@ -17,6 +17,10 @@ export function ComponentBreakdown({
   nextRank: number | null;
 }) {
   const components = toWeightedComponents(breakdown);
+  // Only the most valuable zero component earns the label — a superlative
+  // cannot apply to several rows at once. Components are weight-ordered, so the
+  // first zero is the biggest lever.
+  const leverKey = components.find((c) => c.isZero)?.key ?? null;
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5">
@@ -31,7 +35,7 @@ export function ComponentBreakdown({
             <div className="flex items-baseline justify-between gap-3">
               <span className="text-sm text-gray-600">
                 {c.label}
-                {c.isZero && (
+                {c.key === leverKey && (
                   <span className="text-xs text-amber-600"> — biggest lever</span>
                 )}
               </span>
