@@ -48,10 +48,12 @@ export default async function MerchantProfilePage({
     notFound();
   }
 
+  // No red: an improvement suggestion is an opportunity, not an error. Matches
+  // the cockpit's FixList so the same fact reads the same on both surfaces.
   const priorityVariant = {
-    high: "bg-red-50 text-red-700",
-    medium: "bg-amber-50 text-amber-700",
-    low: "bg-emerald-50 text-emerald-700",
+    high: "bg-amber-50 text-amber-700",
+    medium: "bg-gray-100 text-gray-600",
+    low: "bg-gray-100 text-gray-400",
   } as const;
 
   return (
