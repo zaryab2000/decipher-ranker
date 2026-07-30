@@ -1,30 +1,30 @@
 import { Skeleton } from "@/dashboard/components/shared/Skeleton";
 
+// Mirrors the cockpit's band layout so the page does not jump when it resolves.
 export default function DashboardLoading() {
   return (
-    <div className="space-y-8">
-      <div>
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="mt-2 h-4 w-96" />
-      </div>
+    <div className="space-y-6">
+      {/* Identity band */}
+      <Skeleton className="h-[92px] w-full rounded-xl" />
+
+      {/* Four metric cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Skeleton variant="card" />
-        <Skeleton variant="card" />
-        <Skeleton variant="card" />
-        <Skeleton variant="card" />
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} variant="card" />
+        ))}
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-2">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} variant="table-row" />
-          ))}
-        </div>
-        <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} variant="table-row" />
-          ))}
-        </div>
+
+      {/* Component breakdown + rank chart */}
+      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4">
+        <Skeleton className="h-[280px] w-full rounded-xl" />
+        <Skeleton className="h-[280px] w-full rounded-xl" />
       </div>
+
+      {/* Fix list */}
+      <Skeleton className="h-[160px] w-full rounded-xl" />
+
+      {/* Competitor table */}
+      <Skeleton className="h-[240px] w-full rounded-xl" />
     </div>
   );
 }
