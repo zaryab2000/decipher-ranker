@@ -99,6 +99,13 @@ describe("toDisplayScore", () => {
     expect(toDisplayScore(0.645)).toBe(65);
     expect(toDisplayScore(0.644)).toBe(64);
   });
+  it("accepts the string form Drizzle returns for decimal columns", () => {
+    expect(toDisplayScore("0.6412")).toBe(64);
+    expect(toDisplayScore("1.0000")).toBe(100);
+  });
+  it("returns 0 for unparseable input rather than NaN", () => {
+    expect(toDisplayScore("not-a-number")).toBe(0);
+  });
 });
 
 describe("formatPercent", () => {

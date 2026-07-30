@@ -1,8 +1,10 @@
 import { getDb } from "@/lib/db";
 import { cached } from "@/lib/cache";
 import { computeScoreBreakdown } from "@/lib/analytics/ranker";
-import { merchants, resources, categories, categoryCache } from "@/lib/db/schema";
-import { desc, asc, eq, sql, ilike, or, and, count, sum, inArray } from "drizzle-orm";
+import { scoreToGrade } from "@/lib/analytics/grade";
+import { toDisplayScore } from "@/dashboard/lib/formatters";
+import { merchants, resources, categories, categoryCache, trends } from "@/lib/db/schema";
+import { desc, asc, eq, sql, ilike, or, and, count, sum, inArray, gte } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import type {
   MerchantListItem,
@@ -13,6 +15,9 @@ import type {
   LeaderboardData,
   SearchResult,
   ScoreBreakdown,
+  RankHistoryPoint,
+  RankDelta,
+  RankGap,
 } from "@/dashboard/types";
 
 // Dashboard reads are cached for an hour — the same window as page ISR — so
@@ -559,6 +564,10 @@ async function fetchMerchantByOrigin(
     .map((row, i) => toMerchantListItem(row, i + 1));
 
   const currentScore = Number(merchant.rankerScore ?? 0);
+  const rankHistory = await getRankHistory(merchant.id);
+  const rankDelta = computeRankDelta(rankHistory);
+  const rankGap = computeRankGap(toDisplayScore(currentScore), competitorList);
+
   const improvements = buildImprovements({
     hasDescription: resourceDescription != null && resourceDescription.length > 0,
     hasTags: allTags.length > 0,
@@ -589,6 +598,11 @@ async function fetchMerchantByOrigin(
     scoreBreakdown,
     competitors: competitorList,
     improvements,
+    merchantId: merchant.id,
+    grade: scoreToGrade(toDisplayScore(currentScore)),
+    rankHistory,
+    rankDelta,
+    rankGap,
   };
 }
 
@@ -598,6 +612,102 @@ function extractHostname(url: string): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Daily rank/score snapshots for one merchant, oldest first.
+ *
+ * Source: `trends`, written by writeDailySnapshot() on every pipeline run.
+ * Returns [] when the merchant has no snapshots yet — the table only began
+ * accumulating at deploy, so early merchants legitimately have 0 or 1 points.
+ */
+export function getRankHistory(
+  merchantId: string,
+  days = 30,
+): Promise<RankHistoryPoint[]> {
+  return cached(`dash:rankhistory:${merchantId}:${days}`, DASH_TTL_SECONDS, () =>
+    fetchRankHistory(merchantId, days),
+  );
+}
+
+async function fetchRankHistory(
+  merchantId: string,
+  days: number,
+): Promise<RankHistoryPoint[]> {
+  const cutoff = new Date();
+  cutoff.setUTCDate(cutoff.getUTCDate() - days);
+  const cutoffDate = cutoff.toISOString().slice(0, 10);
+
+  const rows = await getDb()
+    .select({
+      snapshotDate: trends.snapshotDate,
+      rankPosition: trends.rankPosition,
+      rankerScore: trends.rankerScore,
+    })
+    .from(trends)
+    .where(and(eq(trends.merchantId, merchantId), gte(trends.snapshotDate, cutoffDate)))
+    .orderBy(asc(trends.snapshotDate));
+
+  return rows.map((r) => ({
+    date: String(r.snapshotDate),
+    rankPosition: r.rankPosition ?? null,
+    // trends.rankerScore is stored 0..1 like merchants.rankerScore.
+    rankerScore: toDisplayScore(r.rankerScore),
+  }));
+}
+
+/**
+ * Direction and size of the rank move across the available history.
+ *
+ * A LOWER rankPosition is better, so moving from #6 to #4 is 'up' by 2 places.
+ * Points with a null rankPosition are skipped — an unranked snapshot says
+ * nothing about direction.
+ */
+export function computeRankDelta(history: RankHistoryPoint[]): RankDelta {
+  const ranked = history.filter(
+    (p): p is RankHistoryPoint & { rankPosition: number } => p.rankPosition != null,
+  );
+
+  if (ranked.length < 2) return { direction: 'flat', places: 0, known: false };
+
+  const first = ranked[0]!.rankPosition;
+  const last = ranked[ranked.length - 1]!.rankPosition;
+
+  if (first === last) return { direction: 'flat', places: 0, known: true };
+
+  return {
+    direction: last < first ? 'up' : 'down',
+    places: Math.abs(first - last),
+    known: true,
+  };
+}
+
+/**
+ * Points needed to reach the next rank up and the category leader.
+ *
+ * Computed from the already-fetched competitor list — no extra query. Returns
+ * all-null when the merchant leads or has no ranked peers to compare against.
+ */
+export function computeRankGap(
+  currentDisplayScore: number,
+  competitors: MerchantListItem[],
+): RankGap {
+  const ahead = competitors
+    .filter((c) => toDisplayScore(c.rankerScore) > currentDisplayScore)
+    .sort((a, b) => toDisplayScore(a.rankerScore) - toDisplayScore(b.rankerScore));
+
+  if (ahead.length === 0) {
+    return { toNextRank: null, toFirst: null, nextRankName: null };
+  }
+
+  const next = ahead[0]!;
+  const leader = ahead[ahead.length - 1]!;
+
+  return {
+    toNextRank: toDisplayScore(next.rankerScore) - currentDisplayScore,
+    toFirst: toDisplayScore(leader.rankerScore) - currentDisplayScore,
+    nextRankName: next.serviceName ?? extractHostname(next.origin) ?? next.payeeAddress,
+  };
 }
 
 export function getMerchantByOrigin(

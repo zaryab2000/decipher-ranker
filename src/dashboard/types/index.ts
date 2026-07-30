@@ -23,6 +23,38 @@ export interface MerchantProfile extends MerchantListItem {
   scoreBreakdown: ScoreBreakdown;
   competitors: MerchantListItem[];
   improvements: ImprovementSuggestion[];
+  /** Needed to query `trends`, which keys on the merchant UUID, not payeeAddress. */
+  merchantId: string;
+  /** Letter grade from scoreToGrade(toDisplayScore(rankerScore)). */
+  grade: string;
+  rankHistory: RankHistoryPoint[];
+  rankDelta: RankDelta;
+  rankGap: RankGap;
+}
+
+export interface RankHistoryPoint {
+  /** ISO date, e.g. "2026-07-30". */
+  date: string;
+  rankPosition: number | null;
+  /** Display scale (0..100), already converted from the stored 0..1. */
+  rankerScore: number;
+}
+
+export interface RankDelta {
+  /** 'up' means the rank improved — i.e. rankPosition got numerically smaller. */
+  direction: 'up' | 'down' | 'flat';
+  /** Absolute number of places moved; 0 when flat or unknown. */
+  places: number;
+  /** False when there is no prior snapshot to compare against. */
+  known: boolean;
+}
+
+export interface RankGap {
+  /** Points needed to pass the merchant one place above. */
+  toNextRank: number | null;
+  /** Points needed to match #1 in the category. */
+  toFirst: number | null;
+  nextRankName: string | null;
 }
 
 export interface ScoreBreakdown {

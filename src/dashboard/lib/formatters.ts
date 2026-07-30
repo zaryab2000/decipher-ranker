@@ -1,3 +1,6 @@
+import { SCORE_COMPONENTS } from '@/dashboard/lib/constants';
+import type { ScoreBreakdown } from '@/dashboard/types';
+
 export function formatNumber(value: number): string {
   if (value >= 1_000_000_000) {
     return `${(value / 1_000_000_000).toFixed(1)}B`;
@@ -57,8 +60,51 @@ export function formatDate(date: string | Date): string {
  * scoreToGrade(), or used as a bar width must go through here — passing a raw
  * 0..1 value renders "0.64" instead of "64" and grades every merchant "F".
  */
-export function toDisplayScore(raw: number | null | undefined): number {
-  return Math.round(Math.max(0, Math.min(1, Number(raw ?? 0))) * 100);
+export function toDisplayScore(raw: number | string | null | undefined): number {
+  // `string` is accepted because Drizzle types decimal columns
+  // (merchants.rankerScore, trends.rankerScore) as string.
+  const n = Number(raw ?? 0);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(Math.max(0, Math.min(1, n)) * 100);
+}
+
+export interface WeightedComponent {
+  key: string;
+  label: string;
+  /** Points earned, rounded to 1dp. */
+  earned: number;
+  /** Points available for this component (weight * 100). */
+  available: number;
+  /** 0..100, for bar width. */
+  pctOfMax: number;
+  /** True when `earned` rounds to zero — flag as the biggest lever. */
+  isZero: boolean;
+}
+
+/**
+ * Converts a 0..100-per-component breakdown into weighted points.
+ *
+ * A merchant does not care that volume scores 65/100; they care that volume is
+ * worth 40 points and they hold 26 of them. Output is already ordered by
+ * descending weight because SCORE_COMPONENTS is.
+ *
+ * `earned` values sum to toDisplayScore(merchant.rankerScore) — the 0..100
+ * display score — NOT to the raw 0..1 column value.
+ */
+export function toWeightedComponents(breakdown: ScoreBreakdown): WeightedComponent[] {
+  return SCORE_COMPONENTS.map((c) => {
+    const raw = breakdown[c.key as keyof ScoreBreakdown] ?? 0;
+    const available = c.weight * 100;
+    const earned = (raw / 100) * available;
+    return {
+      key: c.key,
+      label: c.label,
+      earned: Math.round(earned * 10) / 10,
+      available,
+      pctOfMax: Math.max(0, Math.min(100, raw)),
+      isZero: earned < 0.05,
+    };
+  });
 }
 
 export function formatPercent(value: number): string {

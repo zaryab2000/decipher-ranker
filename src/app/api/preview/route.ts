@@ -6,6 +6,7 @@ import {
   computeListingCompleteness,
   generateTips,
 } from "@/lib/analytics/ranker";
+import { scoreToGrade } from "@/lib/analytics/grade";
 import { withRateLimit } from "@/lib/rate-limit";
 
 const PreviewQuerySchema = z.object({
@@ -114,17 +115,6 @@ function resolveMerchantName(
   if (label) return label.charAt(0).toUpperCase() + label.slice(1);
 
   return names[0] ?? null;
-}
-
-function scoreToGrade(score: number): string {
-  if (score >= 90) return "A+";
-  if (score >= 80) return "A";
-  if (score >= 70) return "B+";
-  if (score >= 60) return "B";
-  if (score >= 50) return "C+";
-  if (score >= 40) return "C";
-  if (score >= 30) return "D";
-  return "F";
 }
 
 const handler = router
