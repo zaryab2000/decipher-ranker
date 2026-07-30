@@ -25,7 +25,7 @@ export function CompetitorList({
   if (competitors.length === 0) {
     return (
       <div>
-        <h2 className="text-lg font-semibold text-gray-50 mb-3">{heading}</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">{heading}</h2>
         <p className="text-gray-500 text-sm py-4">No competitors in this category</p>
       </div>
     );
@@ -35,7 +35,7 @@ export function CompetitorList({
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-gray-50 mb-3">{heading}</h2>
+      <h2 className="text-lg font-semibold text-gray-900 mb-3">{heading}</h2>
       <Table
         headers={[
           { key: "rank", label: "Rank" },
@@ -57,15 +57,15 @@ export function CompetitorList({
                 <div className="flex items-center gap-2">
                   <Link
                     href={`/dashboard/merchant/${encodeURIComponent(comp.origin)}`}
-                    className="text-gray-50 hover:text-emerald-400 transition-colors"
+                    className="text-gray-900 hover:text-emerald-700 transition-colors"
                   >
                     {truncate(displayName(comp), 25)}
                   </Link>
                   {scoreDiff > 0 && (
-                    <span className="text-emerald-400 text-xs">+{Math.round(scoreDiff)}</span>
+                    <span className="text-emerald-600 text-xs">+{Math.round(scoreDiff)}</span>
                   )}
                   {scoreDiff < 0 && (
-                    <span className="text-red-400 text-xs">{Math.round(scoreDiff)}</span>
+                    <span className="text-red-600 text-xs">{Math.round(scoreDiff)}</span>
                   )}
                 </div>
               </TableCell>

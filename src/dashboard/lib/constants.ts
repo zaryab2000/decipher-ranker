@@ -12,14 +12,22 @@ export const SCORE_COMPONENTS = [
   { key: 'reliability', label: 'Reliability', weight: 0.05 },
 ] as const;
 
-export const SCORE_COLORS = {
-  high: { min: 70, tailwind: 'emerald-400', hex: '#34d399' },
-  mid: { min: 40, tailwind: 'amber-400', hex: '#fbbf24' },
-  low: { min: 0, tailwind: 'red-400', hex: '#f87171' },
+// Score bars use ONE colour. Magnitude is encoded by bar LENGTH, not by hue.
+// The previous three-tier system painted a healthy ecosystem as failure: with a
+// median score near 34, every category average landed in the red or amber band.
+// Hue is now reserved for direction of change (see TREND_COLORS).
+export const SCORE_FILL = 'bg-emerald-500'; // #10b981
+export const SCORE_TRACK = 'bg-gray-100'; // #f3f4f6
+
+// Hue means one thing only: which way a number moved.
+export const TREND_COLORS = {
+  up: { text: 'text-emerald-600', hex: '#059669' }, // rank improved
+  down: { text: 'text-red-600', hex: '#dc2626' }, // rank regressed
+  flat: { text: 'text-gray-400', hex: '#9ca3af' },
 } as const;
 
 export const NAV_ITEMS = [
-  { label: 'Home', href: '/dashboard', icon: 'Home' },
+  { label: 'My merchant', href: '/dashboard', icon: 'Gauge' },
   { label: 'Leaderboard', href: '/dashboard/leaderboard', icon: 'Trophy' },
   { label: 'Categories', href: '/dashboard/categories', icon: 'Grid3x3' },
   { label: 'Search', href: '/dashboard/search', icon: 'Search' },

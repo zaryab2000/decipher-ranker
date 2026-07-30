@@ -49,9 +49,9 @@ export default async function MerchantProfilePage({
   }
 
   const priorityVariant = {
-    high: "bg-red-500/20 text-red-400",
-    medium: "bg-amber-500/20 text-amber-400",
-    low: "bg-emerald-500/20 text-emerald-400",
+    high: "bg-red-50 text-red-700",
+    medium: "bg-amber-50 text-amber-700",
+    low: "bg-emerald-50 text-emerald-700",
   } as const;
 
   return (
@@ -82,7 +82,7 @@ export default async function MerchantProfilePage({
       </div>
 
       <div>
-        <h2 className="text-lg font-semibold text-gray-50 mb-3">Score Breakdown</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">Score Breakdown</h2>
         <Card>
           <ScoreBreakdownChart breakdown={merchant.scoreBreakdown} />
         </Card>
@@ -98,7 +98,7 @@ export default async function MerchantProfilePage({
 
       {merchant.improvements.length > 0 && (
         <div>
-          <h2 className="text-lg font-semibold text-gray-50 mb-3">Improvement Suggestions</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-3">Improvement Suggestions</h2>
           <Card>
             <ul className="space-y-3">
               {merchant.improvements.map((item, i) => (
@@ -108,7 +108,7 @@ export default async function MerchantProfilePage({
                   >
                     {item.priority}
                   </Badge>
-                  <span className="text-sm text-gray-300">{item.message}</span>
+                  <span className="text-sm text-gray-600">{item.message}</span>
                 </li>
               ))}
             </ul>

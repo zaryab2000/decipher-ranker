@@ -18,13 +18,13 @@ export function HeroStats({ stats }: { stats: EcosystemStats }) {
       {items.map((item) => (
         <div
           key={item.label}
-          className="rounded-lg bg-gray-900 border border-gray-800 p-4"
+          className="rounded-lg bg-white border border-gray-200 p-4"
         >
           <div className="flex items-center gap-2 text-gray-500 mb-2">
             {item.icon}
             <p className="text-xs uppercase tracking-wider">{item.label}</p>
           </div>
-          <p className="text-2xl font-semibold text-gray-50 truncate">{item.value}</p>
+          <p className="text-2xl font-bold tabular-nums text-gray-900 truncate">{item.value}</p>
         </div>
       ))}
     </div>

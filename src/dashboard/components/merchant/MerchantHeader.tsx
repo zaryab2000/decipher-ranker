@@ -10,7 +10,7 @@ export function MerchantHeader({ merchant }: { merchant: MerchantProfile }) {
       <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-gray-50 truncate">
+            <h1 className="text-xl font-bold text-gray-900 truncate">
               {displayName(merchant)}
             </h1>
             {merchant.origin && (
@@ -18,7 +18,7 @@ export function MerchantHeader({ merchant }: { merchant: MerchantProfile }) {
                 href={merchant.origin.startsWith("http") ? merchant.origin : `https://${merchant.origin}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0"
+                className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
               >
                 <ExternalLink className="w-4 h-4" />
               </a>

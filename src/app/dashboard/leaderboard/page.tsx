@@ -46,7 +46,7 @@ export default async function LeaderboardPage({ searchParams }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-50">Leaderboard</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Leaderboard</h1>
         <p className="text-gray-400 mt-1">
           {category
             ? `Top-ranked x402 merchants in ${category}`

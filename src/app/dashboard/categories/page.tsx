@@ -11,7 +11,7 @@ export default async function CategoriesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-50">Categories</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Categories</h1>
         <p className="text-gray-400 mt-1">Browse merchants by category</p>
       </div>
       <CategoryList categories={categories} />

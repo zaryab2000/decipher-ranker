@@ -17,7 +17,7 @@ export default async function DashboardHomePage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-50">x402 Ecosystem Overview</h1>
+        <h1 className="text-2xl font-bold text-gray-900">x402 Ecosystem Overview</h1>
         <p className="text-gray-400 mt-1">Live analytics from the x402 merchant network</p>
       </div>
       <HeroStats stats={stats} />

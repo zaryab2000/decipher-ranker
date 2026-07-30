@@ -39,7 +39,7 @@ export function SearchResults({ results, query, total }: SearchResultsProps) {
             <Card className="hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 transition-all cursor-pointer">
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
-                  <p className="text-gray-50 font-medium truncate">
+                  <p className="text-gray-900 font-medium truncate">
                     {displayName(merchant)}
                   </p>
                   <p className="text-xs text-gray-500 font-mono truncate mt-0.5">

@@ -18,7 +18,7 @@ export function MetricCard({
         {icon}
         <span className="text-xs uppercase tracking-wider">{label}</span>
       </div>
-      <p className="text-2xl font-semibold text-gray-50">{value}</p>
+      <p className="text-2xl font-bold tabular-nums text-gray-900">{value}</p>
       {subtitle && (
         <p className="text-xs text-gray-500 mt-1">{subtitle}</p>
       )}

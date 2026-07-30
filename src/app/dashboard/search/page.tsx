@@ -14,7 +14,7 @@ export default async function SearchPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-gray-50 mb-6">Search Merchants</h1>
+      <h1 className="text-2xl font-bold tabular-nums text-gray-900 mb-6">Search Merchants</h1>
       <div className="mb-8">
         <SearchBar initialQuery={query} />
       </div>

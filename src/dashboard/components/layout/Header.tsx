@@ -59,27 +59,28 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const crumbs = buildBreadcrumbs(pathname);
 
   return (
-    <header className="h-14 border-b border-gray-800 bg-gray-950 flex items-center justify-between px-4 sm:px-6">
+    <header className="h-14 border-b border-gray-200 bg-white/80 backdrop-blur-md flex items-center justify-between px-4 sm:px-6">
       <div className="flex items-center gap-3 min-w-0">
         <button
           onClick={onMenuClick}
-          className="lg:hidden p-1 text-gray-400 hover:text-gray-200 rounded shrink-0"
+          className="lg:hidden inline-flex items-center justify-center w-11 h-11 -ml-2 text-gray-600 hover:text-gray-900 rounded-lg shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+          aria-label="Open menu"
         >
           <Menu className="w-5 h-5" />
         </button>
-        <nav className="flex items-center gap-1.5 text-sm text-gray-400 min-w-0">
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-gray-600 min-w-0">
           {crumbs.map((crumb, i) => (
             <span key={crumb.href} className="flex items-center gap-1.5 min-w-0">
-              {i > 0 && <span className="text-gray-500 shrink-0">/</span>}
+              {i > 0 && <span className="text-gray-300 shrink-0">/</span>}
               {i < crumbs.length - 1 ? (
                 <Link
                   href={crumb.href}
-                  className="text-gray-500 hover:text-gray-300 transition-colors truncate"
+                  className="text-gray-600 hover:text-gray-900 transition-colors truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded"
                 >
                   {crumb.label}
                 </Link>
               ) : (
-                <span className="text-gray-50 font-medium truncate">{crumb.label}</span>
+                <span aria-current="page" className="text-gray-900 font-medium truncate">{crumb.label}</span>
               )}
             </span>
           ))}
@@ -88,12 +89,13 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
 
       <form onSubmit={handleSubmit} className="flex items-center shrink-0">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             name="q"
             type="text"
             placeholder="Search..."
-            className="w-36 sm:w-48 md:w-64 pl-9 pr-3 py-1.5 text-sm bg-gray-900 border border-gray-800 rounded-lg text-gray-300 placeholder:text-gray-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-colors"
+            aria-label="Search merchants"
+            className="w-36 sm:w-48 md:w-64 pl-9 pr-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 hover:border-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-colors"
           />
         </div>
       </form>
