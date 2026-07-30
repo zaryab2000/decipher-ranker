@@ -178,6 +178,10 @@ const handler = router
 
     const { merchant, resources: merchantResources, category } = data;
 
+    // Same conversion as the dashboard's toDisplayScore(), deliberately inlined:
+    // importing @/dashboard/lib/formatters here would be the only API-layer
+    // dependency on the dashboard layer. If a third consumer appears, promote
+    // this to src/lib/ rather than crossing that boundary.
     const score = Math.round(Number(merchant.rankerScore ?? 0) * 100);
 
     const descriptionQuality = computeDescriptionQuality(merchantResources, category);

@@ -7,7 +7,7 @@ import { ScoreBar } from "@/dashboard/components/shared/ScoreBar";
 import { LeaderboardTable } from "@/dashboard/components/leaderboard/LeaderboardTable";
 import { ScoreDistributionChart } from "@/dashboard/components/categories/ScoreDistributionChart";
 import { Pagination } from "@/dashboard/components/shared/Pagination";
-import { formatNumber, formatPrice } from "@/dashboard/lib/formatters";
+import { formatNumber, formatPrice, toDisplayScore } from "@/dashboard/lib/formatters";
 
 // Data changes at most once/day via the refresh pipeline; regenerate hourly
 // instead of per-request to keep Neon egress off the hot path.
@@ -67,7 +67,7 @@ export default async function CategoryDetailPage({
           <p className="text-xs text-gray-500 uppercase tracking-wider">Avg Score</p>
           {category.avgScore != null ? (
             <div className="mt-1">
-              <ScoreBar score={category.avgScore * 100} showLabel />
+              <ScoreBar score={toDisplayScore(category.avgScore)} showLabel />
             </div>
           ) : (
             <p className="text-2xl font-semibold text-gray-50">—</p>

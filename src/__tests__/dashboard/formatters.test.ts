@@ -4,7 +4,7 @@ import {
   formatPrice,
   formatRelativeDate,
   formatDate,
-  formatScore,
+  toDisplayScore,
   formatPercent,
   truncate,
   formatAddress,
@@ -77,21 +77,27 @@ describe("formatDate", () => {
   });
 });
 
-describe("formatScore", () => {
-  it("returns high for scores >= 70", () => {
-    const result = formatScore(75);
-    expect(result.color).toBe("high");
+describe("toDisplayScore", () => {
+  it("converts a stored 0..1 score to the 0..100 display scale", () => {
+    expect(toDisplayScore(0.6412)).toBe(64);
   });
-  it("returns mid for scores >= 40", () => {
-    const result = formatScore(55);
-    expect(result.color).toBe("mid");
+  it("maps 1 to 100", () => {
+    expect(toDisplayScore(1)).toBe(100);
   });
-  it("returns low for scores < 40", () => {
-    const result = formatScore(25);
-    expect(result.color).toBe("low");
+  it("maps 0 to 0", () => {
+    expect(toDisplayScore(0)).toBe(0);
   });
-  it("rounds score to integer for label", () => {
-    expect(formatScore(0.85).label).toBe("1");
+  it("treats null and undefined as 0", () => {
+    expect(toDisplayScore(null)).toBe(0);
+    expect(toDisplayScore(undefined)).toBe(0);
+  });
+  it("clamps out-of-range input rather than returning >100 or <0", () => {
+    expect(toDisplayScore(1.5)).toBe(100);
+    expect(toDisplayScore(-0.2)).toBe(0);
+  });
+  it("rounds to the nearest integer", () => {
+    expect(toDisplayScore(0.645)).toBe(65);
+    expect(toDisplayScore(0.644)).toBe(64);
   });
 });
 

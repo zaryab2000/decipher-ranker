@@ -3,7 +3,13 @@ import { Table, TableRow, TableCell } from "@/dashboard/components/shared/Table"
 import { Badge } from "@/dashboard/components/shared/Badge";
 import { RankBadge } from "@/dashboard/components/shared/RankBadge";
 import { ScoreBar } from "@/dashboard/components/shared/ScoreBar";
-import { truncate, displayName, formatNumber, formatPrice } from "@/dashboard/lib/formatters";
+import {
+  truncate,
+  displayName,
+  formatNumber,
+  formatPrice,
+  toDisplayScore,
+} from "@/dashboard/lib/formatters";
 import type { MerchantListItem } from "@/dashboard/types";
 
 const CATEGORY_COLORS = [
@@ -96,7 +102,7 @@ export function LeaderboardTable({
             )}
           </TableCell>
           <TableCell className="w-48">
-            <ScoreBar score={merchant.rankerScore * 100} showLabel />
+            <ScoreBar score={toDisplayScore(merchant.rankerScore)} showLabel />
           </TableCell>
           <TableCell className="text-gray-400 font-mono">
             {merchant.priceUsd != null ? formatPrice(merchant.priceUsd) : "—"}

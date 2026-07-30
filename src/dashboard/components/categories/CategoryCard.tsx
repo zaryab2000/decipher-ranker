@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Card } from "@/dashboard/components/shared/Card";
 import { ScoreBar } from "@/dashboard/components/shared/ScoreBar";
-import { truncate, displayName } from "@/dashboard/lib/formatters";
+import { truncate, displayName, toDisplayScore } from "@/dashboard/lib/formatters";
 import type { CategoryItem } from "@/dashboard/types";
 
 export function CategoryCard({ category }: { category: CategoryItem }) {
@@ -17,7 +17,7 @@ export function CategoryCard({ category }: { category: CategoryItem }) {
           {category.avgScore != null && (
             <div>
               <span className="text-xs text-gray-500 block mb-1">Avg Score</span>
-              <ScoreBar score={category.avgScore * 100} showLabel />
+              <ScoreBar score={toDisplayScore(category.avgScore)} showLabel />
             </div>
           )}
           {category.topMerchant && (

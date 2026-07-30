@@ -48,17 +48,17 @@ export function formatDate(date: string | Date): string {
   });
 }
 
-export function formatScore(score: number): { label: string; color: 'high' | 'mid' | 'low' } {
-  const label = score.toFixed(0);
-  let color: 'high' | 'mid' | 'low';
-  if (score >= 70) {
-    color = 'high';
-  } else if (score >= 40) {
-    color = 'mid';
-  } else {
-    color = 'low';
-  }
-  return { label, color };
+/**
+ * Converts a stored ranker score (0..1) to the display scale (0..100).
+ *
+ * `merchants.rankerScore`, `MerchantListItem.rankerScore`,
+ * `MerchantProfile.rankerScore`, `CategoryItem.avgScore` and
+ * `trends.rankerScore` are ALL stored 0..1. Anything shown to a user, passed to
+ * scoreToGrade(), or used as a bar width must go through here — passing a raw
+ * 0..1 value renders "0.64" instead of "64" and grades every merchant "F".
+ */
+export function toDisplayScore(raw: number | null | undefined): number {
+  return Math.round(Math.max(0, Math.min(1, Number(raw ?? 0))) * 100);
 }
 
 export function formatPercent(value: number): string {

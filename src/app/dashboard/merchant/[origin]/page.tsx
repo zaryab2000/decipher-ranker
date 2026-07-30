@@ -9,7 +9,7 @@ import { ScoreBreakdownChart } from "@/dashboard/components/merchant/ScoreBreakd
 import { CompetitorList } from "@/dashboard/components/merchant/CompetitorList";
 import { Badge } from "@/dashboard/components/shared/Badge";
 import { Card } from "@/dashboard/components/shared/Card";
-import { formatNumber, formatPrice } from "@/dashboard/lib/formatters";
+import { formatNumber, formatPrice, toDisplayScore } from "@/dashboard/lib/formatters";
 
 // Data changes at most once/day via the refresh pipeline; regenerate hourly
 // instead of per-request to keep Neon egress off the hot path.
@@ -27,7 +27,7 @@ export async function generateMetadata(
   const name = merchant.serviceName ?? merchant.payeeAddress;
   return {
     title: name,
-    description: `Score: ${(merchant.rankerScore * 100).toFixed(0)}. Volume: ${merchant.txCount30d} tx${merchant.uniqueBuyers != null ? `, ${merchant.uniqueBuyers} buyers` : ""}.`.replace(/\s+/g, " ").trim(),
+    description: `Score: ${toDisplayScore(merchant.rankerScore)}. Volume: ${merchant.txCount30d} tx${merchant.uniqueBuyers != null ? `, ${merchant.uniqueBuyers} buyers` : ""}.`.replace(/\s+/g, " ").trim(),
     openGraph: {
       title: name,
       description: `x402 merchant profile and competitive analysis.`,

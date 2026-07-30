@@ -1,5 +1,6 @@
 import { getDb } from "@/lib/db";
 import { cached } from "@/lib/cache";
+import { computeScoreBreakdown } from "@/lib/analytics/ranker";
 import { merchants, resources, categories, categoryCache } from "@/lib/db/schema";
 import { desc, asc, eq, sql, ilike, or, and, count, sum, inArray } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
@@ -412,7 +413,14 @@ async function fetchCategoryBySlug(
       .where(eq(merchants.categoryId, cat.id)),
   ]);
 
-  const scoreDistribution = buildScoreDistribution(scoreRows.map((r) => Number(r.rankerScore ?? 0) * 100));
+  // NOT toDisplayScore(): that rounds, and buildScoreDistribution floors into
+  // 10-point buckets. Rounding first moves scores like 0.3996 from the 30-40
+  // bucket into 40-50 — it reclassifies 68 of 1321 merchants against the real
+  // catalog. Bucketing uses the unrounded value; only the axis labels are
+  // display values.
+  const scoreDistribution = buildScoreDistribution(
+    scoreRows.map((r) => Math.max(0, Math.min(1, Number(r.rankerScore ?? 0))) * 100),
+  );
 
   return {
     name: cat.name,
@@ -508,12 +516,23 @@ async function fetchMerchantByOrigin(
 
   const categoryName = categoryRows[0]?.name ?? null;
 
+  // computeScoreBreakdown is the canonical source (also used by
+  // services/merchantService.ts). It returns every component in the 0..1 range,
+  // so each is scaled to 0..100 here for display. The previous implementation
+  // read resources.volumeScore/recencyScore/performanceScore/reliabilityScore,
+  // which the pipeline never writes — every bar rendered at zero width.
+  const rawBreakdown = computeScoreBreakdown({
+    merchant,
+    resources: allResources,
+    category: categoryRows[0] ?? null,
+  });
+
   const scoreBreakdown: ScoreBreakdown = {
-    volumeSignal: Number(matchedResource.volumeScore ?? 0) * 100,
-    buyerDiversity: 0,
-    reliability: Number(matchedResource.reliabilityScore ?? 0) * 100,
-    listingQuality: Number(matchedResource.performanceScore ?? 0) * 100,
-    recency: Number(matchedResource.recencyScore ?? 0) * 100,
+    volumeSignal: rawBreakdown.volumeSignal * 100,
+    buyerDiversity: rawBreakdown.buyerDiversity * 100,
+    reliability: rawBreakdown.reliability * 100,
+    listingQuality: rawBreakdown.listingQuality * 100,
+    recency: rawBreakdown.recency * 100,
   };
 
   const resourceSubquery = buildResourceSubquery();

@@ -77,6 +77,12 @@ export const resources = pgTable(
     l30dCalls: integer("l30d_calls"),
     l30dUniquePayers: integer("l30d_unique_payers"),
     lastCalledAt: timestamp("last_called_at", { withTimezone: true }),
+    // NOTE: overallScore / volumeScore / recencyScore / performanceScore /
+    // reliabilityScore are vestigial. The pipeline never writes them; the merchant
+    // total lives in merchants.rankerScore and per-component values come from
+    // computeScoreBreakdown() in analytics/ranker.ts. Do not read these columns.
+    // (ranker.ts:108 reads reliabilityScore only as an optional input, defaulting
+    // to apiSuccessRate then 0.) Tracked for removal in a later migration.
     overallScore: decimal("overall_score", { precision: 5, scale: 4 }),
     volumeScore: decimal("volume_score", { precision: 5, scale: 4 }),
     recencyScore: decimal("recency_score", { precision: 5, scale: 4 }),

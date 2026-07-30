@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Card } from "@/dashboard/components/shared/Card";
 import { Badge } from "@/dashboard/components/shared/Badge";
 import { ScoreBar } from "@/dashboard/components/shared/ScoreBar";
-import { displayName, formatPrice } from "@/dashboard/lib/formatters";
+import { displayName, formatPrice, toDisplayScore } from "@/dashboard/lib/formatters";
 import type { MerchantListItem } from "@/dashboard/types";
 
 interface SearchResultsProps {
@@ -54,7 +54,7 @@ export function SearchResults({ results, query, total }: SearchResultsProps) {
                 </div>
                 <div className="text-right ml-4 flex-shrink-0">
                   <div className="w-32">
-                    <ScoreBar score={merchant.rankerScore * 100} showLabel />
+                    <ScoreBar score={toDisplayScore(merchant.rankerScore)} showLabel />
                   </div>
                   {merchant.priceUsd !== null && (
                     <p className="text-xs text-gray-500 mt-1">

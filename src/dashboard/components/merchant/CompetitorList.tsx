@@ -2,7 +2,13 @@ import Link from "next/link";
 import { Table, TableRow, TableCell } from "@/dashboard/components/shared/Table";
 import { RankBadge } from "@/dashboard/components/shared/RankBadge";
 import { ScoreBar } from "@/dashboard/components/shared/ScoreBar";
-import { truncate, displayName, formatNumber, formatPrice } from "@/dashboard/lib/formatters";
+import {
+  truncate,
+  displayName,
+  formatNumber,
+  formatPrice,
+  toDisplayScore,
+} from "@/dashboard/lib/formatters";
 import type { MerchantListItem } from "@/dashboard/types";
 
 export function CompetitorList({
@@ -25,7 +31,7 @@ export function CompetitorList({
     );
   }
 
-  const currentScaled = currentScore * 100;
+  const currentScaled = toDisplayScore(currentScore);
 
   return (
     <div>
@@ -40,7 +46,7 @@ export function CompetitorList({
         ]}
       >
         {competitors.map((comp, i) => {
-          const compScaled = comp.rankerScore * 100;
+          const compScaled = toDisplayScore(comp.rankerScore);
           const scoreDiff = currentScaled - compScaled;
           return (
             <TableRow key={comp.payeeAddress}>
