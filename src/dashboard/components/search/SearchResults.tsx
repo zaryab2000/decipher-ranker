@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AlertCircle } from "lucide-react";
 import { Card } from "@/dashboard/components/shared/Card";
 import { Badge } from "@/dashboard/components/shared/Badge";
 import { ScoreBar } from "@/dashboard/components/shared/ScoreBar";
@@ -13,14 +14,21 @@ interface SearchResultsProps {
 
 export function SearchResults({ results, query, total }: SearchResultsProps) {
   if (results.length === 0) {
+    // Same shape as the cockpit and landing-page not-found cards, so a merchant
+    // who fails to find themselves gets the same answer everywhere.
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-400 text-lg mb-2">
-          No results found for &apos;{query}&apos;
-        </p>
-        <p className="text-gray-500 text-sm">
-          Try a different search term or browse the leaderboard
-        </p>
+      <div className="rounded-lg border border-gray-200 border-l-4 border-l-amber-400 bg-white p-4 text-sm text-gray-600">
+        <AlertCircle className="inline w-4 h-4 text-amber-500 mr-1.5 -mt-0.5" />
+        Nothing matches &quot;{query}&quot; in the x402 catalog. It can take up to 24 hours
+        after a Coinbase Bazaar listing to appear here.{" "}
+        <a
+          href="https://bazaar.coinbase.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-emerald-600 hover:text-emerald-700 underline decoration-emerald-600/30"
+        >
+          Register on Coinbase Bazaar
+        </a>
       </div>
     );
   }
@@ -67,6 +75,9 @@ export function SearchResults({ results, query, total }: SearchResultsProps) {
           </Link>
         ))}
       </div>
+      <p className="text-sm text-gray-600 mt-4">
+        Is one of these yours? Open it to see your full score breakdown.
+      </p>
     </div>
   );
 }
