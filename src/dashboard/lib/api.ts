@@ -481,15 +481,26 @@ async function fetchMerchantByOrigin(
   const hostname = extractHostname(origin);
   const likeSafe = (s: string) => s.replace(/[%_\\]/g, "\\$&");
 
-  const resourceRows = await getDb()
+  // Try the exact resource URL first. A merchant can expose many endpoints on
+  // one host, so matching only on hostname lets any of them win the limit(1) —
+  // a deep link to /x402/invoice/status would render /x402/esims/search instead.
+  const [exactRow] = await getDb()
     .select()
     .from(resources)
-    .where(
-      hostname
-        ? ilike(resources.resourceUrl, `%${likeSafe(hostname)}%`)
-        : ilike(resources.resourceUrl, `%${likeSafe(origin)}%`),
-    )
+    .where(eq(resources.resourceUrl, origin))
     .limit(1);
+
+  const resourceRows = exactRow
+    ? [exactRow]
+    : await getDb()
+        .select()
+        .from(resources)
+        .where(
+          hostname
+            ? ilike(resources.resourceUrl, `%${likeSafe(hostname)}%`)
+            : ilike(resources.resourceUrl, `%${likeSafe(origin)}%`),
+        )
+        .limit(1);
 
   const resource = resourceRows[0];
   if (!resource) return null;

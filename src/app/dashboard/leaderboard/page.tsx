@@ -5,6 +5,8 @@ import { FilterBar } from "@/dashboard/components/leaderboard/FilterBar";
 import { Pagination } from "@/dashboard/components/shared/Pagination";
 import { DEFAULT_PAGE_SIZE } from "@/dashboard/lib/constants";
 
+export const metadata = { title: "Leaderboard" };
+
 export const revalidate = 3600;
 
 interface Props {

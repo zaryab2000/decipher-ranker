@@ -58,7 +58,12 @@ export function ScoreBreakdownChart({
           itemStyle={{ color: "#111827" }}
           formatter={(value: number) => [`${value}`, "Score"]}
         />
-        <Bar dataKey="value" fill="#10b981" radius={[0, 2, 2, 0]} />
+        {/* isAnimationActive={false} for the same reason as RankHistoryChart:
+            Recharts grows each bar from zero width on mount. The reveal adds
+            nothing, ignores prefers-reduced-motion, and leaves the chart blank
+            whenever the paint happens before the animation completes — the DOM
+            reports full-width paths while nothing is visible. */}
+        <Bar dataKey="value" fill="#10b981" radius={[0, 2, 2, 0]} isAnimationActive={false} />
       </BarChart>
     </ResponsiveContainer>
   );

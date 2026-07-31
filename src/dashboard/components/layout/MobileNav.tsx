@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import { X, BarChart3 } from "lucide-react";
 import { NavLinks } from "@/dashboard/components/layout/NavLinks";
@@ -11,6 +12,34 @@ export function MobileNav({
   isOpen: boolean;
   onClose: () => void;
 }) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    },
+    [onClose],
+  );
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Move focus into the drawer so the next Tab lands on its links rather than
+    // continuing from wherever the hamburger sat, and restore it on close so
+    // the user is not dumped at the top of the document.
+    const previous = document.activeElement as HTMLElement | null;
+    closeButtonRef.current?.focus();
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+      previous?.focus?.();
+    };
+  }, [isOpen, handleKeyDown]);
+
   return (
     <>
       {isOpen && (
@@ -23,6 +52,14 @@ export function MobileNav({
         className={`fixed left-0 top-0 h-screen w-60 bg-white border-r border-gray-200 flex flex-col z-50 lg:hidden transition-transform duration-200 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
+        role="dialog"
+        aria-modal={isOpen}
+        aria-label="Navigation menu"
+        // A transform moves the panel off-screen but leaves it in the tab order
+        // and the accessibility tree. Without these, a keyboard user tabs
+        // through five invisible controls before reaching the page.
+        aria-hidden={!isOpen}
+        inert={isOpen ? undefined : true}
       >
         <div className="p-4 border-b border-gray-200 flex items-center justify-between">
           <Link
@@ -34,6 +71,7 @@ export function MobileNav({
             <span className="text-sm font-semibold text-gray-900">Decipher Ranker</span>
           </Link>
           <button
+            ref={closeButtonRef}
             onClick={onClose}
             className="inline-flex items-center justify-center w-11 h-11 -mr-2 text-gray-400 hover:text-gray-600 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
             aria-label="Close menu"

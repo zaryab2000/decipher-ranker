@@ -17,7 +17,7 @@ export function ScoreBar({
     <div
       className={`flex items-center gap-2 ${className ?? ""}`}
       role="progressbar"
-      aria-valuenow={clampedScore}
+      aria-valuenow={Math.round(clampedScore)}
       aria-valuemin={0}
       aria-valuemax={100}
       aria-label={`Score: ${clampedScore.toFixed(0)}`}

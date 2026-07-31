@@ -108,6 +108,21 @@ export function toWeightedComponents(breakdown: ScoreBreakdown): WeightedCompone
 }
 
 /**
+ * Whether a category name actually positions a merchant.
+ *
+ * "Other" is the catch-all the categorizer assigns when nothing matches, and it
+ * currently holds 714 of 1,343 merchants — 53% of the catalog. Telling someone
+ * they "rank #1 of 714 in Other" is the absence of positioning dressed as
+ * positioning, so surfaces treat it the same as having no category: rank is
+ * reported against the whole catalog instead.
+ *
+ * Remove this once the categorizer shrinks the bucket.
+ */
+export function isMeaningfulCategory(category: string | null | undefined): boolean {
+  return Boolean(category) && category !== 'Other';
+}
+
+/**
  * The zero-scoring component worth the most points, or null if none is zero.
  *
  * Single source of truth for the phrase "biggest lever" / "your largest gap" —

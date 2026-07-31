@@ -1,6 +1,8 @@
 import { getAllCategories } from "@/dashboard/lib/api";
 import { CategoryList } from "@/dashboard/components/categories/CategoryList";
 
+export const metadata = { title: "Categories" };
+
 // Data changes at most once/day via the refresh pipeline; regenerate hourly
 // instead of per-request to keep Neon egress off the hot path.
 export const revalidate = 3600;

@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { computeRankDelta, computeRankGap } from "@/dashboard/lib/api";
-import { toWeightedComponents, toDisplayScore, biggestLever } from "@/dashboard/lib/formatters";
+import {
+  toWeightedComponents,
+  toDisplayScore,
+  biggestLever,
+  isMeaningfulCategory,
+} from "@/dashboard/lib/formatters";
 import type { RankHistoryPoint, MerchantListItem, ScoreBreakdown } from "@/dashboard/types";
 
 function point(date: string, rankPosition: number | null, rankerScore = 50): RankHistoryPoint {
@@ -152,6 +157,26 @@ describe("toWeightedComponents", () => {
   it("does not flag a non-zero component as zero", () => {
     const components = toWeightedComponents(breakdown);
     expect(components.every((c) => !c.isZero)).toBe(true);
+  });
+});
+
+describe("isMeaningfulCategory", () => {
+  it("treats Other as no category at all", () => {
+    // "Other" is the categorizer's catch-all and holds 714 of 1,343 merchants.
+    // "#1 of 714 in Other" is the absence of positioning, so the cockpit falls
+    // back to an overall rank instead.
+    expect(isMeaningfulCategory("Other")).toBe(false);
+  });
+
+  it("accepts a real category", () => {
+    expect(isMeaningfulCategory("Crypto & DeFi")).toBe(true);
+    expect(isMeaningfulCategory("AI & Agents")).toBe(true);
+  });
+
+  it("rejects null, undefined and empty", () => {
+    expect(isMeaningfulCategory(null)).toBe(false);
+    expect(isMeaningfulCategory(undefined)).toBe(false);
+    expect(isMeaningfulCategory("")).toBe(false);
   });
 });
 

@@ -5,7 +5,7 @@ import { Trophy, DollarSign, BarChart3, Users } from "lucide-react";
 import { getMerchantByOrigin } from "@/dashboard/lib/api";
 import { MerchantHeader } from "@/dashboard/components/merchant/MerchantHeader";
 import { MetricCard } from "@/dashboard/components/merchant/MetricCard";
-import { ScoreBreakdownChart } from "@/dashboard/components/merchant/ScoreBreakdownChart";
+import { ComponentBreakdown } from "@/dashboard/components/cockpit/ComponentBreakdown";
 import { CompetitorList } from "@/dashboard/components/merchant/CompetitorList";
 import { Badge } from "@/dashboard/components/shared/Badge";
 import { Card } from "@/dashboard/components/shared/Card";
@@ -62,8 +62,8 @@ export default async function MerchantProfilePage({
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
-          label="Rank"
-          value={merchant.rankPosition ?? "—"}
+          label={merchant.category ? "Category rank" : "Overall rank"}
+          value={merchant.rankPosition != null ? `#${merchant.rankPosition}` : "—"}
           icon={<Trophy className="w-5 h-5" />}
         />
         <MetricCard
@@ -72,23 +72,18 @@ export default async function MerchantProfilePage({
           icon={<DollarSign className="w-5 h-5" />}
         />
         <MetricCard
-          label="Volume 30d"
+          label="Calls · 30d"
           value={formatNumber(merchant.txCount30d)}
           icon={<BarChart3 className="w-5 h-5" />}
         />
         <MetricCard
-          label="Unique Buyers"
+          label="Unique buyers · 30d"
           value={merchant.uniqueBuyers != null ? formatNumber(merchant.uniqueBuyers) : "—"}
           icon={<Users className="w-5 h-5" />}
         />
       </div>
 
-      <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-3">Score Breakdown</h2>
-        <Card>
-          <ScoreBreakdownChart breakdown={merchant.scoreBreakdown} />
-        </Card>
-      </div>
+      <ComponentBreakdown breakdown={merchant.scoreBreakdown} />
 
       {merchant.competitors.length > 0 && (
         <CompetitorList
@@ -100,7 +95,7 @@ export default async function MerchantProfilePage({
 
       {merchant.improvements.length > 0 && (
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">Improvement Suggestions</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-3">What to fix</h2>
           <Card>
             <ul className="space-y-3">
               {merchant.improvements.map((item, i) => (

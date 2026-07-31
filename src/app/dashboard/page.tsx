@@ -13,7 +13,12 @@ import { FixList } from "@/dashboard/components/cockpit/FixList";
 import { RankHistoryChart } from "@/dashboard/components/cockpit/RankHistoryChart";
 import { CompetitorTable } from "@/dashboard/components/cockpit/CompetitorTable";
 import { MetricCard } from "@/dashboard/components/merchant/MetricCard";
-import { biggestLever, formatNumber, toDisplayScore } from "@/dashboard/lib/formatters";
+import {
+  biggestLever,
+  formatNumber,
+  isMeaningfulCategory,
+  toDisplayScore,
+} from "@/dashboard/lib/formatters";
 import type { MerchantProfile, RankHistoryPoint } from "@/dashboard/types";
 
 // No `revalidate` here: reading searchParams makes this route dynamic, so an
@@ -46,7 +51,10 @@ export default async function DashboardPage({
 
 function ClaimPanel({ notFoundOrigin }: { notFoundOrigin: string | null }) {
   return (
-    <div className="max-w-lg mx-auto py-8">
+    // Centred in the available height: the claim form is the only thing on the
+    // page, so it should sit where the eye lands rather than at the top of an
+    // otherwise empty viewport. 3.5rem is the header; py-8 is the main padding.
+    <div className="max-w-lg mx-auto flex flex-col justify-center min-h-[calc(100vh-3.5rem-4rem)]">
       {notFoundOrigin && (
         <div className="mb-6 rounded-lg border border-gray-200 border-l-4 border-l-amber-400 bg-white p-4 text-sm text-gray-600">
           <AlertCircle className="inline w-4 h-4 text-amber-500 mr-1.5 -mt-0.5" />
@@ -117,16 +125,18 @@ function buildRankSummary(merchant: MerchantProfile): string {
 async function Cockpit({ merchant }: { merchant: MerchantProfile }) {
   // The headline compares against the merchant's own scope: their category when
   // they have one, the whole catalog when they do not.
+  const positioned = isMeaningfulCategory(merchant.category);
+
   const [categories, stats] = await Promise.all([
-    merchant.category ? getAllCategories() : Promise.resolve([]),
-    merchant.category ? Promise.resolve(null) : getEcosystemStats(),
+    positioned ? getAllCategories() : Promise.resolve([]),
+    positioned ? Promise.resolve(null) : getEcosystemStats(),
   ]);
 
-  const totalInScope = merchant.category
+  const totalInScope = positioned
     ? (categories.find((c) => c.name === merchant.category)?.merchantCount ?? 0)
     : (stats?.totalMerchants ?? 0);
 
-  const rankLabel = merchant.category ? "Category rank" : "Overall rank";
+  const rankLabel = positioned ? "Category rank" : "Overall rank";
   const noBuyers = merchant.buyers30d === 0;
 
   // Claim "largest gap" only when buyer diversity genuinely is it. A merchant
@@ -137,7 +147,7 @@ async function Cockpit({ merchant }: { merchant: MerchantProfile }) {
 
   return (
     <div className="space-y-6">
-      <IdentityBand merchant={merchant} totalInScope={totalInScope} />
+      <IdentityBand merchant={merchant} totalInScope={totalInScope} positioned={positioned} />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard

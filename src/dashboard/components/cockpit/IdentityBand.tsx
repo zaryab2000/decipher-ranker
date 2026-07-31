@@ -9,9 +9,12 @@ import type { MerchantProfile } from "@/dashboard/types";
 export function IdentityBand({
   merchant,
   totalInScope,
+  /** False when the category does not actually position the merchant — see isMeaningfulCategory. */
+  positioned = true,
 }: {
   merchant: MerchantProfile;
   totalInScope: number;
+  positioned?: boolean;
 }) {
   const score = toDisplayScore(merchant.rankerScore);
   const name = displayName(merchant);
@@ -20,7 +23,7 @@ export function IdentityBand({
   const headline =
     rankPosition == null
       ? `${name} is indexed but not yet ranked`
-      : category
+      : positioned && category
         ? `${name} ranks #${rankPosition} of ${totalInScope} in ${category}`
         : `${name} ranks #${rankPosition} of ${totalInScope} overall`;
 
@@ -43,9 +46,16 @@ export function IdentityBand({
 
   if (rankPosition != null) {
     if (rankGap.toNextRank != null && rankPosition > 1) {
-      segments.push(`${rankGap.toNextRank} pts from #${rankPosition - 1}`);
+      // A 0-point gap means the scores are equal and the ordering is a
+      // tie-break. "0 pts from #3" reads as a bug and invites the reader to ask
+      // why they are not #3; say what is actually true instead.
+      segments.push(
+        rankGap.toNextRank === 0
+          ? `Tied with #${rankPosition - 1} on score`
+          : `${rankGap.toNextRank} pts from #${rankPosition - 1}`,
+      );
     } else if (rankPosition === 1) {
-      segments.push("Leading the category");
+      segments.push(positioned ? "Leading the category" : "Leading overall");
     }
   }
 

@@ -9,12 +9,14 @@ import type { ScoreBreakdown } from "@/dashboard/types";
  */
 export function ComponentBreakdown({
   breakdown,
-  fixCount,
-  nextRank,
+  // Omitted on the merchant profile route, which shows any merchant rather than
+  // the visitor's own — "close the gap" is not addressed to that reader.
+  fixCount = 0,
+  nextRank = null,
 }: {
   breakdown: ScoreBreakdown;
-  fixCount: number;
-  nextRank: number | null;
+  fixCount?: number;
+  nextRank?: number | null;
 }) {
   const components = toWeightedComponents(breakdown);
   // Only the most valuable zero component earns the label — a superlative
@@ -50,7 +52,7 @@ export function ComponentBreakdown({
             <div
               className={`h-2 rounded-full ${SCORE_TRACK} overflow-hidden`}
               role="progressbar"
-              aria-valuenow={c.pctOfMax}
+              aria-valuenow={Math.round(c.pctOfMax)}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-label={`${c.label}: ${c.earned} of ${c.available} points`}
