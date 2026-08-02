@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { BarChart3 } from "lucide-react";
 import { NavLinks } from "@/dashboard/components/layout/NavLinks";
 
 export function Sidebar() {
   return (
-    <aside className="fixed left-0 top-0 h-screen w-60 bg-gray-950/80 border-r border-gray-800 flex flex-col z-40 lg:block hidden">
-      <div className="p-4 border-b border-gray-800">
+    <aside className="fixed left-0 top-0 h-screen w-60 bg-gray-50 border-r border-gray-200 flex flex-col z-40 lg:block hidden">
+      <div className="p-4 border-b border-gray-200">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <img src="/favicon.ico" alt="logo" className="w-5 h-5" />
-          <span className="text-lg font-semibold text-gray-50">Decipher Ranker</span>
+          <BarChart3 className="w-4 h-4 text-emerald-600" />
+          <span className="text-sm font-semibold text-gray-900">Decipher Ranker</span>
         </Link>
       </div>
 
@@ -17,12 +18,12 @@ export function Sidebar() {
         <NavLinks />
       </nav>
 
-      <div className="p-4 border-t border-gray-800">
+      <div className="p-4 border-t border-gray-200">
         <a
           href="https://x402.org"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+          className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
         >
           Powered by x402
         </a>

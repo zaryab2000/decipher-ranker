@@ -1,7 +1,11 @@
 import { getDb } from "@/lib/db";
 import { cached } from "@/lib/cache";
-import { merchants, resources, categories, categoryCache } from "@/lib/db/schema";
-import { desc, asc, eq, sql, ilike, or, and, count, sum, inArray } from "drizzle-orm";
+import { computeScoreBreakdown } from "@/lib/analytics/ranker";
+import { scoreToGrade } from "@/lib/analytics/grade";
+import { computeCategoryGrowth, getCategoryTrends } from "@/lib/services/trendService";
+import { toDisplayScore } from "@/dashboard/lib/formatters";
+import { merchants, resources, categories, categoryCache, trends } from "@/lib/db/schema";
+import { desc, asc, eq, sql, ilike, or, and, count, sum, inArray, gte } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import type {
   MerchantListItem,
@@ -12,6 +16,9 @@ import type {
   LeaderboardData,
   SearchResult,
   ScoreBreakdown,
+  RankHistoryPoint,
+  RankDelta,
+  RankGap,
 } from "@/dashboard/types";
 
 // Dashboard reads are cached for an hour — the same window as page ISR — so
@@ -221,9 +228,11 @@ async function fetchLeaderboard(
     .limit(perPage)
     .offset(offset);
 
-  const merchants_list = rows.map((row, i) =>
-    toMerchantListItem(row, offset + i + 1),
-  );
+  // No ordinal override: rankPosition is the merchant's real rank and must
+  // survive sorting. Overriding it with the row's position made a "#1" badge
+  // appear beside the cheapest merchant when sorting by price, even though
+  // that merchant may rank 800th. The badge means rank, always.
+  const merchants_list = rows.map((row) => toMerchantListItem(row));
 
   return {
     merchants: merchants_list,
@@ -295,17 +304,23 @@ async function fetchAllCategories(): Promise<CategoryItem[]> {
     if (a.categoryId) avgByCategory.set(a.categoryId, a.avg);
   }
 
-  const topByCategory = new Map<string, { address: string; score: number; merchantId: string }>();
+  // Keep the top 3 per category, not just the winner: the cockpit's empty state
+  // lists three merchants per category and the window function already ranked
+  // them, so widening this costs no extra query.
+  const TOP_PER_CATEGORY = 3;
+  const topByCategory = new Map<
+    string,
+    { address: string; score: number; merchantId: string }[]
+  >();
   for (const t of topRows) {
-    if (!t.categoryId || Number(t.rn) !== 1) continue;
-    topByCategory.set(t.categoryId, {
-      address: t.address,
-      score: Number(t.score ?? 0),
-      merchantId: t.merchantId,
-    });
+    if (!t.categoryId || Number(t.rn) > TOP_PER_CATEGORY) continue;
+    const list = topByCategory.get(t.categoryId) ?? [];
+    list.push({ address: t.address, score: Number(t.score ?? 0), merchantId: t.merchantId });
+    topByCategory.set(t.categoryId, list);
   }
 
   const topMerchantIds = [...topByCategory.values()]
+    .flat()
     .map((t) => t.merchantId)
     .filter((id): id is string => !!id);
   const resourceRows = topMerchantIds.length > 0
@@ -326,10 +341,17 @@ async function fetchAllCategories(): Promise<CategoryItem[]> {
     ]),
   );
 
+  // Percentage change in merchant count over the available snapshot window.
+  // Categories with fewer than two snapshots report 0 via `known: false`; see
+  // getCategoryTrends() for why "no change" and "no data" must stay distinct.
+  const growthByCategory = computeCategoryGrowth(await getCategoryTrends(30));
+
   // `slug` is a curated, unique DB column (the taxonomy), so one row per card —
   // no dedup/merge needed.
   return rows.map((cat) => {
-    const tm = topByCategory.get(cat.id);
+    const tms = topByCategory.get(cat.id) ?? [];
+    const tm = tms[0];
+    const growth = growthByCategory.get(cat.id);
     return {
       name: cat.name,
       slug: cat.slug,
@@ -344,7 +366,17 @@ async function fetchAllCategories(): Promise<CategoryItem[]> {
             resourceUrl: topResources.get(tm.merchantId)?.resourceUrl ?? null,
           }
         : null,
-      growthIndicator: 0,
+      topMerchants: tms.map((m) => ({
+        address: m.address,
+        score: m.score,
+        serviceName: topResources.get(m.merchantId)?.serviceName ?? null,
+        resourceUrl: topResources.get(m.merchantId)?.resourceUrl ?? null,
+      })),
+      // The full record: `known` and `daysCovered` are what the column header
+      // and the fastest-riser sentence read. Flattening to a number here would
+      // make "no data" and "genuinely flat" indistinguishable downstream.
+      growth: growth ?? null,
+      growthIndicator: growth?.known ? growth.growthPct : 0,
     };
   });
 }
@@ -386,9 +418,10 @@ async function fetchCategoryBySlug(
     .limit(perPage)
     .offset(offset);
 
-  const merchants_list = merchantRows.map((row, i) =>
-    toMerchantListItem(row, offset + i + 1),
-  );
+  // No ordinal override, matching fetchLeaderboard: rankPosition stays the
+  // merchant's real category rank, and the row number is a presentation
+  // concern that LeaderboardTable derives from startRank.
+  const merchants_list = merchantRows.map((row) => toMerchantListItem(row));
 
   const cacheRow = await getDb()
     .select()
@@ -412,7 +445,14 @@ async function fetchCategoryBySlug(
       .where(eq(merchants.categoryId, cat.id)),
   ]);
 
-  const scoreDistribution = buildScoreDistribution(scoreRows.map((r) => Number(r.rankerScore ?? 0) * 100));
+  // NOT toDisplayScore(): that rounds, and buildScoreDistribution floors into
+  // 10-point buckets. Rounding first moves scores like 0.3996 from the 30-40
+  // bucket into 40-50 — it reclassifies 68 of 1321 merchants against the real
+  // catalog. Bucketing uses the unrounded value; only the axis labels are
+  // display values.
+  const scoreDistribution = buildScoreDistribution(
+    scoreRows.map((r) => Math.max(0, Math.min(1, Number(r.rankerScore ?? 0))) * 100),
+  );
 
   return {
     name: cat.name,
@@ -427,6 +467,9 @@ async function fetchCategoryBySlug(
           serviceName: merchants_list[0].serviceName,
         }
       : null,
+    // The detail page does not render growth (spec §13, out of scope), so this
+    // is genuinely unknown rather than flat. Null, not a zeroed record.
+    growth: null,
     growthIndicator: 0,
     merchants: merchants_list,
     totalVolume30d,
@@ -468,15 +511,26 @@ async function fetchMerchantByOrigin(
   const hostname = extractHostname(origin);
   const likeSafe = (s: string) => s.replace(/[%_\\]/g, "\\$&");
 
-  const resourceRows = await getDb()
+  // Try the exact resource URL first. A merchant can expose many endpoints on
+  // one host, so matching only on hostname lets any of them win the limit(1) —
+  // a deep link to /x402/invoice/status would render /x402/esims/search instead.
+  const [exactRow] = await getDb()
     .select()
     .from(resources)
-    .where(
-      hostname
-        ? ilike(resources.resourceUrl, `%${likeSafe(hostname)}%`)
-        : ilike(resources.resourceUrl, `%${likeSafe(origin)}%`),
-    )
+    .where(eq(resources.resourceUrl, origin))
     .limit(1);
+
+  const resourceRows = exactRow
+    ? [exactRow]
+    : await getDb()
+        .select()
+        .from(resources)
+        .where(
+          hostname
+            ? ilike(resources.resourceUrl, `%${likeSafe(hostname)}%`)
+            : ilike(resources.resourceUrl, `%${likeSafe(origin)}%`),
+        )
+        .limit(1);
 
   const resource = resourceRows[0];
   if (!resource) return null;
@@ -508,12 +562,23 @@ async function fetchMerchantByOrigin(
 
   const categoryName = categoryRows[0]?.name ?? null;
 
+  // computeScoreBreakdown is the canonical source (also used by
+  // services/merchantService.ts). It returns every component in the 0..1 range,
+  // so each is scaled to 0..100 here for display. The previous implementation
+  // read resources.volumeScore/recencyScore/performanceScore/reliabilityScore,
+  // which the pipeline never writes — every bar rendered at zero width.
+  const rawBreakdown = computeScoreBreakdown({
+    merchant,
+    resources: allResources,
+    category: categoryRows[0] ?? null,
+  });
+
   const scoreBreakdown: ScoreBreakdown = {
-    volumeSignal: Number(matchedResource.volumeScore ?? 0) * 100,
-    buyerDiversity: 0,
-    reliability: Number(matchedResource.reliabilityScore ?? 0) * 100,
-    listingQuality: Number(matchedResource.performanceScore ?? 0) * 100,
-    recency: Number(matchedResource.recencyScore ?? 0) * 100,
+    volumeSignal: rawBreakdown.volumeSignal * 100,
+    buyerDiversity: rawBreakdown.buyerDiversity * 100,
+    reliability: rawBreakdown.reliability * 100,
+    listingQuality: rawBreakdown.listingQuality * 100,
+    recency: rawBreakdown.recency * 100,
   };
 
   const resourceSubquery = buildResourceSubquery();
@@ -537,9 +602,19 @@ async function fetchMerchantByOrigin(
         self.findIndex((s) => s.merchants_payeeAddress === c.merchants_payeeAddress) === idx,
     )
     .slice(0, 5)
-    .map((row, i) => toMerchantListItem(row, i + 1));
+    // No ordinal override: these are all in one category, so rankPosition is
+    // the merchant's real standing and CompetitorList renders it directly.
+    .map((row) => toMerchantListItem(row));
 
   const currentScore = Number(merchant.rankerScore ?? 0);
+  const rankHistory = await getRankHistory(merchant.id);
+  const rankDelta = computeRankDelta(rankHistory);
+  const { oneAbove, leader } = await fetchRankNeighbours(
+    merchant.categoryId ?? null,
+    merchant.rankPosition ?? null,
+  );
+  const rankGap = computeRankGap(toDisplayScore(currentScore), oneAbove, leader);
+
   const improvements = buildImprovements({
     hasDescription: resourceDescription != null && resourceDescription.length > 0,
     hasTags: allTags.length > 0,
@@ -570,6 +645,11 @@ async function fetchMerchantByOrigin(
     scoreBreakdown,
     competitors: competitorList,
     improvements,
+    merchantId: merchant.id,
+    grade: scoreToGrade(toDisplayScore(currentScore)),
+    rankHistory,
+    rankDelta,
+    rankGap,
   };
 }
 
@@ -579,6 +659,138 @@ function extractHostname(url: string): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Daily rank/score snapshots for one merchant, oldest first.
+ *
+ * Source: `trends`, written by writeDailySnapshot() on every pipeline run.
+ * Returns [] when the merchant has no snapshots yet — the table only began
+ * accumulating at deploy, so early merchants legitimately have 0 or 1 points.
+ */
+export function getRankHistory(
+  merchantId: string,
+  days = 30,
+): Promise<RankHistoryPoint[]> {
+  return cached(`dash:rankhistory:${merchantId}:${days}`, DASH_TTL_SECONDS, () =>
+    fetchRankHistory(merchantId, days),
+  );
+}
+
+async function fetchRankHistory(
+  merchantId: string,
+  days: number,
+): Promise<RankHistoryPoint[]> {
+  const cutoff = new Date();
+  cutoff.setUTCDate(cutoff.getUTCDate() - days);
+  const cutoffDate = cutoff.toISOString().slice(0, 10);
+
+  const rows = await getDb()
+    .select({
+      snapshotDate: trends.snapshotDate,
+      rankPosition: trends.rankPosition,
+      rankerScore: trends.rankerScore,
+    })
+    .from(trends)
+    .where(and(eq(trends.merchantId, merchantId), gte(trends.snapshotDate, cutoffDate)))
+    .orderBy(asc(trends.snapshotDate));
+
+  return rows.map((r) => ({
+    date: String(r.snapshotDate),
+    rankPosition: r.rankPosition ?? null,
+    // trends.rankerScore is stored 0..1 like merchants.rankerScore.
+    rankerScore: toDisplayScore(r.rankerScore),
+  }));
+}
+
+/**
+ * Direction and size of the rank move across the available history.
+ *
+ * A LOWER rankPosition is better, so moving from #6 to #4 is 'up' by 2 places.
+ * Points with a null rankPosition are skipped — an unranked snapshot says
+ * nothing about direction.
+ */
+export function computeRankDelta(history: RankHistoryPoint[]): RankDelta {
+  const ranked = history.filter(
+    (p): p is RankHistoryPoint & { rankPosition: number } => p.rankPosition != null,
+  );
+
+  if (ranked.length < 2) return { direction: 'flat', places: 0, known: false };
+
+  const first = ranked[0]!.rankPosition;
+  const last = ranked[ranked.length - 1]!.rankPosition;
+
+  if (first === last) return { direction: 'flat', places: 0, known: true };
+
+  return {
+    direction: last < first ? 'up' : 'down',
+    places: Math.abs(first - last),
+    known: true,
+  };
+}
+
+/**
+ * Points needed to reach the next rank up and the category leader.
+ *
+ * Computed from the already-fetched competitor list — no extra query. Returns
+ * all-null when the merchant leads or has no ranked peers to compare against.
+ */
+export function computeRankGap(
+  currentDisplayScore: number,
+  oneAbove: MerchantListItem | null,
+  leader: MerchantListItem | null,
+): RankGap {
+  if (!oneAbove) {
+    return { toNextRank: null, toFirst: null, nextRankName: null };
+  }
+
+  // Ties are common, so a gap of 0 is a real answer ("level with #19"), not a
+  // missing one. Clamped at 0 because rank and score can disagree briefly
+  // between pipeline runs.
+  const toNextRank = Math.max(0, toDisplayScore(oneAbove.rankerScore) - currentDisplayScore);
+  const toFirst = leader
+    ? Math.max(0, toDisplayScore(leader.rankerScore) - currentDisplayScore)
+    : null;
+
+  return {
+    toNextRank,
+    toFirst,
+    nextRankName:
+      oneAbove.serviceName ?? extractHostname(oneAbove.origin) ?? oneAbove.payeeAddress,
+  };
+}
+
+/**
+ * The merchant one rank above, and the category leader.
+ *
+ * Two targeted lookups by rank_position rather than a sample of top scorers:
+ * the UI prints this gap beside an explicit "#{rank - 1}", so it has to be
+ * measured against that merchant. Returns nulls when the merchant leads its
+ * category or has no rank.
+ */
+async function fetchRankNeighbours(
+  categoryId: string | null,
+  rankPosition: number | null,
+): Promise<{ oneAbove: MerchantListItem | null; leader: MerchantListItem | null }> {
+  if (!categoryId || rankPosition == null || rankPosition <= 1) {
+    return { oneAbove: null, leader: null };
+  }
+
+  const byRank = async (position: number): Promise<MerchantListItem | null> => {
+    const resourceCols = buildResourceSubquery();
+    const [row] = await getDb()
+      .select(merchantSelect(resourceCols))
+      .from(merchants)
+      .leftJoin(resourceCols, eq(merchants.id, resourceCols.merchantId))
+      .leftJoin(categories, eq(merchants.categoryId, categories.id))
+      .where(and(eq(merchants.categoryId, categoryId), eq(merchants.rankPosition, position)))
+      .limit(1);
+
+    return row ? toMerchantListItem(row, position) : null;
+  };
+
+  const [oneAbove, leader] = await Promise.all([byRank(rankPosition - 1), byRank(1)]);
+  return { oneAbove, leader };
 }
 
 export function getMerchantByOrigin(

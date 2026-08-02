@@ -5,11 +5,16 @@ import { Trophy, DollarSign, BarChart3, Users } from "lucide-react";
 import { getMerchantByOrigin } from "@/dashboard/lib/api";
 import { MerchantHeader } from "@/dashboard/components/merchant/MerchantHeader";
 import { MetricCard } from "@/dashboard/components/merchant/MetricCard";
-import { ScoreBreakdownChart } from "@/dashboard/components/merchant/ScoreBreakdownChart";
+import { ComponentBreakdown } from "@/dashboard/components/cockpit/ComponentBreakdown";
 import { CompetitorList } from "@/dashboard/components/merchant/CompetitorList";
 import { Badge } from "@/dashboard/components/shared/Badge";
 import { Card } from "@/dashboard/components/shared/Card";
-import { formatNumber, formatPrice } from "@/dashboard/lib/formatters";
+import {
+  formatNumber,
+  formatPrice,
+  isMeaningfulCategory,
+  toDisplayScore,
+} from "@/dashboard/lib/formatters";
 
 // Data changes at most once/day via the refresh pipeline; regenerate hourly
 // instead of per-request to keep Neon egress off the hot path.
@@ -27,7 +32,7 @@ export async function generateMetadata(
   const name = merchant.serviceName ?? merchant.payeeAddress;
   return {
     title: name,
-    description: `Score: ${(merchant.rankerScore * 100).toFixed(0)}. Volume: ${merchant.txCount30d} tx${merchant.uniqueBuyers != null ? `, ${merchant.uniqueBuyers} buyers` : ""}.`.replace(/\s+/g, " ").trim(),
+    description: `Score: ${toDisplayScore(merchant.rankerScore)}. Volume: ${merchant.txCount30d} tx, ${merchant.buyers30d} buyers.`.replace(/\s+/g, " ").trim(),
     openGraph: {
       title: name,
       description: `x402 merchant profile and competitive analysis.`,
@@ -48,10 +53,12 @@ export default async function MerchantProfilePage({
     notFound();
   }
 
+  // No red: an improvement suggestion is an opportunity, not an error. Matches
+  // the cockpit's FixList so the same fact reads the same on both surfaces.
   const priorityVariant = {
-    high: "bg-red-500/20 text-red-400",
-    medium: "bg-amber-500/20 text-amber-400",
-    low: "bg-emerald-500/20 text-emerald-400",
+    high: "bg-amber-50 text-amber-700",
+    medium: "bg-gray-100 text-gray-600",
+    low: "bg-gray-100 text-gray-600",
   } as const;
 
   return (
@@ -60,8 +67,12 @@ export default async function MerchantProfilePage({
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
-          label="Rank"
-          value={merchant.rankPosition ?? "—"}
+          // isMeaningfulCategory, NOT a truthiness check on `category`. For a
+          // merchant in "Other" the string is truthy, so `category ? …` labelled
+          // this "Category rank" while the cockpit — which uses the helper —
+          // said "Overall rank" for the same merchant. Same fact, two framings.
+          label={isMeaningfulCategory(merchant.category) ? "Category rank" : "Overall rank"}
+          value={merchant.rankPosition != null ? `#${merchant.rankPosition}` : "—"}
           icon={<Trophy className="w-5 h-5" />}
         />
         <MetricCard
@@ -70,23 +81,23 @@ export default async function MerchantProfilePage({
           icon={<DollarSign className="w-5 h-5" />}
         />
         <MetricCard
-          label="Volume 30d"
+          label="Calls · 30d"
           value={formatNumber(merchant.txCount30d)}
           icon={<BarChart3 className="w-5 h-5" />}
         />
         <MetricCard
-          label="Unique Buyers"
-          value={merchant.uniqueBuyers != null ? formatNumber(merchant.uniqueBuyers) : "—"}
+          // buyers30d, NOT uniqueBuyers. `merchants.unique_buyers` is
+          // vestigial — catalog-sync.ts:119 writes buyers_30d and never
+          // touches unique_buyers, so it sits at its default of 0 forever.
+          // Reading it under a "· 30d" label showed 0 here while the cockpit,
+          // which reads buyers30d, showed 90 for the same merchant.
+          label="Unique buyers · 30d"
+          value={formatNumber(merchant.buyers30d)}
           icon={<Users className="w-5 h-5" />}
         />
       </div>
 
-      <div>
-        <h2 className="text-lg font-semibold text-gray-50 mb-3">Score Breakdown</h2>
-        <Card>
-          <ScoreBreakdownChart breakdown={merchant.scoreBreakdown} />
-        </Card>
-      </div>
+      <ComponentBreakdown breakdown={merchant.scoreBreakdown} />
 
       {merchant.competitors.length > 0 && (
         <CompetitorList
@@ -98,7 +109,9 @@ export default async function MerchantProfilePage({
 
       {merchant.improvements.length > 0 && (
         <div>
-          <h2 className="text-lg font-semibold text-gray-50 mb-3">Improvement Suggestions</h2>
+          {/* text-sm matches every other section heading in the dashboard —
+              two type treatments for one semantic level read as two levels. */}
+          <h2 className="text-sm font-semibold text-gray-900 mb-3">What to fix</h2>
           <Card>
             <ul className="space-y-3">
               {merchant.improvements.map((item, i) => (
@@ -108,7 +121,7 @@ export default async function MerchantProfilePage({
                   >
                     {item.priority}
                   </Badge>
-                  <span className="text-sm text-gray-300">{item.message}</span>
+                  <span className="text-sm text-gray-600">{item.message}</span>
                 </li>
               ))}
             </ul>

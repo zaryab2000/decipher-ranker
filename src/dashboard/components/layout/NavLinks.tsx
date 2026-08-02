@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Trophy, Grid3x3, Search } from "lucide-react";
+import { Gauge, Trophy, Grid3x3, Search } from "lucide-react";
 import { NAV_ITEMS } from "@/dashboard/lib/constants";
 
 const iconMap: Record<string, React.ReactNode> = {
-  Home: <Home className="w-5 h-5" />,
+  Gauge: <Gauge className="w-5 h-5" />,
   Trophy: <Trophy className="w-5 h-5" />,
   Grid3x3: <Grid3x3 className="w-5 h-5" />,
   Search: <Search className="w-5 h-5" />,
@@ -27,10 +27,10 @@ export function NavLinks({ onClick }: { onClick?: () => void }) {
           key={item.href}
           href={item.href}
           onClick={onClick}
-          className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+          className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
             isActive(item.href)
-              ? "bg-gray-800 text-gray-50"
-              : "text-gray-400 hover:text-gray-200 hover:bg-gray-800/50"
+              ? "bg-emerald-50 text-emerald-700 font-semibold"
+              : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
           }`}
         >
           {iconMap[item.icon]}

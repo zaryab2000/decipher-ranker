@@ -38,7 +38,7 @@ export function FilterBar({
         <select
           value={currentCategory ?? ""}
           onChange={(e) => updateParams({ category: e.target.value })}
-          className="bg-gray-900 border border-gray-800 rounded-lg text-sm text-gray-300 px-3 py-1.5 focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20"
+          className="bg-white border border-gray-300 rounded-lg text-sm text-gray-700 px-3 py-1.5 hover:border-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-colors"
         >
           <option value="">All Categories</option>
           {categories.map((cat) => (
@@ -54,7 +54,7 @@ export function FilterBar({
         <select
           value={currentSort ?? "score"}
           onChange={(e) => updateParams({ sortBy: e.target.value })}
-          className="bg-gray-900 border border-gray-800 rounded-lg text-sm text-gray-300 px-3 py-1.5 focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20"
+          className="bg-white border border-gray-300 rounded-lg text-sm text-gray-700 px-3 py-1.5 hover:border-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-colors"
         >
           {SORT_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -66,7 +66,7 @@ export function FilterBar({
 
       <button
         onClick={() => updateParams({ sortOrder: order === "desc" ? "asc" : "desc" })}
-        className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg bg-gray-900 border border-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-colors"
+        className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
       >
         {order === "desc" ? "\u2193 Desc" : "\u2191 Asc"}
       </button>

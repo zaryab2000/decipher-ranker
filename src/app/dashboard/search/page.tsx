@@ -2,6 +2,8 @@ import { searchMerchants } from "@/dashboard/lib/api";
 import { SearchBar } from "@/dashboard/components/search/SearchBar";
 import { SearchResults } from "@/dashboard/components/search/SearchResults";
 
+export const metadata = { title: "Search" };
+
 export const dynamic = "force-dynamic";
 
 export default async function SearchPage({
@@ -13,8 +15,9 @@ export default async function SearchPage({
   const query = params.q ?? "";
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold text-gray-50 mb-6">Search Merchants</h1>
+    // Constrained so a single result does not float in a 1280px field.
+    <div className="max-w-3xl">
+      <h1 className="text-2xl font-bold tracking-tight text-gray-900 mb-6">Search merchants</h1>
       <div className="mb-8">
         <SearchBar initialQuery={query} />
       </div>
@@ -22,12 +25,12 @@ export default async function SearchPage({
       {query ? (
         <SearchResultsWithData query={query} />
       ) : (
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-sm">
-            Enter a merchant name, origin URL, or wallet address then press Enter to search
+        <div className="py-8">
+          <p className="text-sm text-gray-600">
+            Search by merchant name, origin URL, or wallet address, then press Enter.
           </p>
-          <p className="text-xs text-gray-600 mt-2">
-            Try &quot;bitrefill&quot;, &quot;base&quot;, or &quot;0x...&quot;
+          <p className="text-xs text-gray-500 mt-2">
+            Try &quot;bitrefill&quot;, &quot;base&quot;, or &quot;0x…&quot;
           </p>
         </div>
       )}

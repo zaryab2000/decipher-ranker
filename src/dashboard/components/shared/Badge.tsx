@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 
 const variants = {
-  default: "bg-gray-800 text-gray-300",
-  accent: "bg-emerald-500/20 text-emerald-400",
-  muted: "bg-gray-800 text-gray-500",
+  default: "bg-gray-100 text-gray-600",
+  accent: "bg-emerald-50 text-emerald-700",
+  muted: "bg-gray-100 text-gray-600",
 } as const;
 
 export function Badge({

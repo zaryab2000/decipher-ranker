@@ -15,7 +15,7 @@ export function SearchBar({ initialQuery }: { initialQuery?: string }) {
           type="text"
           defaultValue={initialQuery}
           placeholder="Search merchants by name, origin, or address..."
-          className="w-full pl-12 pr-4 py-3 text-base bg-gray-900 border border-gray-800 rounded-lg text-gray-50 placeholder:text-gray-500 focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 transition-colors"
+          className="w-full pl-12 pr-4 py-3 text-base bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-500 hover:border-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-colors"
         />
       </div>
     </form>
