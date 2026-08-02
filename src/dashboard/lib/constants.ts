@@ -1,19 +1,60 @@
+// The catch-all bucket is defined once, in the taxonomy that the categorizer
+// itself uses (OTHER.slug === "other"). Import it rather than re-declaring the
+// literal so a taxonomy change cannot silently desync the categories page.
+//
+// Safe in a client bundle: taxonomy.ts has zero imports — pure constant data,
+// no Drizzle, no DB. constants.ts is consumed by client components
+// (CategoryTable is "use client"), so that matters. Header.tsx already imports
+// TAXONOMY from the same file.
+import { OTHER } from '@/lib/analytics/taxonomy';
+
+/**
+ * Slug of the catch-all category. Match on SLUG, never on `name` — `name` is a
+ * human-editable column, and renaming "Other" would silently drop 700+
+ * merchants back into the ranked list.
+ */
+export const OTHER_SLUG = OTHER.slug;
+
+/** Classified categories visible on /dashboard/categories before expanding. */
+export const CATEGORIES_VISIBLE = 5;
+
+/**
+ * Below this, growth rounds to "0.0" at one decimal place and is rendered as
+ * flat. Without the floor a 0.04% change draws an arrow claiming a direction
+ * the number beside it denies.
+ */
+export const GROWTH_FLAT_THRESHOLD = 0.05;
+
+// Mirrors RANKER_WEIGHTS in src/lib/analytics/ranker.ts exactly — these are the
+// weights the product actually scores with. Ordered by descending weight so the
+// biggest lever reads first; reliability is last because it is a constant
+// placeholder (computeReliability always returns 0.5).
+// A drift test in src/__tests__/dashboard/score-components.test.ts enforces both
+// the values and the ordering.
 export const SCORE_COMPONENTS = [
-  { key: 'volumeSignal', label: 'Volume', weight: 0.30 },
-  { key: 'buyerDiversity', label: 'Buyer Diversity', weight: 0.25 },
-  { key: 'reliability', label: 'Reliability', weight: 0.15 },
-  { key: 'listingQuality', label: 'Listing Quality', weight: 0.15 },
+  { key: 'volumeSignal', label: 'Volume', weight: 0.40 },
+  { key: 'buyerDiversity', label: 'Buyer diversity', weight: 0.25 },
+  { key: 'listingQuality', label: 'Listing quality', weight: 0.15 },
   { key: 'recency', label: 'Recency', weight: 0.15 },
+  { key: 'reliability', label: 'Reliability', weight: 0.05 },
 ] as const;
 
-export const SCORE_COLORS = {
-  high: { min: 70, tailwind: 'emerald-400', hex: '#34d399' },
-  mid: { min: 40, tailwind: 'amber-400', hex: '#fbbf24' },
-  low: { min: 0, tailwind: 'red-400', hex: '#f87171' },
+// Score bars use ONE colour. Magnitude is encoded by bar LENGTH, not by hue.
+// The previous three-tier system painted a healthy ecosystem as failure: with a
+// median score near 34, every category average landed in the red or amber band.
+// Hue is now reserved for direction of change (see TREND_COLORS).
+export const SCORE_FILL = 'bg-emerald-500'; // #10b981
+export const SCORE_TRACK = 'bg-gray-100'; // #f3f4f6
+
+// Hue means one thing only: which way a number moved.
+export const TREND_COLORS = {
+  up: { text: 'text-emerald-600', hex: '#059669' }, // rank improved
+  down: { text: 'text-red-600', hex: '#dc2626' }, // rank regressed
+  flat: { text: 'text-gray-400', hex: '#9ca3af' },
 } as const;
 
 export const NAV_ITEMS = [
-  { label: 'Home', href: '/dashboard', icon: 'Home' },
+  { label: 'My merchant', href: '/dashboard', icon: 'Gauge' },
   { label: 'Leaderboard', href: '/dashboard/leaderboard', icon: 'Trophy' },
   { label: 'Categories', href: '/dashboard/categories', icon: 'Grid3x3' },
   { label: 'Search', href: '/dashboard/search', icon: 'Search' },

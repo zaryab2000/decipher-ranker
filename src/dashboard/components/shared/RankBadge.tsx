@@ -1,14 +1,9 @@
+// Medal colours (gold/silver/bronze) are gone: they fight the emerald palette
+// and encode nothing a merchant can act on. The top three keep emphasis, but
+// through weight and the accent tint rather than three separate hues.
 function getRankStyle(rank: number): string {
-  switch (rank) {
-    case 1:
-      return "bg-amber-500/20 text-amber-400";
-    case 2:
-      return "bg-gray-300/20 text-gray-300";
-    case 3:
-      return "bg-orange-500/20 text-orange-400";
-    default:
-      return "bg-gray-800 text-gray-400";
-  }
+  if (rank <= 3) return "bg-emerald-50 text-emerald-700 font-bold";
+  return "bg-gray-100 text-gray-600";
 }
 
 export function RankBadge({
@@ -22,7 +17,7 @@ export function RankBadge({
 }) {
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold min-w-[2rem] ${muted ? "bg-gray-800/50 text-gray-600" : getRankStyle(rank)} ${className ?? ""}`}
+      className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold tabular-nums min-w-[2rem] ${muted ? "bg-gray-100 text-gray-600" : getRankStyle(rank)} ${className ?? ""}`}
     >
       #{rank}
     </span>

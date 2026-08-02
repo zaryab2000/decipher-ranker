@@ -13,7 +13,7 @@ export function Skeleton({
 }) {
   return (
     <div
-      className={`bg-gray-800 rounded animate-pulse ${variants[variant]} ${className ?? ""}`}
+      className={`bg-gray-200 rounded animate-pulse ${variants[variant]} ${className ?? ""}`}
     />
   );
 }

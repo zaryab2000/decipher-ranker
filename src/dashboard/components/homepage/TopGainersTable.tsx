@@ -3,18 +3,18 @@ import { Table, TableRow, TableCell } from "@/dashboard/components/shared/Table"
 import { Badge } from "@/dashboard/components/shared/Badge";
 import { RankBadge } from "@/dashboard/components/shared/RankBadge";
 import { ScoreBar } from "@/dashboard/components/shared/ScoreBar";
-import { truncate, displayName } from "@/dashboard/lib/formatters";
+import { truncate, displayName, toDisplayScore } from "@/dashboard/lib/formatters";
 import type { MerchantListItem } from "@/dashboard/types";
 
 const CATEGORY_COLORS = [
-  "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
-  "bg-blue-500/15 text-blue-400 border-blue-500/20",
-  "bg-purple-500/15 text-purple-400 border-purple-500/20",
-  "bg-amber-500/15 text-amber-400 border-amber-500/20",
-  "bg-rose-500/15 text-rose-400 border-rose-500/20",
-  "bg-cyan-500/15 text-cyan-400 border-cyan-500/20",
-  "bg-violet-500/15 text-violet-400 border-violet-500/20",
-  "bg-pink-500/15 text-pink-400 border-pink-500/20",
+  "bg-emerald-50 text-emerald-700 border-emerald-200",
+  "bg-blue-50 text-blue-700 border-blue-200",
+  "bg-purple-50 text-purple-700 border-purple-200",
+  "bg-amber-50 text-amber-700 border-amber-200",
+  "bg-rose-50 text-rose-700 border-rose-200",
+  "bg-cyan-50 text-cyan-700 border-cyan-200",
+  "bg-violet-50 text-violet-700 border-violet-200",
+  "bg-pink-50 text-pink-700 border-pink-200",
 ];
 
 function categoryColor(name: string): string {
@@ -28,7 +28,7 @@ function categoryColor(name: string): string {
 export function TopGainersTable({ merchants }: { merchants: MerchantListItem[] }) {
   return (
     <div>
-      <h2 className="text-lg font-semibold text-gray-50 mb-3">Top Merchants</h2>
+      <h2 className="text-sm font-semibold text-gray-900 mb-3">Top Merchants</h2>
       {merchants.length === 0 ? (
         <p className="text-gray-500 text-sm py-8 text-center">No merchant data available</p>
       ) : (
@@ -49,7 +49,7 @@ export function TopGainersTable({ merchants }: { merchants: MerchantListItem[] }
                 <TableCell>
                   <Link
                     href={`/dashboard/merchant/${encodeURIComponent(merchant.origin)}`}
-                    className="text-gray-50 hover:text-emerald-400 transition-colors"
+                    className="text-gray-900 hover:text-emerald-700 transition-colors"
                   >
                     {truncate(displayName(merchant), 30)}
                   </Link>
@@ -63,11 +63,11 @@ export function TopGainersTable({ merchants }: { merchants: MerchantListItem[] }
                   {merchant.category ? (
                     <Badge className={categoryColor(merchant.category)}>{merchant.category}</Badge>
                   ) : (
-                    <Badge className="bg-gray-800/50 text-gray-500 border-gray-700/50">Uncategorized</Badge>
+                    <Badge className="bg-gray-100 text-gray-500 border-gray-200">Uncategorized</Badge>
                   )}
                 </TableCell>
                 <TableCell className="w-48">
-                  <ScoreBar score={merchant.rankerScore * 100} showLabel />
+                  <ScoreBar score={toDisplayScore(merchant.rankerScore)} showLabel />
                 </TableCell>
               </TableRow>
             ))}
@@ -75,7 +75,7 @@ export function TopGainersTable({ merchants }: { merchants: MerchantListItem[] }
           <div className="mt-3 text-right">
             <Link
               href="/dashboard/leaderboard"
-              className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors"
+              className="text-sm text-emerald-600 hover:text-emerald-700 transition-colors"
             >
               View Full Leaderboard &rarr;
             </Link>

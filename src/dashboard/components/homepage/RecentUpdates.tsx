@@ -7,7 +7,7 @@ import type { MerchantListItem } from "@/dashboard/types";
 export function RecentUpdates({ merchants }: { merchants: MerchantListItem[] }) {
   return (
     <div>
-      <h2 className="text-lg font-semibold text-gray-50 mb-3">Recent Updates</h2>
+      <h2 className="text-sm font-semibold text-gray-900 mb-3">Recent Updates</h2>
       <Card>
         {merchants.length === 0 ? (
           <p className="text-gray-500 text-sm py-4 text-center">No recent updates</p>
@@ -17,9 +17,9 @@ export function RecentUpdates({ merchants }: { merchants: MerchantListItem[] }) 
               <Link
                 key={merchant.payeeAddress}
                 href={`/dashboard/merchant/${encodeURIComponent(merchant.origin)}`}
-                className="block py-3 first:pt-0 last:pb-0 hover:bg-gray-800/30 rounded transition-colors -mx-2 px-2"
+                className="block py-3 first:pt-0 last:pb-0 hover:bg-gray-50 rounded transition-colors -mx-2 px-2"
               >
-                <p className="text-sm text-gray-50 font-medium truncate">
+                <p className="text-sm text-gray-900 font-medium truncate">
                   {displayName(merchant)}
                 </p>
                 <div className="flex items-center gap-2 mt-1">

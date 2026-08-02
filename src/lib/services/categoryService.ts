@@ -37,6 +37,10 @@ export async function getAllCategories() {
             score: Number(topMerchant.rankerScore ?? 0),
           }
         : null,
+      // Still 0 here on purpose. This is the public /api/categories payload;
+      // populating it would change API responses, which is out of scope for the
+      // dashboard work. The dashboard computes real growth in
+      // dashboard/lib/api.ts via computeCategoryGrowth(getCategoryTrends()).
       growthIndicator: 0,
     });
   }
@@ -104,6 +108,7 @@ export async function getCategoryBySlug(slug: string) {
     topMerchant: merchantItems[0]
       ? { address: merchantItems[0].payeeAddress, score: merchantItems[0].rankerScore }
       : null,
+    // See the note above — public API payload, deliberately left at 0.
     growthIndicator: 0,
     merchants: merchantItems,
     totalVolume30d: Number(volumeResult?.total ?? 0),

@@ -22,6 +22,16 @@ function buildHref(
   return query ? `${basePath}?${query}` : basePath;
 }
 
+const PAGE_LINK =
+  "px-3 py-1.5 text-sm rounded-md border transition-colors focus-visible:outline-none " +
+  "focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2";
+
+const PAGE_LINK_DEFAULT =
+  `${PAGE_LINK} bg-white border-gray-300 text-gray-600 hover:bg-gray-50 hover:text-gray-900`;
+
+const PAGE_LINK_ACTIVE =
+  `${PAGE_LINK} bg-emerald-50 border-emerald-200 text-emerald-700 font-semibold`;
+
 export function Pagination({
   page,
   totalPages,
@@ -43,7 +53,7 @@ export function Pagination({
       {page > 1 && (
         <Link
           href={buildHref(basePath, page - 1, searchParams)}
-          className="px-3 py-1.5 text-sm rounded-md bg-gray-900 border border-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-colors"
+          className={PAGE_LINK_DEFAULT}
         >
           Previous
         </Link>
@@ -53,12 +63,12 @@ export function Pagination({
         <>
           <Link
             href={buildHref(basePath, 1, searchParams)}
-            className="px-3 py-1.5 text-sm rounded-md bg-gray-900 border border-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-colors"
+            className={PAGE_LINK_DEFAULT}
           >
             1
           </Link>
           {start > 2 && (
-            <span className="px-1 text-gray-500">...</span>
+            <span className="px-1 text-gray-400">...</span>
           )}
         </>
       )}
@@ -67,11 +77,8 @@ export function Pagination({
         <Link
           key={p}
           href={buildHref(basePath, p, searchParams)}
-          className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
-            p === page
-              ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400 font-medium"
-              : "bg-gray-900 border-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-800"
-          }`}
+          className={p === page ? PAGE_LINK_ACTIVE : PAGE_LINK_DEFAULT}
+          aria-current={p === page ? "page" : undefined}
         >
           {p}
         </Link>
@@ -80,11 +87,11 @@ export function Pagination({
       {end < totalPages && (
         <>
           {end < totalPages - 1 && (
-            <span className="px-1 text-gray-500">...</span>
+            <span className="px-1 text-gray-400">...</span>
           )}
           <Link
             href={buildHref(basePath, totalPages, searchParams)}
-            className="px-3 py-1.5 text-sm rounded-md bg-gray-900 border border-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-colors"
+            className={PAGE_LINK_DEFAULT}
           >
             {totalPages}
           </Link>
@@ -94,7 +101,7 @@ export function Pagination({
       {page < totalPages && (
         <Link
           href={buildHref(basePath, page + 1, searchParams)}
-          className="px-3 py-1.5 text-sm rounded-md bg-gray-900 border border-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-colors"
+          className={PAGE_LINK_DEFAULT}
         >
           Next
         </Link>

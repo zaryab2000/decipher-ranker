@@ -6,6 +6,7 @@ import {
   computeListingCompleteness,
   generateTips,
 } from "@/lib/analytics/ranker";
+import { scoreToGrade } from "@/lib/analytics/grade";
 import { withRateLimit } from "@/lib/rate-limit";
 
 const PreviewQuerySchema = z.object({
@@ -116,17 +117,6 @@ function resolveMerchantName(
   return names[0] ?? null;
 }
 
-function scoreToGrade(score: number): string {
-  if (score >= 90) return "A+";
-  if (score >= 80) return "A";
-  if (score >= 70) return "B+";
-  if (score >= 60) return "B";
-  if (score >= 50) return "C+";
-  if (score >= 40) return "C";
-  if (score >= 30) return "D";
-  return "F";
-}
-
 const handler = router
   .route({ path: "preview", method: "GET" })
   .unprotected()
@@ -178,6 +168,10 @@ const handler = router
 
     const { merchant, resources: merchantResources, category } = data;
 
+    // Same conversion as the dashboard's toDisplayScore(), deliberately inlined:
+    // importing @/dashboard/lib/formatters here would be the only API-layer
+    // dependency on the dashboard layer. If a third consumer appears, promote
+    // this to src/lib/ rather than crossing that boundary.
     const score = Math.round(Number(merchant.rankerScore ?? 0) * 100);
 
     const descriptionQuality = computeDescriptionQuality(merchantResources, category);
