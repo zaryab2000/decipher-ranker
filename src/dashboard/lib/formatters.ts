@@ -1,5 +1,5 @@
-import { SCORE_COMPONENTS } from '@/dashboard/lib/constants';
-import type { ScoreBreakdown } from '@/dashboard/types';
+import { GROWTH_FLAT_THRESHOLD, OTHER_SLUG, SCORE_COMPONENTS } from '@/dashboard/lib/constants';
+import type { CategoryItem, ScoreBreakdown } from '@/dashboard/types';
 
 export function formatNumber(value: number): string {
   if (value >= 1_000_000_000) {
@@ -167,4 +167,128 @@ export function displayName(merchantOrUrl: { serviceName: string | null; origin:
 export function formatAddress(address: string): string {
   if (address.length <= 10) return address;
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+export interface CategorySplit {
+  /** Sorted by merchantCount desc, `Other` removed. */
+  classified: CategoryItem[];
+  /** The `Other` row, or null when the catalog has none. */
+  other: CategoryItem | null;
+  /**
+   * Across ALL categories, including `Other`. Used only by the unclassified
+   * strip, whose "53% of the catalog" is a claim about the whole catalog.
+   */
+  totalMerchants: number;
+  /**
+   * Across classified categories only, excluding `Other`. The single
+   * denominator for everything in the table: the header percentage AND every
+   * Share cell. Sharing it is what makes the first three Share values sum to
+   * the header figure with no conversion.
+   */
+  classifiedMerchants: number;
+  /** Bar-scale denominator. Always >= 1 so bar widths can never be NaN. */
+  maxClassifiedCount: number;
+  /**
+   * 0..100, share of CLASSIFIED merchants held by the three largest
+   * classified categories.
+   *
+   * `Other` is excluded from both the numerator and the denominator. It was
+   * previously in the numerator, which made the header claim "three categories
+   * hold 88%" while the table beneath it numbered only classified rows — the
+   * 88% silently counted a fourth bucket that D1 lifts out of the ranking. A
+   * reader summing the first three Share cells got 37.8% and could not
+   * reconcile it.
+   */
+  topThreeClassifiedShare: number;
+}
+
+/**
+ * Splits the category list for the proportional-list layout.
+ *
+ * `Other` is lifted out of the ranking so it cannot dominate the bar scale: at
+ * ~53% of the catalog it would push every real category under half the track
+ * and turn the page into a chart about `Other`. It is rendered separately by
+ * UnclassifiedStrip, never hidden.
+ *
+ * `classifiedMerchants` is the one denominator for everything in the table —
+ * the header percentage and every Share cell — so the two cannot drift apart.
+ * `totalMerchants` is returned for the unclassified strip alone, which speaks
+ * about the whole catalog rather than the ranking.
+ */
+export function splitCategories(categories: CategoryItem[]): CategorySplit {
+  const total = categories.reduce((sum, c) => sum + c.merchantCount, 0);
+
+  // The secondary sort on name is REQUIRED, not cosmetic. The SQL orders only
+  // by `merchant_count DESC` with no tiebreak, so Postgres may return
+  // equal-count categories in a different order on any given run — live data
+  // has three ties (15/15, 9/9, 6/6). Without this, rank numbers shuffle
+  // between requests and the ISR cache bakes in whichever order it saw first.
+  const bySize = [...categories].sort(
+    (a, b) => b.merchantCount - a.merchantCount || a.name.localeCompare(b.name),
+  );
+
+  const other = categories.find((c) => c.slug === OTHER_SLUG) ?? null;
+  const classified = bySize.filter((c) => c.slug !== OTHER_SLUG);
+
+  // Numerator and denominator both come from `classified`, so the headline can
+  // only ever describe rows the table renders. Taken from `bySize` (which
+  // includes Other) these two would disagree with the visible ranking.
+  const classifiedTotal = classified.reduce((sum, c) => sum + c.merchantCount, 0);
+  const topThreeClassified = classified
+    .slice(0, 3)
+    .reduce((sum, c) => sum + c.merchantCount, 0);
+
+  return {
+    classified,
+    other,
+    totalMerchants: total,
+    classifiedMerchants: classifiedTotal,
+    maxClassifiedCount: Math.max(classified[0]?.merchantCount ?? 0, 1),
+    topThreeClassifiedShare:
+      classifiedTotal > 0 ? (topThreeClassified / classifiedTotal) * 100 : 0,
+  };
+}
+
+/**
+ * Widest snapshot window any category actually has, in days.
+ *
+ * The growth column is labelled with this rather than the 30 days requested
+ * from getCategoryTrends(): `trends` only began accumulating on 2026-07-20, so
+ * asking for 30 and printing "30d" would overstate the sample. Returns 0 when
+ * nothing is known, which is the signal to omit the column entirely.
+ */
+export function growthWindowDays(categories: CategoryItem[]): number {
+  let max = 0;
+  for (const c of categories) {
+    if (c.growth?.known && c.growth.daysCovered > max) max = c.growth.daysCovered;
+  }
+  return max;
+}
+
+/**
+ * The category that grew fastest, for the header sentence — or null when there
+ * is nothing honest to announce.
+ *
+ * `Other` is excluded: D1 lifts it out of the ranking everywhere else on this
+ * page, and "Other grew fastest" is a statement about the categorizer failing
+ * rather than about the ecosystem. A flat or shrinking leader is suppressed
+ * too — a "fastest riser" that did not rise is not a fact worth printing.
+ */
+export function fastestRiser(categories: CategoryItem[]): CategoryItem | null {
+  let best: CategoryItem | null = null;
+  for (const c of categories) {
+    if (c.slug === OTHER_SLUG) continue;
+    if (!c.growth?.known || c.growth.growthPct < GROWTH_FLAT_THRESHOLD) continue;
+
+    if (
+      best === null ||
+      c.growth.growthPct > best.growth!.growthPct ||
+      // Ties break alphabetically, matching splitCategories.
+      (c.growth.growthPct === best.growth!.growthPct &&
+        c.name.localeCompare(best.name) < 0)
+    ) {
+      best = c;
+    }
+  }
+  return best;
 }

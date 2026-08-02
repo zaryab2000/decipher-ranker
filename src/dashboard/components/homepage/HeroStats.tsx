@@ -11,7 +11,7 @@ export function HeroStats({ stats }: { stats: EcosystemStats }) {
     { label: "Merchants", value: formatNumber(stats.totalMerchants), icon: <Users className="w-5 h-5" /> },
     { label: "Categories", value: formatNumber(stats.totalCategories), icon: <Grid3x3 className="w-5 h-5" /> },
     { label: "Resources", value: formatNumber(stats.totalResources), icon: <Globe className="w-5 h-5" /> },
-    { label: "Calls · 30d", value: formatNumber(stats.totalTransactions), icon: <ArrowUpDown className="w-5 h-5" /> },
+    { label: "Calls 30d", value: formatNumber(stats.totalTransactions), icon: <ArrowUpDown className="w-5 h-5" /> },
   ];
 
   return (

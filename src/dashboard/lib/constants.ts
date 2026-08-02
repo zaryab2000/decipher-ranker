@@ -1,3 +1,30 @@
+// The catch-all bucket is defined once, in the taxonomy that the categorizer
+// itself uses (OTHER.slug === "other"). Import it rather than re-declaring the
+// literal so a taxonomy change cannot silently desync the categories page.
+//
+// Safe in a client bundle: taxonomy.ts has zero imports — pure constant data,
+// no Drizzle, no DB. constants.ts is consumed by client components
+// (CategoryTable is "use client"), so that matters. Header.tsx already imports
+// TAXONOMY from the same file.
+import { OTHER } from '@/lib/analytics/taxonomy';
+
+/**
+ * Slug of the catch-all category. Match on SLUG, never on `name` — `name` is a
+ * human-editable column, and renaming "Other" would silently drop 700+
+ * merchants back into the ranked list.
+ */
+export const OTHER_SLUG = OTHER.slug;
+
+/** Classified categories visible on /dashboard/categories before expanding. */
+export const CATEGORIES_VISIBLE = 5;
+
+/**
+ * Below this, growth rounds to "0.0" at one decimal place and is rendered as
+ * flat. Without the floor a 0.04% change draws an arrow claiming a direction
+ * the number beside it denies.
+ */
+export const GROWTH_FLAT_THRESHOLD = 0.05;
+
 // Mirrors RANKER_WEIGHTS in src/lib/analytics/ranker.ts exactly — these are the
 // weights the product actually scores with. Ordered by descending weight so the
 // biggest lever reads first; reliability is last because it is a constant

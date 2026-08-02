@@ -12,6 +12,8 @@ import { ComponentBreakdown } from "@/dashboard/components/cockpit/ComponentBrea
 import { FixList } from "@/dashboard/components/cockpit/FixList";
 import { RankHistoryChart } from "@/dashboard/components/cockpit/RankHistoryChart";
 import { CompetitorTable } from "@/dashboard/components/cockpit/CompetitorTable";
+import { TopByCategory } from "@/dashboard/components/cockpit/TopByCategory";
+import { HeroStats } from "@/dashboard/components/homepage/HeroStats";
 import { MetricCard } from "@/dashboard/components/merchant/MetricCard";
 import {
   biggestLever,
@@ -19,7 +21,7 @@ import {
   isMeaningfulCategory,
   toDisplayScore,
 } from "@/dashboard/lib/formatters";
-import type { MerchantProfile, RankHistoryPoint } from "@/dashboard/types";
+import type { EcosystemStats, MerchantProfile, RankHistoryPoint } from "@/dashboard/types";
 
 // No `revalidate` here: reading searchParams makes this route dynamic, so an
 // ISR directive would be dead. Caching still happens underneath — every query
@@ -49,12 +51,38 @@ export default async function DashboardPage({
   return <Cockpit merchant={merchant} />;
 }
 
-function ClaimPanel({ notFoundOrigin }: { notFoundOrigin: string | null }) {
+async function ClaimPanel({ notFoundOrigin }: { notFoundOrigin: string | null }) {
+  // Both are already cached; neither adds a query on the hot path.
+  const [stats, categories] = await Promise.all([
+    getEcosystemStats(),
+    getAllCategories(),
+  ]);
+
   return (
-    // Centred in the available height: the claim form is the only thing on the
-    // page, so it should sit where the eye lands rather than at the top of an
-    // otherwise empty viewport. 3.5rem is the header; py-8 is the main padding.
-    <div className="max-w-lg mx-auto flex flex-col justify-center min-h-[calc(100vh-3.5rem-4rem)]">
+    <div className="max-w-5xl mx-auto pb-8">
+      <ClaimBlock notFoundOrigin={notFoundOrigin} stats={stats} />
+
+      <div className="mt-10">
+        <HeroStats stats={stats} />
+      </div>
+
+      <TopByCategory categories={categories} />
+    </div>
+  );
+}
+
+function ClaimBlock({
+  notFoundOrigin,
+  stats,
+}: {
+  notFoundOrigin: string | null;
+  stats: EcosystemStats;
+}) {
+  return (
+    // Left-aligned rather than centred: the category columns below are
+    // full-width, so centring this block over them left the two halves of the
+    // page visibly out of line. max-w-xl keeps the measure readable.
+    <div className="max-w-xl pt-10 sm:pt-14">
       {notFoundOrigin && (
         <div className="mb-6 rounded-lg border border-gray-200 border-l-4 border-l-amber-400 bg-white p-4 text-sm text-gray-600">
           <AlertCircle className="inline w-4 h-4 text-amber-500 mr-1.5 -mt-0.5" />
@@ -71,7 +99,15 @@ function ClaimPanel({ notFoundOrigin }: { notFoundOrigin: string | null }) {
         </div>
       )}
 
-      <h1 className="text-2xl font-bold tracking-tight text-gray-900">Find your merchant</h1>
+      {/* Live figures rather than static copy — the same "state the fact"
+          move the identity band makes, applied before anyone has claimed. */}
+      <p className="text-xs uppercase tracking-wide text-emerald-600 font-medium">
+        {stats.totalMerchants.toLocaleString()} merchants · {stats.totalCategories} categories
+      </p>
+
+      <h1 className="mt-1 text-2xl font-bold tracking-tight text-gray-900">
+        Find your merchant
+      </h1>
       <p className="mt-2 text-base text-gray-600">
         Enter the domain you serve x402 requests from. We&apos;ll show your rank, your score
         breakdown, and what&apos;s holding you back.
@@ -85,7 +121,7 @@ function ClaimPanel({ notFoundOrigin }: { notFoundOrigin: string | null }) {
         <RememberedMerchant />
       </div>
 
-      <div className="my-6 text-xs uppercase tracking-wide text-gray-400 text-center">or</div>
+      <div className="my-6 text-xs uppercase tracking-wide text-gray-400">or</div>
 
       <Link
         href="/dashboard/leaderboard"

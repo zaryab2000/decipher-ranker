@@ -1,3 +1,7 @@
+// Re-exported so dashboard components never import from src/lib/services.
+export type { CategoryGrowth } from "@/lib/services/trendService";
+import type { CategoryGrowth } from "@/lib/services/trendService";
+
 export interface MerchantListItem {
   payeeAddress: string;
   origin: string;
@@ -77,6 +81,22 @@ export interface CategoryItem {
   medianPriceUsd: number | null;
   avgScore: number | null;
   topMerchant: { address: string; score: number; serviceName?: string | null; resourceUrl?: string | null } | null;
+  /**
+   * Up to three highest-scoring merchants in the category, best first.
+   * Scores are stored 0..1 — run them through toDisplayScore() to render.
+   * Optional because the public /api/categories payload does not include it.
+   */
+  topMerchants?: { address: string; score: number; serviceName?: string | null; resourceUrl?: string | null }[];
+  /**
+   * Growth over the available snapshot window, or null when the category has
+   * no trend rows at all. Do NOT flatten this to a number: `known: false`
+   * (no data) and `growthPct: 0` (genuinely flat) must render differently,
+   * and `daysCovered` is what the column header and the fastest-riser
+   * sentence are labelled with.
+   */
+  growth: CategoryGrowth | null;
+
+  /** @deprecated Kept for the public /api/categories payload shape only. */
   growthIndicator: number;
 }
 

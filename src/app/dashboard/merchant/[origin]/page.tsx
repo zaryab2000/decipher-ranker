@@ -9,7 +9,12 @@ import { ComponentBreakdown } from "@/dashboard/components/cockpit/ComponentBrea
 import { CompetitorList } from "@/dashboard/components/merchant/CompetitorList";
 import { Badge } from "@/dashboard/components/shared/Badge";
 import { Card } from "@/dashboard/components/shared/Card";
-import { formatNumber, formatPrice, toDisplayScore } from "@/dashboard/lib/formatters";
+import {
+  formatNumber,
+  formatPrice,
+  isMeaningfulCategory,
+  toDisplayScore,
+} from "@/dashboard/lib/formatters";
 
 // Data changes at most once/day via the refresh pipeline; regenerate hourly
 // instead of per-request to keep Neon egress off the hot path.
@@ -27,7 +32,7 @@ export async function generateMetadata(
   const name = merchant.serviceName ?? merchant.payeeAddress;
   return {
     title: name,
-    description: `Score: ${toDisplayScore(merchant.rankerScore)}. Volume: ${merchant.txCount30d} tx${merchant.uniqueBuyers != null ? `, ${merchant.uniqueBuyers} buyers` : ""}.`.replace(/\s+/g, " ").trim(),
+    description: `Score: ${toDisplayScore(merchant.rankerScore)}. Volume: ${merchant.txCount30d} tx, ${merchant.buyers30d} buyers.`.replace(/\s+/g, " ").trim(),
     openGraph: {
       title: name,
       description: `x402 merchant profile and competitive analysis.`,
@@ -62,7 +67,11 @@ export default async function MerchantProfilePage({
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
-          label={merchant.category ? "Category rank" : "Overall rank"}
+          // isMeaningfulCategory, NOT a truthiness check on `category`. For a
+          // merchant in "Other" the string is truthy, so `category ? …` labelled
+          // this "Category rank" while the cockpit — which uses the helper —
+          // said "Overall rank" for the same merchant. Same fact, two framings.
+          label={isMeaningfulCategory(merchant.category) ? "Category rank" : "Overall rank"}
           value={merchant.rankPosition != null ? `#${merchant.rankPosition}` : "—"}
           icon={<Trophy className="w-5 h-5" />}
         />
@@ -77,8 +86,13 @@ export default async function MerchantProfilePage({
           icon={<BarChart3 className="w-5 h-5" />}
         />
         <MetricCard
+          // buyers30d, NOT uniqueBuyers. `merchants.unique_buyers` is
+          // vestigial — catalog-sync.ts:119 writes buyers_30d and never
+          // touches unique_buyers, so it sits at its default of 0 forever.
+          // Reading it under a "· 30d" label showed 0 here while the cockpit,
+          // which reads buyers30d, showed 90 for the same merchant.
           label="Unique buyers · 30d"
-          value={merchant.uniqueBuyers != null ? formatNumber(merchant.uniqueBuyers) : "—"}
+          value={formatNumber(merchant.buyers30d)}
           icon={<Users className="w-5 h-5" />}
         />
       </div>

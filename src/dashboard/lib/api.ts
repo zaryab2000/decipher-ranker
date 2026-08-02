@@ -2,6 +2,7 @@ import { getDb } from "@/lib/db";
 import { cached } from "@/lib/cache";
 import { computeScoreBreakdown } from "@/lib/analytics/ranker";
 import { scoreToGrade } from "@/lib/analytics/grade";
+import { computeCategoryGrowth, getCategoryTrends } from "@/lib/services/trendService";
 import { toDisplayScore } from "@/dashboard/lib/formatters";
 import { merchants, resources, categories, categoryCache, trends } from "@/lib/db/schema";
 import { desc, asc, eq, sql, ilike, or, and, count, sum, inArray, gte } from "drizzle-orm";
@@ -301,17 +302,23 @@ async function fetchAllCategories(): Promise<CategoryItem[]> {
     if (a.categoryId) avgByCategory.set(a.categoryId, a.avg);
   }
 
-  const topByCategory = new Map<string, { address: string; score: number; merchantId: string }>();
+  // Keep the top 3 per category, not just the winner: the cockpit's empty state
+  // lists three merchants per category and the window function already ranked
+  // them, so widening this costs no extra query.
+  const TOP_PER_CATEGORY = 3;
+  const topByCategory = new Map<
+    string,
+    { address: string; score: number; merchantId: string }[]
+  >();
   for (const t of topRows) {
-    if (!t.categoryId || Number(t.rn) !== 1) continue;
-    topByCategory.set(t.categoryId, {
-      address: t.address,
-      score: Number(t.score ?? 0),
-      merchantId: t.merchantId,
-    });
+    if (!t.categoryId || Number(t.rn) > TOP_PER_CATEGORY) continue;
+    const list = topByCategory.get(t.categoryId) ?? [];
+    list.push({ address: t.address, score: Number(t.score ?? 0), merchantId: t.merchantId });
+    topByCategory.set(t.categoryId, list);
   }
 
   const topMerchantIds = [...topByCategory.values()]
+    .flat()
     .map((t) => t.merchantId)
     .filter((id): id is string => !!id);
   const resourceRows = topMerchantIds.length > 0
@@ -332,10 +339,17 @@ async function fetchAllCategories(): Promise<CategoryItem[]> {
     ]),
   );
 
+  // Percentage change in merchant count over the available snapshot window.
+  // Categories with fewer than two snapshots report 0 via `known: false`; see
+  // getCategoryTrends() for why "no change" and "no data" must stay distinct.
+  const growthByCategory = computeCategoryGrowth(await getCategoryTrends(30));
+
   // `slug` is a curated, unique DB column (the taxonomy), so one row per card —
   // no dedup/merge needed.
   return rows.map((cat) => {
-    const tm = topByCategory.get(cat.id);
+    const tms = topByCategory.get(cat.id) ?? [];
+    const tm = tms[0];
+    const growth = growthByCategory.get(cat.id);
     return {
       name: cat.name,
       slug: cat.slug,
@@ -350,7 +364,17 @@ async function fetchAllCategories(): Promise<CategoryItem[]> {
             resourceUrl: topResources.get(tm.merchantId)?.resourceUrl ?? null,
           }
         : null,
-      growthIndicator: 0,
+      topMerchants: tms.map((m) => ({
+        address: m.address,
+        score: m.score,
+        serviceName: topResources.get(m.merchantId)?.serviceName ?? null,
+        resourceUrl: topResources.get(m.merchantId)?.resourceUrl ?? null,
+      })),
+      // The full record: `known` and `daysCovered` are what the column header
+      // and the fastest-riser sentence read. Flattening to a number here would
+      // make "no data" and "genuinely flat" indistinguishable downstream.
+      growth: growth ?? null,
+      growthIndicator: growth?.known ? growth.growthPct : 0,
     };
   });
 }
@@ -440,6 +464,9 @@ async function fetchCategoryBySlug(
           serviceName: merchants_list[0].serviceName,
         }
       : null,
+    // The detail page does not render growth (spec §13, out of scope), so this
+    // is genuinely unknown rather than flat. Null, not a zeroed record.
+    growth: null,
     growthIndicator: 0,
     merchants: merchants_list,
     totalVolume30d,
