@@ -72,8 +72,6 @@ export default async function LeaderboardPage({ searchParams }: Props) {
         total={total}
         page={page}
         perPage={DEFAULT_PAGE_SIZE}
-        sortBy={sortBy}
-        sortOrder={sortOrder}
       />
       <Pagination
         page={page}

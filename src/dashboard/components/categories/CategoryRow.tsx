@@ -47,7 +47,7 @@ export function CategoryRow({
 
   return (
     <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-      <td className="py-2.5 px-2 w-8 text-xs font-bold text-gray-400 tabular-nums">
+      <td className="py-2.5 px-2 w-8 text-xs font-bold text-gray-500 tabular-nums">
         {rank}
       </td>
 
@@ -80,7 +80,7 @@ export function CategoryRow({
         {category.merchantCount.toLocaleString()}
       </td>
 
-      <td className="py-2.5 px-2 text-xs text-gray-400 tabular-nums text-right hidden sm:table-cell">
+      <td className="py-2.5 px-2 text-xs text-gray-500 tabular-nums text-right hidden sm:table-cell">
         {share.toFixed(1)}%
       </td>
 

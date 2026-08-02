@@ -95,7 +95,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
             type="text"
             placeholder="Search..."
             aria-label="Search merchants"
-            className="w-36 sm:w-48 md:w-64 pl-9 pr-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 hover:border-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-colors"
+            className="w-36 sm:w-48 md:w-64 pl-9 pr-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-500 hover:border-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-colors"
           />
         </div>
       </form>

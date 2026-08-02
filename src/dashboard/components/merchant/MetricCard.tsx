@@ -20,8 +20,12 @@ export function MetricCard({
 }) {
   return (
     <Card>
-      <div className="flex items-center gap-2 text-gray-400 mb-2">
-        {icon}
+      <div className="flex items-center gap-2 text-gray-500 mb-2">
+        {/* Decorative: the label beside it already names the metric, so an
+            announced SVG would only duplicate it. */}
+        <span aria-hidden="true" className="flex-shrink-0">
+          {icon}
+        </span>
         <span className="text-xs uppercase tracking-wide">{label}</span>
       </div>
       <p className={`text-2xl font-bold tabular-nums ${valueClassName ?? "text-gray-900"}`}>

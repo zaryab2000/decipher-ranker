@@ -7,7 +7,7 @@ import type { MerchantListItem } from "@/dashboard/types";
 export function RecentUpdates({ merchants }: { merchants: MerchantListItem[] }) {
   return (
     <div>
-      <h2 className="text-lg font-semibold text-gray-900 mb-3">Recent Updates</h2>
+      <h2 className="text-sm font-semibold text-gray-900 mb-3">Recent Updates</h2>
       <Card>
         {merchants.length === 0 ? (
           <p className="text-gray-500 text-sm py-4 text-center">No recent updates</p>

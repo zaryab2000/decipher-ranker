@@ -58,7 +58,7 @@ export default async function MerchantProfilePage({
   const priorityVariant = {
     high: "bg-amber-50 text-amber-700",
     medium: "bg-gray-100 text-gray-600",
-    low: "bg-gray-100 text-gray-400",
+    low: "bg-gray-100 text-gray-600",
   } as const;
 
   return (
@@ -109,7 +109,9 @@ export default async function MerchantProfilePage({
 
       {merchant.improvements.length > 0 && (
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">What to fix</h2>
+          {/* text-sm matches every other section heading in the dashboard —
+              two type treatments for one semantic level read as two levels. */}
+          <h2 className="text-sm font-semibold text-gray-900 mb-3">What to fix</h2>
           <Card>
             <ul className="space-y-3">
               {merchant.improvements.map((item, i) => (

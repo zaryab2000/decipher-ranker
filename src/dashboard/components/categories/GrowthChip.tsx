@@ -1,7 +1,7 @@
 import { GROWTH_FLAT_THRESHOLD } from "@/dashboard/lib/constants";
 import type { CategoryGrowth } from "@/dashboard/types";
 
-const MUTED = "text-gray-400 text-xs";
+const MUTED = "text-gray-500 text-xs";
 
 /**
  * Change in merchant count over the available snapshot window.

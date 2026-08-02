@@ -25,7 +25,7 @@ export function TopByCategory({ categories }: { categories: CategoryItem[] }) {
   return (
     <section className="mt-8">
       <h2 className="text-sm font-semibold text-gray-900">Who&apos;s leading right now</h2>
-      <p className="text-xs text-gray-400 mt-0.5">
+      <p className="text-xs text-gray-500 mt-0.5">
         Top-scoring merchants in the three largest categories.
       </p>
 
@@ -42,7 +42,7 @@ export function TopByCategory({ categories }: { categories: CategoryItem[] }) {
               >
                 {category.name}
               </Link>
-              <span className="text-xs text-gray-400 tabular-nums shrink-0">
+              <span className="text-xs text-gray-500 tabular-nums shrink-0">
                 {category.merchantCount.toLocaleString()}
               </span>
             </div>
@@ -57,7 +57,7 @@ export function TopByCategory({ categories }: { categories: CategoryItem[] }) {
 
                 return (
                   <li key={merchant.address} className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-gray-400 tabular-nums w-3 shrink-0">
+                    <span className="text-xs font-bold text-gray-500 tabular-nums w-3 shrink-0">
                       {i + 1}
                     </span>
                     {merchant.resourceUrl ? (

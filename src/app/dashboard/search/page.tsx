@@ -29,7 +29,7 @@ export default async function SearchPage({
           <p className="text-sm text-gray-600">
             Search by merchant name, origin URL, or wallet address, then press Enter.
           </p>
-          <p className="text-xs text-gray-400 mt-2">
+          <p className="text-xs text-gray-500 mt-2">
             Try &quot;bitrefill&quot;, &quot;base&quot;, or &quot;0x…&quot;
           </p>
         </div>

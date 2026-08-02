@@ -109,7 +109,7 @@ export function RankHistoryChart({
         </div>
       </div>
       {ranked.length < 7 && (
-        <p className="text-xs text-gray-400 mt-1">{ranked.length} days of history so far.</p>
+        <p className="text-xs text-gray-500 mt-1">{ranked.length} days of history so far.</p>
       )}
     </Frame>
   );

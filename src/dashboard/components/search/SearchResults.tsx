@@ -43,8 +43,11 @@ export function SearchResults({ results, query, total }: SearchResultsProps) {
           <Link
             key={merchant.payeeAddress}
             href={`/dashboard/merchant/${encodeURIComponent(merchant.origin)}`}
+            className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
           >
-            <Card className="hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 transition-all cursor-pointer">
+            {/* Shadow raised from /5, which was invisible and left the border
+                carrying the whole hover affordance. */}
+            <Card className="hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/10 transition-all cursor-pointer">
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <p className="text-gray-900 font-medium truncate">

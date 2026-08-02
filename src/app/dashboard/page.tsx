@@ -121,7 +121,7 @@ function ClaimBlock({
         <RememberedMerchant />
       </div>
 
-      <div className="my-6 text-xs uppercase tracking-wide text-gray-400">or</div>
+      <div className="my-6 text-xs uppercase tracking-wide text-gray-500">or</div>
 
       <Link
         href="/dashboard/leaderboard"

@@ -30,7 +30,7 @@ export function MerchantHeader({ merchant }: { merchant: MerchantProfile }) {
             </p>
           )}
           {merchant.description && (
-            <p className="text-sm text-gray-400 mt-2">{merchant.description}</p>
+            <p className="text-sm text-gray-500 mt-2">{merchant.description}</p>
           )}
         </div>
       </div>

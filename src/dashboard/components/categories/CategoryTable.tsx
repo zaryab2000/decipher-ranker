@@ -8,7 +8,7 @@ import { growthWindowDays } from "@/dashboard/lib/formatters";
 import type { CategoryItem } from "@/dashboard/types";
 
 const TH =
-  "text-xs uppercase tracking-wide text-gray-400 font-medium text-left pb-2 px-2";
+  "text-xs uppercase tracking-wide text-gray-500 font-medium text-left pb-2 px-2";
 
 /**
  * Ranked, proportional category list with the long tail behind a toggle.
@@ -32,16 +32,18 @@ export function CategoryTable({
 
   if (categories.length === 0) return null;
 
-  // Computed once here and threaded into every row, so the header and the body
-  // can never disagree about how many columns exist. Zero means no category has
-  // two snapshots yet — omit the column rather than print a stack of dashes.
-  const windowDays = growthWindowDays(categories);
-  const showGrowth = windowDays > 0;
-
   const hiddenCount = Math.max(categories.length - CATEGORIES_VISIBLE, 0);
   const visible = expanded
     ? categories
     : categories.slice(0, CATEGORIES_VISIBLE);
+
+  // Computed from the rows actually on screen, not the whole list, then
+  // threaded into every row so the header and body cannot disagree about the
+  // column count. Measuring the full list would light the column up when only
+  // a collapsed tail category has history, printing a header over five
+  // em-dashes — the exact thing the column is meant to avoid.
+  const windowDays = growthWindowDays(visible);
+  const showGrowth = windowDays > 0;
 
   return (
     <div>

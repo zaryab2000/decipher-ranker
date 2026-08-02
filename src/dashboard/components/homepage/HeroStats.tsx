@@ -21,8 +21,10 @@ export function HeroStats({ stats }: { stats: EcosystemStats }) {
           key={item.label}
           className="rounded-xl bg-white border border-gray-200 p-5"
         >
-          <div className="flex items-center gap-2 text-gray-400 mb-2">
-            {item.icon}
+          <div className="flex items-center gap-2 text-gray-500 mb-2">
+            <span aria-hidden="true" className="flex-shrink-0">
+              {item.icon}
+            </span>
             <p className="text-xs uppercase tracking-wide">{item.label}</p>
           </div>
           <p className="text-2xl font-bold tabular-nums text-gray-900 truncate">{item.value}</p>

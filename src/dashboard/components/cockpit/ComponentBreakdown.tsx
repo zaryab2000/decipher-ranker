@@ -27,7 +27,7 @@ export function ComponentBreakdown({
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5">
       <h2 className="text-sm font-semibold text-gray-900">What&apos;s costing you points</h2>
-      <p className="text-xs text-gray-400 mt-0.5">
+      <p className="text-xs text-gray-500 mt-0.5">
         Points earned against points available, biggest lever first.
       </p>
 

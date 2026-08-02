@@ -72,11 +72,11 @@ export default async function CategoryDetailPage({
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <p className="text-xs text-gray-400 uppercase tracking-wide">Merchants</p>
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Merchants</p>
           <p className="text-2xl font-bold tabular-nums text-gray-900">{category.merchantCount}</p>
         </Card>
         <Card>
-          <p className="text-xs text-gray-400 uppercase tracking-wide">Avg Score</p>
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Avg Score</p>
           {category.avgScore != null ? (
             <div className="mt-1">
               <ScoreBar score={toDisplayScore(category.avgScore)} showLabel />
@@ -86,13 +86,13 @@ export default async function CategoryDetailPage({
           )}
         </Card>
         <Card>
-          <p className="text-xs text-gray-400 uppercase tracking-wide">Median Price</p>
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Median Price</p>
           <p className="text-2xl font-bold tabular-nums text-gray-900">
             {category.medianPriceUsd != null ? formatPrice(category.medianPriceUsd) : "—"}
           </p>
         </Card>
         <Card>
-          <p className="text-xs text-gray-400 uppercase tracking-wide">30d Volume</p>
+          <p className="text-xs text-gray-500 uppercase tracking-wide">30d Volume</p>
           <p className="text-2xl font-bold tabular-nums text-gray-900">
             {category.totalVolume30d != null ? formatNumber(category.totalVolume30d) : "—"}
           </p>
@@ -100,15 +100,22 @@ export default async function CategoryDetailPage({
       </div>
 
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-3">Score distribution</h2>
+        <h2 className="text-sm font-semibold text-gray-900 mb-3">Score distribution</h2>
         <Card>
           <ScoreDistributionChart data={category.scoreDistribution} highlightScore={yourScore} />
         </Card>
       </div>
 
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-3">Merchants in {category.name}</h2>
-        <LeaderboardTable merchants={category.merchants} startRank={0} total={category.merchantCount} />
+        <h2 className="text-sm font-semibold text-gray-900 mb-3">Merchants in {category.name}</h2>
+        {/* startRank is load-bearing, not decorative: LeaderboardTable now
+            computes the ordinal client-side, so without the page offset every
+            page restarts at 1. Crypto & DeFi is 17 pages. */}
+        <LeaderboardTable
+          merchants={category.merchants}
+          startRank={(page - 1) * CATEGORY_PAGE_SIZE}
+          total={category.merchantCount}
+        />
         <Pagination
           page={page}
           totalPages={Math.ceil(category.merchantCount / CATEGORY_PAGE_SIZE)}

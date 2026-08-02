@@ -29,7 +29,7 @@ export function ClaimForm({ defaultValue = "" }: { defaultValue?: string }) {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="bitrefill.com"
-        className="flex-1 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-400 px-4 py-3 text-base hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors duration-150"
+        className="flex-1 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-500 px-4 py-3 text-base hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors duration-150"
       />
       <button
         type="submit"

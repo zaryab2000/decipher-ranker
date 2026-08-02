@@ -17,7 +17,7 @@ export function RankBadge({
 }) {
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold tabular-nums min-w-[2rem] ${muted ? "bg-gray-100 text-gray-400" : getRankStyle(rank)} ${className ?? ""}`}
+      className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold tabular-nums min-w-[2rem] ${muted ? "bg-gray-100 text-gray-600" : getRankStyle(rank)} ${className ?? ""}`}
     >
       #{rank}
     </span>

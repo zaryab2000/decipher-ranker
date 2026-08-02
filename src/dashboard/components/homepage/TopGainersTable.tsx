@@ -28,7 +28,7 @@ function categoryColor(name: string): string {
 export function TopGainersTable({ merchants }: { merchants: MerchantListItem[] }) {
   return (
     <div>
-      <h2 className="text-lg font-semibold text-gray-900 mb-3">Top Merchants</h2>
+      <h2 className="text-sm font-semibold text-gray-900 mb-3">Top Merchants</h2>
       {merchants.length === 0 ? (
         <p className="text-gray-500 text-sm py-8 text-center">No merchant data available</p>
       ) : (

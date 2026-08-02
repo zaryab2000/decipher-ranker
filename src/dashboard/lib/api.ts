@@ -228,9 +228,11 @@ async function fetchLeaderboard(
     .limit(perPage)
     .offset(offset);
 
-  const merchants_list = rows.map((row, i) =>
-    toMerchantListItem(row, offset + i + 1),
-  );
+  // No ordinal override: rankPosition is the merchant's real rank and must
+  // survive sorting. Overriding it with the row's position made a "#1" badge
+  // appear beside the cheapest merchant when sorting by price, even though
+  // that merchant may rank 800th. The badge means rank, always.
+  const merchants_list = rows.map((row) => toMerchantListItem(row));
 
   return {
     merchants: merchants_list,
@@ -416,9 +418,10 @@ async function fetchCategoryBySlug(
     .limit(perPage)
     .offset(offset);
 
-  const merchants_list = merchantRows.map((row, i) =>
-    toMerchantListItem(row, offset + i + 1),
-  );
+  // No ordinal override, matching fetchLeaderboard: rankPosition stays the
+  // merchant's real category rank, and the row number is a presentation
+  // concern that LeaderboardTable derives from startRank.
+  const merchants_list = merchantRows.map((row) => toMerchantListItem(row));
 
   const cacheRow = await getDb()
     .select()
@@ -599,7 +602,9 @@ async function fetchMerchantByOrigin(
         self.findIndex((s) => s.merchants_payeeAddress === c.merchants_payeeAddress) === idx,
     )
     .slice(0, 5)
-    .map((row, i) => toMerchantListItem(row, i + 1));
+    // No ordinal override: these are all in one category, so rankPosition is
+    // the merchant's real standing and CompetitorList renders it directly.
+    .map((row) => toMerchantListItem(row));
 
   const currentScore = Number(merchant.rankerScore ?? 0);
   const rankHistory = await getRankHistory(merchant.id);

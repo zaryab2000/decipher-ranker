@@ -6,7 +6,7 @@ const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 } as const;
 const PRIORITY_STYLE = {
   high: "text-amber-600",
   medium: "text-gray-500",
-  low: "text-gray-400",
+  low: "text-gray-500",
 } as const;
 
 /**
