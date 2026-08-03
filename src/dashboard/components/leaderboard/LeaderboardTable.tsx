@@ -78,7 +78,7 @@ export function LeaderboardTable({
           <TableCell>
             <Link
               href={`/dashboard/merchant/${encodeURIComponent(merchant.origin)}`}
-              className="text-gray-900 hover:text-emerald-700 transition-colors"
+              className="text-gray-900 hover:text-brand-700 transition-colors"
             >
               {truncate(displayName(merchant), 30)}
             </Link>

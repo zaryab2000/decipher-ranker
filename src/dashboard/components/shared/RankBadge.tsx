@@ -1,8 +1,8 @@
-// Medal colours (gold/silver/bronze) are gone: they fight the emerald palette
+// Medal colours (gold/silver/bronze) are gone: they fight the brand palette
 // and encode nothing a merchant can act on. The top three keep emphasis, but
 // through weight and the accent tint rather than three separate hues.
 function getRankStyle(rank: number): string {
-  if (rank <= 3) return "bg-emerald-50 text-emerald-700 font-bold";
+  if (rank <= 3) return "bg-brand-50 text-brand-700 font-bold";
   return "bg-gray-100 text-gray-600";
 }
 

@@ -42,10 +42,10 @@ export function CompetitorTable({ merchant }: { merchant: MerchantProfile }) {
           return (
             <TableRow
               key={`${row.payeeAddress}-${i}`}
-              className={isYou ? "bg-emerald-50" : ""}
+              className={isYou ? "bg-brand-50" : ""}
             >
               <TableCell
-                className={`tabular-nums ${isYou ? "text-emerald-900 font-semibold" : "text-gray-500"}`}
+                className={`tabular-nums ${isYou ? "text-brand-900 font-semibold" : "text-gray-500"}`}
               >
                 {/* The merchant's true category rank, not this table's row
                     number — showing "5" beside a headline that says "#4" reads
@@ -55,19 +55,19 @@ export function CompetitorTable({ merchant }: { merchant: MerchantProfile }) {
               <TableCell>
                 <div className="flex items-center">
                   {isYou ? (
-                    <span className="text-emerald-900 font-semibold">
+                    <span className="text-brand-900 font-semibold">
                       {truncate(displayName(row), 28)}
                     </span>
                   ) : (
                     <Link
                       href={`/dashboard/merchant/${encodeURIComponent(row.origin)}`}
-                      className="text-gray-900 hover:text-emerald-700 transition-colors"
+                      className="text-gray-900 hover:text-brand-700 transition-colors"
                     >
                       {truncate(displayName(row), 28)}
                     </Link>
                   )}
                   {isYou && (
-                    <span className="ml-2 rounded px-1.5 py-0.5 text-[10px] font-bold bg-emerald-600 text-white">
+                    <span className="ml-2 rounded px-1.5 py-0.5 text-[10px] font-bold bg-brand-600 text-white">
                       YOU
                     </span>
                   )}
@@ -77,12 +77,12 @@ export function CompetitorTable({ merchant }: { merchant: MerchantProfile }) {
                 <ScoreBar score={toDisplayScore(row.rankerScore)} showLabel />
               </TableCell>
               <TableCell
-                className={`font-mono tabular-nums text-right ${isYou ? "text-emerald-900 font-semibold" : "text-gray-600"}`}
+                className={`font-mono tabular-nums text-right ${isYou ? "text-brand-900 font-semibold" : "text-gray-600"}`}
               >
                 {formatNumber(row.txCount30d)}
               </TableCell>
               <TableCell
-                className={`font-mono tabular-nums text-right ${isYou ? "text-emerald-900 font-semibold" : "text-gray-600"}`}
+                className={`font-mono tabular-nums text-right ${isYou ? "text-brand-900 font-semibold" : "text-gray-600"}`}
               >
                 {row.priceUsd != null ? formatPrice(row.priceUsd) : "—"}
               </TableCell>

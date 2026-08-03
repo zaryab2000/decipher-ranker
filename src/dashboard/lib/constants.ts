@@ -43,12 +43,15 @@ export const SCORE_COMPONENTS = [
 // The previous three-tier system painted a healthy ecosystem as failure: with a
 // median score near 34, every category average landed in the red or amber band.
 // Hue is now reserved for direction of change (see TREND_COLORS).
-export const SCORE_FILL = 'bg-emerald-500'; // #10b981
+export const SCORE_FILL = 'bg-brand-500'; // #546ff6
 export const SCORE_TRACK = 'bg-gray-100'; // #f3f4f6
 
 // Hue means one thing only: which way a number moved.
+// `hex` is for non-CSS consumers only. Anything rendering into the DOM should
+// use the class or var(--color-brand-*), so it cannot drift from @theme the way
+// the previous literals did.
 export const TREND_COLORS = {
-  up: { text: 'text-emerald-600', hex: '#059669' }, // rank improved
+  up: { text: 'text-brand-600', hex: '#445ac9' }, // rank improved
   down: { text: 'text-red-600', hex: '#dc2626' }, // rank regressed
   flat: { text: 'text-gray-400', hex: '#9ca3af' },
 } as const;

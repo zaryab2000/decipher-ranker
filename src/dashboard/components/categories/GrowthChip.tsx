@@ -36,7 +36,7 @@ export function GrowthChip({ growth }: { growth: CategoryGrowth | null }) {
   // up-pointing triangle"; the sr-only word carries the meaning instead.
   return (
     <span
-      className={`${up ? "text-emerald-600" : "text-red-600"} font-bold text-xs tabular-nums`}
+      className={`${up ? "text-brand-600" : "text-red-600"} font-bold text-xs tabular-nums`}
     >
       <span aria-hidden="true">{up ? "▲ " : "▼ "}</span>
       <span className="sr-only">{up ? "up " : "down "}</span>

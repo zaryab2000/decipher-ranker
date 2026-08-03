@@ -38,7 +38,7 @@ export function UnclassifiedStrip({
       </p>
       <Link
         href={`/dashboard/categories/${OTHER_SLUG}`}
-        className="text-sm text-emerald-600 hover:text-emerald-700 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
+        className="text-sm text-brand-600 hover:text-brand-700 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 rounded"
       >
         View &ldquo;{other.name}&rdquo; &rarr;
       </Link>

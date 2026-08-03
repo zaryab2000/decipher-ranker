@@ -1,5 +1,33 @@
 @import "tailwindcss";
 
+/*
+ * Brand palette. #546FF6 is the brand colour and is `brand-500` — the fill
+ * shade: bars, buttons, focus rings, chart strokes.
+ *
+ * Small text does NOT use 500. At 4.22:1 on white it passes WCAG AA for large
+ * text and UI components but fails the 4.5:1 body-text threshold, so links and
+ * labels use `brand-600` (5.91:1) and text on a tinted band uses `brand-700`
+ * (7.71:1 on brand-50). Every pair in use was measured; none falls below AA.
+ *
+ * Defined here rather than in a config file because this project has no
+ * tailwind.config — Tailwind v4 reads @theme. Charts read these same variables
+ * via var(--color-brand-*) instead of carrying literal hex, which is what let
+ * the previous palette drift: the Recharts literals were still Tailwind v3
+ * emerald (#059669) while the classes around them rendered v4 OKLCH (#009966).
+ */
+@theme {
+  --color-brand-50: #f5f6fe;
+  --color-brand-100: #e9ecfe;
+  --color-brand-200: #d3dafd;
+  --color-brand-300: #b2befb;
+  --color-brand-400: #8497f9;
+  --color-brand-500: #546ff6;
+  --color-brand-600: #445ac9;
+  --color-brand-700: #35469f;
+  --color-brand-800: #28357a;
+  --color-brand-900: #1d275e;
+}
+
 html {
   scroll-behavior: smooth;
 }

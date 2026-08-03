@@ -42,14 +42,14 @@ const ENDPOINTS = [
 ];
 
 function methodBadgeColor(method: string): string {
-  return method === "GET" ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700";
+  return method === "GET" ? "bg-brand-50 text-brand-700" : "bg-blue-50 text-blue-700";
 }
 
 export function ApiReference() {
   return (
     <section className="py-16 sm:py-24 px-4 sm:px-6 bg-gray-50">
       <div className="max-w-6xl mx-auto">
-        <p className="text-sm font-medium text-emerald-600 uppercase tracking-wide mb-2">
+        <p className="text-sm font-medium text-brand-600 uppercase tracking-wide mb-2">
           API reference
         </p>
         <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-2">
@@ -60,7 +60,7 @@ export function ApiReference() {
           OpenAPI spec at{" "}
           <a
             href="/openapi.json"
-            className="text-emerald-600 hover:text-emerald-700 underline decoration-emerald-600/30"
+            className="text-brand-600 hover:text-brand-700 underline decoration-brand-600/30"
           >
             /openapi.json
           </a>

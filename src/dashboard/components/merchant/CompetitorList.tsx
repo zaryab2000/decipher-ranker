@@ -64,7 +64,7 @@ export function CompetitorList({
                 <div className="flex items-center gap-2">
                   <Link
                     href={`/dashboard/merchant/${encodeURIComponent(comp.origin)}`}
-                    className="text-gray-900 hover:text-emerald-700 transition-colors"
+                    className="text-gray-900 hover:text-brand-700 transition-colors"
                   >
                     {truncate(displayName(comp), 25)}
                   </Link>
