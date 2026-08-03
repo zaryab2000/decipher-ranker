@@ -92,7 +92,7 @@ function ClaimBlock({
             href="https://bazaar.coinbase.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-emerald-600 hover:text-emerald-700 underline decoration-emerald-600/30"
+            className="text-brand-600 hover:text-brand-700 underline decoration-brand-600/30"
           >
             Register on Coinbase Bazaar
           </a>
@@ -101,7 +101,7 @@ function ClaimBlock({
 
       {/* Live figures rather than static copy — the same "state the fact"
           move the identity band makes, applied before anyone has claimed. */}
-      <p className="text-xs uppercase tracking-wide text-emerald-600 font-medium">
+      <p className="text-xs uppercase tracking-wide text-brand-600 font-medium">
         {stats.totalMerchants.toLocaleString()} merchants · {stats.totalCategories} categories
       </p>
 
@@ -125,7 +125,7 @@ function ClaimBlock({
 
       <Link
         href="/dashboard/leaderboard"
-        className="text-sm text-emerald-600 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
+        className="text-sm text-brand-600 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 rounded"
       >
         Browse the full leaderboard →
       </Link>

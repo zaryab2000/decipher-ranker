@@ -55,7 +55,7 @@ export function CategoryRow({
         <Link
           href={`/dashboard/categories/${category.slug}`}
           title={category.name}
-          className="block truncate max-w-[180px] text-sm font-semibold text-gray-900 hover:text-emerald-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded"
+          className="block truncate max-w-[180px] text-sm font-semibold text-gray-900 hover:text-brand-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
         >
           {category.name}
         </Link>
@@ -70,7 +70,7 @@ export function CategoryRow({
           aria-hidden="true"
         >
           <div
-            className={`h-4 rounded ${dimmed ? "bg-emerald-200" : "bg-emerald-500"}`}
+            className={`h-4 rounded ${dimmed ? "bg-brand-200" : "bg-brand-500"}`}
             style={{ width: `${barWidth}%` }}
           />
         </div>

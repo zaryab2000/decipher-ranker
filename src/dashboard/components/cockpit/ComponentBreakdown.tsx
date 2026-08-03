@@ -68,7 +68,7 @@ export function ComponentBreakdown({
       </div>
 
       {fixCount > 0 && nextRank != null && (
-        <p className="mt-4 text-sm font-semibold text-emerald-600">
+        <p className="mt-4 text-sm font-semibold text-brand-600">
           → {fixCount} fix{fixCount === 1 ? "" : "es"} below could close the gap to #{nextRank}
         </p>
       )}

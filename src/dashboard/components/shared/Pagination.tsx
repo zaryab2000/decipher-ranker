@@ -24,13 +24,13 @@ function buildHref(
 
 const PAGE_LINK =
   "px-3 py-1.5 text-sm rounded-md border transition-colors focus-visible:outline-none " +
-  "focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2";
+  "focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2";
 
 const PAGE_LINK_DEFAULT =
   `${PAGE_LINK} bg-white border-gray-300 text-gray-600 hover:bg-gray-50 hover:text-gray-900`;
 
 const PAGE_LINK_ACTIVE =
-  `${PAGE_LINK} bg-emerald-50 border-emerald-200 text-emerald-700 font-semibold`;
+  `${PAGE_LINK} bg-brand-50 border-brand-200 text-brand-700 font-semibold`;
 
 export function Pagination({
   page,

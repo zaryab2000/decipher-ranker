@@ -63,7 +63,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
       <div className="flex items-center gap-3 min-w-0">
         <button
           onClick={onMenuClick}
-          className="lg:hidden inline-flex items-center justify-center w-11 h-11 -ml-2 text-gray-600 hover:text-gray-900 rounded-lg shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+          className="lg:hidden inline-flex items-center justify-center w-11 h-11 -ml-2 text-gray-600 hover:text-gray-900 rounded-lg shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
           aria-label="Open menu"
         >
           <Menu className="w-5 h-5" />
@@ -75,7 +75,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
               {i < crumbs.length - 1 ? (
                 <Link
                   href={crumb.href}
-                  className="text-gray-600 hover:text-gray-900 transition-colors truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded"
+                  className="text-gray-600 hover:text-gray-900 transition-colors truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
                 >
                   {crumb.label}
                 </Link>
@@ -95,7 +95,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
             type="text"
             placeholder="Search..."
             aria-label="Search merchants"
-            className="w-36 sm:w-48 md:w-64 pl-9 pr-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-500 hover:border-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-colors"
+            className="w-36 sm:w-48 md:w-64 pl-9 pr-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-500 hover:border-gray-400 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-colors"
           />
         </div>
       </form>

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 const variants = {
   default: "bg-gray-100 text-gray-600",
-  accent: "bg-emerald-50 text-emerald-700",
+  accent: "bg-brand-50 text-brand-700",
   muted: "bg-gray-100 text-gray-600",
 } as const;
 

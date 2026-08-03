@@ -32,7 +32,7 @@ export function RememberedMerchant() {
   return (
     <Link
       href={`/dashboard?origin=${encodeURIComponent(origin)}`}
-      className="text-sm text-emerald-600 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
+      className="text-sm text-brand-600 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 rounded"
     >
       Continue as {origin} →
     </Link>

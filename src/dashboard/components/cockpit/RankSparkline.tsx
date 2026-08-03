@@ -46,12 +46,12 @@ export function RankSparkline({ points }: { points: RankHistoryPoint[] }) {
       <polyline
         points={coords.map((c) => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(" ")}
         fill="none"
-        stroke="#059669"
+        stroke="var(--color-brand-600)"
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle cx={last.x} cy={last.y} r={2.8} fill="#059669" />
+      <circle cx={last.x} cy={last.y} r={2.8} fill="var(--color-brand-600)" />
     </svg>
   );
 }

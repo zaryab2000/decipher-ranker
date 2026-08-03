@@ -38,7 +38,7 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between text-left py-5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
+        className="w-full flex items-center justify-between text-left py-5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 rounded"
         aria-expanded={open}
       >
         <span className="text-base font-medium text-gray-900">{question}</span>
@@ -57,7 +57,7 @@ export function Faq() {
   return (
     <section className="py-16 sm:py-24 px-4 sm:px-6">
       <div className="max-w-3xl mx-auto">
-        <p className="text-sm font-medium text-emerald-600 uppercase tracking-wide mb-2">FAQ</p>
+        <p className="text-sm font-medium text-brand-600 uppercase tracking-wide mb-2">FAQ</p>
         <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-8">
           Frequently asked questions
         </h2>

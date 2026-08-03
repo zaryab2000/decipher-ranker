@@ -67,13 +67,13 @@ export function MobileNav({
             className="flex items-center gap-2"
             onClick={onClose}
           >
-            <BarChart3 className="w-4 h-4 text-emerald-600" />
+            <BarChart3 className="w-4 h-4 text-brand-600" />
             <span className="text-sm font-semibold text-gray-900">Decipher Ranker</span>
           </Link>
           <button
             ref={closeButtonRef}
             onClick={onClose}
-            className="inline-flex items-center justify-center w-11 h-11 -mr-2 text-gray-400 hover:text-gray-600 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+            className="inline-flex items-center justify-center w-11 h-11 -mr-2 text-gray-400 hover:text-gray-600 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
             aria-label="Close menu"
           >
             <X className="w-5 h-5" />

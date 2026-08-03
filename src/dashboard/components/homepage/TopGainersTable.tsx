@@ -7,7 +7,7 @@ import { truncate, displayName, toDisplayScore } from "@/dashboard/lib/formatter
 import type { MerchantListItem } from "@/dashboard/types";
 
 const CATEGORY_COLORS = [
-  "bg-emerald-50 text-emerald-700 border-emerald-200",
+  "bg-brand-50 text-brand-700 border-brand-200",
   "bg-blue-50 text-blue-700 border-blue-200",
   "bg-purple-50 text-purple-700 border-purple-200",
   "bg-amber-50 text-amber-700 border-amber-200",
@@ -49,7 +49,7 @@ export function TopGainersTable({ merchants }: { merchants: MerchantListItem[] }
                 <TableCell>
                   <Link
                     href={`/dashboard/merchant/${encodeURIComponent(merchant.origin)}`}
-                    className="text-gray-900 hover:text-emerald-700 transition-colors"
+                    className="text-gray-900 hover:text-brand-700 transition-colors"
                   >
                     {truncate(displayName(merchant), 30)}
                   </Link>
@@ -75,7 +75,7 @@ export function TopGainersTable({ merchants }: { merchants: MerchantListItem[] }
           <div className="mt-3 text-right">
             <Link
               href="/dashboard/leaderboard"
-              className="text-sm text-emerald-600 hover:text-emerald-700 transition-colors"
+              className="text-sm text-brand-600 hover:text-brand-700 transition-colors"
             >
               View Full Leaderboard &rarr;
             </Link>

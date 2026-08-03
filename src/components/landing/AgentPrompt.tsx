@@ -39,7 +39,7 @@ export function AgentPrompt() {
   return (
     <section id="agents" className="py-16 sm:py-24 px-4 sm:px-6">
       <div className="max-w-6xl mx-auto">
-        <p className="text-sm font-medium text-emerald-600 uppercase tracking-wide mb-2">
+        <p className="text-sm font-medium text-brand-600 uppercase tracking-wide mb-2">
           For AI agents
         </p>
         <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-2">
@@ -53,11 +53,11 @@ export function AgentPrompt() {
         <div className="relative bg-gray-900 rounded-xl p-6 overflow-x-auto">
           <button
             onClick={handleCopy}
-            className="absolute top-2 right-2 inline-flex items-center justify-center w-11 h-11 text-gray-500 hover:text-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-lg"
+            className="absolute top-2 right-2 inline-flex items-center justify-center w-11 h-11 text-gray-500 hover:text-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 rounded-lg"
             aria-label={copied ? "Copied" : "Copy to clipboard"}
           >
             {copied ? (
-              <Check className="w-4 h-4 text-emerald-400" />
+              <Check className="w-4 h-4 text-brand-400" />
             ) : (
               <Copy className="w-4 h-4" />
             )}

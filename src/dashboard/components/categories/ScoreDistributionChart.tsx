@@ -64,16 +64,21 @@ export function ScoreDistributionChart({
           itemStyle={{ color: "#111827" }}
           formatter={(value: number) => [`${value}`, "Merchants"]}
         />
-        <Bar dataKey="count" fill="#10b981" radius={[2, 2, 0, 0]} isAnimationActive={false} />
+        <Bar
+          dataKey="count"
+          fill="var(--color-brand-500)"
+          radius={[2, 2, 0, 0]}
+          isAnimationActive={false}
+        />
         {highlightScore != null && (
           <ReferenceLine
             x={bucketFor(highlightScore)}
-            stroke="#059669"
+            stroke="var(--color-brand-600)"
             strokeDasharray="3 3"
             label={{
               value: "YOU",
               position: "top",
-              fill: "#059669",
+              fill: "var(--color-brand-600)",
               fontSize: 10,
               fontWeight: 700,
             }}

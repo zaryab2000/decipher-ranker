@@ -9,7 +9,7 @@ export function Sidebar() {
     <aside className="fixed left-0 top-0 h-screen w-60 bg-gray-50 border-r border-gray-200 flex flex-col z-40 lg:block hidden">
       <div className="p-4 border-b border-gray-200">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-emerald-600" />
+          <BarChart3 className="w-4 h-4 text-brand-600" />
           <span className="text-sm font-semibold text-gray-900">Decipher Ranker</span>
         </Link>
       </div>
