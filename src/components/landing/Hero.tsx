@@ -47,13 +47,13 @@ function extractHostname(urlOrDomain: string): string {
 }
 
 function gradeBadgeClasses(score: number): string {
-  if (score >= 70) return "bg-emerald-50 text-emerald-700";
+  if (score >= 70) return "bg-brand-50 text-brand-700";
   if (score >= 40) return "bg-amber-50 text-amber-700";
   return "bg-red-50 text-red-700";
 }
 
 function scoreBarColor(score: number): string {
-  if (score >= 70) return "bg-emerald-500";
+  if (score >= 70) return "bg-brand-500";
   if (score >= 40) return "bg-amber-500";
   return "bg-red-500";
 }
@@ -163,7 +163,7 @@ function ResultCard({ data }: { data: PreviewResult }) {
           : <>
               {tipCount} improvement tip{tipCount !== 1 ? "s" : ""} available
               {" — "}
-              <span className="text-emerald-600">connect wallet to see them</span>
+              <span className="text-brand-600">connect wallet to see them</span>
             </>
         }
       </p>
@@ -171,7 +171,7 @@ function ResultCard({ data }: { data: PreviewResult }) {
       <div className="flex flex-col sm:flex-row gap-3">
         <a
           href={data.links?.dashboard ?? "#"}
-          className="flex-1 text-center px-4 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors duration-150"
+          className="flex-1 text-center px-4 py-2.5 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors duration-150"
         >
           View full report →
         </a>
@@ -201,7 +201,7 @@ function NotFoundCard(_data: { data: PreviewResult }) {
         href="https://bazaar.coinbase.com"
         target="_blank"
         rel="noopener noreferrer"
-        className="text-sm text-emerald-600 hover:text-emerald-700 inline-flex items-center gap-1"
+        className="text-sm text-brand-600 hover:text-brand-700 inline-flex items-center gap-1"
       >
         Register on Coinbase Bazaar
         <ExternalLink className="w-3.5 h-3.5" />
@@ -277,7 +277,7 @@ export function Hero({ merchantCount }: { merchantCount: number }) {
           You can&apos;t sell to agents, if they can&apos;t discover You
         </h1>
 
-        <p className="mt-3 text-xl sm:text-2xl font-semibold text-emerald-600 max-w-2xl mx-auto text-center">
+        <p className="mt-3 text-xl sm:text-2xl font-semibold text-brand-600 max-w-2xl mx-auto text-center">
           Rank Higher, Sell More
         </p>
 
@@ -297,12 +297,12 @@ export function Hero({ merchantCount }: { merchantCount: number }) {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               placeholder="Enter your domain (e.g. bitrefill.com)"
-              className="flex-1 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-400 px-4 py-3 text-base hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors duration-150"
+              className="flex-1 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-400 px-4 py-3 text-base hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors duration-150"
             />
             <button
               type="submit"
               disabled={searchState.status === "loading"}
-              className="px-6 py-3 bg-emerald-600 text-white text-base font-medium rounded-lg hover:bg-emerald-700 active:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              className="px-6 py-3 bg-brand-600 text-white text-base font-medium rounded-lg hover:bg-brand-700 active:bg-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
             >
               {searchState.status === "loading" ? "Checking..." : "Check rank"}
             </button>
@@ -314,7 +314,7 @@ export function Hero({ merchantCount }: { merchantCount: number }) {
           <button
             type="button"
             onClick={() => setInputValue("bitrefill.com")}
-            className="inline-block py-1 text-emerald-600 hover:text-emerald-700 underline decoration-emerald-600/30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
+            className="inline-block py-1 text-brand-600 hover:text-brand-700 underline decoration-brand-600/30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 rounded"
           >
             bitrefill.com
           </button>
@@ -322,7 +322,7 @@ export function Hero({ merchantCount }: { merchantCount: number }) {
           <button
             type="button"
             onClick={() => setInputValue("mesh.heurist.xyz")}
-            className="inline-block py-1 text-emerald-600 hover:text-emerald-700 underline decoration-emerald-600/30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
+            className="inline-block py-1 text-brand-600 hover:text-brand-700 underline decoration-brand-600/30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 rounded"
           >
             mesh.heurist.xyz
           </button>
@@ -330,7 +330,7 @@ export function Hero({ merchantCount }: { merchantCount: number }) {
           <button
             type="button"
             onClick={() => setInputValue("exa.ai")}
-            className="inline-block py-1 text-emerald-600 hover:text-emerald-700 underline decoration-emerald-600/30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
+            className="inline-block py-1 text-brand-600 hover:text-brand-700 underline decoration-brand-600/30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 rounded"
           >
             exa.ai
           </button>

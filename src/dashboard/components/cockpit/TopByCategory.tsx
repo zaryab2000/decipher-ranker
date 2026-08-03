@@ -38,7 +38,7 @@ export function TopByCategory({ categories }: { categories: CategoryItem[] }) {
             <div className="flex items-baseline justify-between gap-2">
               <Link
                 href={`/dashboard/categories/${category.slug}`}
-                className="text-sm font-semibold text-gray-900 hover:text-emerald-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded truncate"
+                className="text-sm font-semibold text-gray-900 hover:text-brand-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded truncate"
               >
                 {category.name}
               </Link>
@@ -63,7 +63,7 @@ export function TopByCategory({ categories }: { categories: CategoryItem[] }) {
                     {merchant.resourceUrl ? (
                       <Link
                         href={`/dashboard/merchant/${encodeURIComponent(merchant.resourceUrl)}`}
-                        className="text-sm text-gray-900 hover:text-emerald-700 transition-colors truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded"
+                        className="text-sm text-gray-900 hover:text-brand-700 transition-colors truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
                         title={name}
                       >
                         {name}

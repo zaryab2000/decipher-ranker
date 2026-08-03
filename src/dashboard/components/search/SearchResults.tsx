@@ -25,7 +25,7 @@ export function SearchResults({ results, query, total }: SearchResultsProps) {
           href="https://bazaar.coinbase.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-emerald-600 hover:text-emerald-700 underline decoration-emerald-600/30"
+          className="text-brand-600 hover:text-brand-700 underline decoration-brand-600/30"
         >
           Register on Coinbase Bazaar
         </a>
@@ -43,11 +43,11 @@ export function SearchResults({ results, query, total }: SearchResultsProps) {
           <Link
             key={merchant.payeeAddress}
             href={`/dashboard/merchant/${encodeURIComponent(merchant.origin)}`}
-            className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+            className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
           >
             {/* Shadow raised from /5, which was invisible and left the border
                 carrying the whole hover affordance. */}
-            <Card className="hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/10 transition-all cursor-pointer">
+            <Card className="hover:border-brand-500/30 hover:shadow-lg hover:shadow-brand-500/10 transition-all cursor-pointer">
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <p className="text-gray-900 font-medium truncate">

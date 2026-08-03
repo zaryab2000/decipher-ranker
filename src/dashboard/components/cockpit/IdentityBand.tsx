@@ -4,7 +4,7 @@ import type { MerchantProfile } from "@/dashboard/types";
 
 /**
  * States the merchant's position in one sentence, in their own terms.
- * This is the only emerald-tinted surface on the page — it marks "this is you".
+ * This is the only brand-tinted surface on the page — it marks "this is you".
  */
 export function IdentityBand({
   merchant,
@@ -60,19 +60,19 @@ export function IdentityBand({
   }
 
   return (
-    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 flex items-center gap-6">
+    <div className="rounded-xl border border-brand-200 bg-brand-50 p-5 flex items-center gap-6">
       <div className="shrink-0">
-        <div className="text-[10px] uppercase tracking-wider font-bold text-emerald-600 mb-1">
+        <div className="text-[10px] uppercase tracking-wider font-bold text-brand-600 mb-1">
           Your grade
         </div>
-        <div className="text-4xl font-bold tracking-tight leading-none text-emerald-700">
+        <div className="text-4xl font-bold tracking-tight leading-none text-brand-700">
           {merchant.grade}
         </div>
       </div>
 
       <div className="min-w-0">
-        <h1 className="text-base font-bold text-emerald-900">{headline}</h1>
-        <p className="text-sm text-emerald-700 mt-0.5">{segments.join(" · ")}</p>
+        <h1 className="text-base font-bold text-brand-900">{headline}</h1>
+        <p className="text-sm text-brand-700 mt-0.5">{segments.join(" · ")}</p>
       </div>
 
       <div className="ml-auto hidden sm:block">

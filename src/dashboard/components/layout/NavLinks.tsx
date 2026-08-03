@@ -27,9 +27,9 @@ export function NavLinks({ onClick }: { onClick?: () => void }) {
           key={item.href}
           href={item.href}
           onClick={onClick}
-          className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+          className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
             isActive(item.href)
-              ? "bg-emerald-50 text-emerald-700 font-semibold"
+              ? "bg-brand-50 text-brand-700 font-semibold"
               : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
           }`}
         >

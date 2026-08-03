@@ -92,10 +92,10 @@ export function RankHistoryChart({
               <Line
                 type="monotone"
                 dataKey="rankPosition"
-                stroke="#059669"
+                stroke="var(--color-brand-600)"
                 strokeWidth={2}
                 dot={false}
-                activeDot={{ r: 4, fill: "#059669" }}
+                activeDot={{ r: 4, fill: "var(--color-brand-600)" }}
                 // A gap in snapshots is real information — do not smooth it away.
                 connectNulls={false}
                 // Recharts draws the line by animating stroke-dasharray from
